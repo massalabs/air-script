@@ -416,6 +416,7 @@ impl<'a> AirBuilder<'a> {
         }
     }
 
+    // Use square and multiply algorithm to expand the exp into a series of multiplications
     fn expand_exp(&mut self, lhs: NodeIndex, rhs: u64) -> NodeIndex {
         match rhs {
             0 => self.insert_constant(1),
