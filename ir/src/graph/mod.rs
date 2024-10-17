@@ -179,6 +179,17 @@ impl MirGraph {
         });
         NodeIndex(index)
     }
+
+    pub fn replace_by_chunk(&mut self, node_index: NodeIndex, chunk: Vec<NodeIndex>) {
+        let node = self.node(&node_index);
+        assert!(!chunk.is_empty(), "Chunk must have at least one node");
+        let first_node = self.node(&chunk[0]);
+        self.update_node(&node_index, first_node.op().clone());
+        for i in 1..chunk.len() {
+            let op = self.node(&chunk[i]).op().clone();
+            println!("Replacing node {} with {:?}", chunk[i].0, op);
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

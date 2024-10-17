@@ -2,7 +2,10 @@ use crate::passes::Inlining;
 
 #[cfg(test)]
 mod tests {
+    use air_pass::Pass;
+
     use crate::graph::pretty;
+    use crate::passes::Inlining;
     use crate::ConstantValue;
     use crate::MirGraph;
     use crate::MirType;
@@ -111,9 +114,12 @@ mod tests {
         let double = NodeIndex(3);
         let main = NodeIndex(7);
         println!("ORIGINAL: {}", pretty(&original, &[double, main]));
-        // let mut inliner = Inlining::new();
-        // let result = inliner.run(original);
-        // println!("RESULT: {:#?}", result);
+        println!("============= Inlining pass =============");
+        let mut inliner = Inlining::new();
+        let result = inliner.run(original.clone()).unwrap();
+        println!("=========================================");
+        println!("INLINED raw:\n{:?}", result);
+        println!("INLINED: {}", pretty(&result, &[double, main]));
     }
 }
 //
