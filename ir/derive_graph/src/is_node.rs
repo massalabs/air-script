@@ -4,7 +4,7 @@ use syn::{DeriveInput, Token};
 
 pub fn impl_node_wrapper(input: &DeriveInput) -> proc_macro2::TokenStream {
     let ty = &input.ident;
-    let name = format_ident!("{}", ty.to_string().to_lowercase());
+    let name = format_ident!("{}_node", ty.to_string().to_lowercase());
     let fields = extract_struct_fields(input);
     let (node_field_name, field_names) = extract_field_names(&fields);
     let new_signature = make_new_signature(&field_names);
@@ -158,8 +158,8 @@ mod tests {
                 }
             }
             impl From<Test> for crate::ir2::Link<crate::ir2::NodeType> {
-                fn from(test: Test) -> crate::ir2::Link<crate::ir2::NodeType> {
-                    crate::ir2::Link::new(crate::ir2::NodeType::MiddleNode(crate::ir2::MiddleNode::Test(test)))
+                fn from(test_node: Test) -> crate::ir2::Link<crate::ir2::NodeType> {
+                    crate::ir2::Link::new(crate::ir2::NodeType::MiddleNode(crate::ir2::MiddleNode::Test(test_node)))
                 }
             }
         };
