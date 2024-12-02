@@ -23,9 +23,3 @@ pub struct For {
     #[node(iterators, body, selector)]
     node: Node,
 }
-
-#[derive(Clone, Eq, PartialEq, Default, IsNode)]
-pub struct Fold {
-    #[node(iterator, operator, initial_value)]
-    node: Node,
-}

@@ -2,13 +2,15 @@ mod binary_op;
 mod blocks;
 mod felt;
 mod scope;
+mod structured_op;
 use crate::ir2::{BackLink, Graph, IsChild, IsParent, Leaf, Link};
 pub use binary_op::{Add, Mul, Sub};
-pub use blocks::{Evaluator, Fold, For, Function, If};
+pub use blocks::{Evaluator, For, Function, If};
 pub use felt::Felt;
 pub use scope::Scope;
 use std::fmt::Debug;
 use std::ops::{Deref, DerefMut};
+pub use structured_op::{Call, Fold};
 
 #[derive(Clone, Eq, PartialEq)]
 pub enum RootNode {
@@ -104,6 +106,7 @@ pub enum MiddleNode {
     If(If),
     For(For),
     Fold(Fold),
+    Call(Call),
 }
 
 impl IsParent for MiddleNode {
@@ -118,6 +121,7 @@ impl IsParent for MiddleNode {
             MiddleNode::If(if_node) => if_node.get_children(),
             MiddleNode::For(for_node) => for_node.get_children(),
             MiddleNode::Fold(fold) => fold.get_children(),
+            MiddleNode::Call(call) => call.get_children(),
         }
     }
 }
@@ -134,6 +138,7 @@ impl IsChild for MiddleNode {
             MiddleNode::If(if_node) => if_node.get_parent(),
             MiddleNode::For(for_node) => for_node.get_parent(),
             MiddleNode::Fold(fold) => fold.get_parent(),
+            MiddleNode::Call(call) => call.get_parent(),
         }
     }
     fn set_parent(&mut self, parent: Link<NodeType>) {
@@ -147,6 +152,7 @@ impl IsChild for MiddleNode {
             MiddleNode::If(if_node) => if_node.set_parent(parent),
             MiddleNode::For(for_node) => for_node.set_parent(parent),
             MiddleNode::Fold(fold) => fold.set_parent(parent),
+            MiddleNode::Call(call) => call.set_parent(parent),
         }
     }
 }
@@ -163,6 +169,7 @@ impl From<MiddleNode> for Link<NodeType> {
             MiddleNode::If(if_node) => if_node.into(),
             MiddleNode::For(for_node) => for_node.into(),
             MiddleNode::Fold(fold) => fold.into(),
+            MiddleNode::Call(call) => call.into(),
         }
     }
 }
@@ -179,6 +186,7 @@ impl Debug for MiddleNode {
             MiddleNode::If(if_node) => write!(f, "{:?}", if_node),
             MiddleNode::For(for_node) => write!(f, "{:?}", for_node),
             MiddleNode::Fold(fold) => write!(f, "{:?}", fold),
+            MiddleNode::Call(call) => write!(f, "{:?}", call),
         }
     }
 }
