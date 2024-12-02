@@ -1,5 +1,5 @@
-mod node;
-use node::impl_node_wrapper;
+mod is_node;
+use is_node::impl_node_wrapper;
 use proc_macro::TokenStream;
 use syn::{parse_macro_input, DeriveInput};
 
