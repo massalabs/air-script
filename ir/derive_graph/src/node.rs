@@ -10,40 +10,38 @@ pub fn impl_node_wrapper(input: &DeriveInput) -> proc_macro2::TokenStream {
     let new_signature = make_new_signature(&field_names);
     let getters = make_getters(&field_names);
     let impls = quote! {
-        use crate::ir2::{BackLink, IsChild, Link, MiddleNode, NodeType, IsParent};
-        use std::fmt::Debug;
         impl #ty {
             pub fn new(#(#new_signature)*) -> Self {
                 Self {
                     #node_field_name: Node::new(
                         parent,
-                        Link::new(vec![#(#field_names),*])
+                        crate::ir2::Link::new(vec![#(#field_names),*])
                     ),
                 }
             }
             #(#getters)*
         }
-        impl IsParent for #ty {
-            fn get_children(&self) -> Link<Vec<Link<NodeType>>> {
-                self.#node_field_name.get_children()
+        impl crate::ir2::IsParent for #ty {
+            fn get_children(&self) -> crate::ir2::Link<Vec<crate::ir2::Link<crate::ir2::NodeType>>> {
+                crate::ir2::IsParent::get_children(&self.#node_field_name)
             }
         }
-        impl IsChild for #ty {
-            fn get_parent(&self) -> BackLink<NodeType> {
-                self.#node_field_name.get_parent()
+        impl crate::ir2::IsChild for #ty {
+            fn get_parent(&self) -> crate::ir2::BackLink<crate::ir2::NodeType> {
+                crate::ir2::IsChild::get_parent(&self.#node_field_name)
             }
-            fn set_parent(&mut self, parent: Link<NodeType>) {
-                self.#node_field_name.set_parent(parent);
+            fn set_parent(&mut self, parent: crate::ir2::Link<crate::ir2::NodeType>) {
+                crate::ir2::IsChild::set_parent(&mut self.#node_field_name, parent);
             }
         }
-        impl Debug for #ty {
+        impl std::fmt::Debug for #ty {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 write!(f, "{}{:?}", stringify!(#ty), &self.#node_field_name)
             }
         }
-        impl From<#ty> for Link<NodeType> {
-            fn from(#name: #ty) -> Link<NodeType> {
-                Link::new(NodeType::MiddleNode(MiddleNode::#ty(#name)))
+        impl From<#ty> for crate::ir2::Link<crate::ir2::NodeType> {
+            fn from(#name: #ty) -> crate::ir2::Link<crate::ir2::NodeType> {
+                crate::ir2::Link::new(crate::ir2::NodeType::MiddleNode(crate::ir2::MiddleNode::#ty(#name)))
             }
         }
     };
@@ -87,11 +85,11 @@ fn extract_field_names(fields: &[&syn::Field]) -> (proc_macro2::Ident, Vec<proc_
 }
 
 fn make_new_signature(field_names: &[proc_macro2::Ident]) -> Vec<proc_macro2::TokenStream> {
-    let mut signature = vec![quote! { parent: BackLink<NodeType> }];
+    let mut signature = vec![quote! { parent: crate::ir2::BackLink<crate::ir2::NodeType> }];
     signature.extend(field_names.iter().map(|field_name| {
         quote! {
             ,
-            #field_name: Link<NodeType>
+            #field_name: crate::ir2::Link<crate::ir2::NodeType>
         }
     }));
     signature
@@ -104,8 +102,8 @@ fn make_getters(field_names: &[proc_macro2::Ident]) -> Vec<proc_macro2::TokenStr
         .map(|(field_index, field)| {
             let index = syn::Index::from(field_index);
             quote! {
-                pub fn #field(&self) -> Link<NodeType> {
-                    self.get_children().borrow()[#index].clone()
+                pub fn #field(&self) -> crate::ir2::Link<crate::ir2::NodeType> {
+                    crate::ir2::IsParent::get_children(self).borrow()[#index].clone()
                 }
             }
         })
@@ -121,49 +119,47 @@ mod tests {
     #[test]
     fn test_derive_node_wrapper() {
         let input = quote! {
-            #[derive(Node)]
+            #[derive(IsNode)]
             struct Test {
                 #[node(lhs, rhs)]
                 node_field: Node,
             }
         };
         let expected = quote! {
-            use crate::ir2::{BackLink, IsChild, Link, MiddleNode, NodeType, IsParent};
-            use std::fmt::Debug;
             impl Test {
-                pub fn new(parent: BackLink<NodeType>, lhs: Link<NodeType>, rhs: Link<NodeType>) -> Self {
+                pub fn new(parent: crate::ir2::BackLink<crate::ir2::NodeType>, lhs: crate::ir2::Link<crate::ir2::NodeType>, rhs: crate::ir2::Link<crate::ir2::NodeType>) -> Self {
                     Self {
-                        node_field: Node::new(parent, Link::new(vec![lhs, rhs])),
+                        node_field: Node::new(parent, crate::ir2::Link::new(vec![lhs, rhs])),
                     }
                 }
-                pub fn lhs(&self) -> Link<NodeType> {
-                    self.get_children().borrow()[0].clone()
+                pub fn lhs(&self) -> crate::ir2::Link<crate::ir2::NodeType> {
+                    crate::ir2::IsParent::get_children(self).borrow()[0].clone()
                 }
-                pub fn rhs(&self) -> Link<NodeType> {
-                    self.get_children().borrow()[1].clone()
-                }
-            }
-            impl IsParent for Test {
-                fn get_children(&self) -> Link<Vec<Link<NodeType>>> {
-                    self.node_field.get_children()
+                pub fn rhs(&self) -> crate::ir2::Link<crate::ir2::NodeType> {
+                    crate::ir2::IsParent::get_children(self).borrow()[1].clone()
                 }
             }
-            impl IsChild for Test {
-                fn get_parent(&self) -> BackLink<NodeType> {
-                    self.node_field.get_parent()
-                }
-                fn set_parent(&mut self, parent: Link<NodeType>) {
-                    self.node_field.set_parent(parent);
+            impl crate::ir2::IsParent for Test {
+                fn get_children(&self) -> crate::ir2::Link<Vec<crate::ir2::Link<crate::ir2::NodeType>>> {
+                    crate::ir2::IsParent::get_children(&self.node_field)
                 }
             }
-            impl Debug for Test {
+            impl crate::ir2::IsChild for Test {
+                fn get_parent(&self) -> crate::ir2::BackLink<crate::ir2::NodeType> {
+                    crate::ir2::IsChild::get_parent(&self.node_field)
+                }
+                fn set_parent(&mut self, parent: crate::ir2::Link<crate::ir2::NodeType>) {
+                    crate::ir2::IsChild::set_parent(&mut self.node_field, parent);
+                }
+            }
+            impl std::fmt::Debug for Test {
                 fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                     write!(f, "{}{:?}", stringify!(Test), &self.node_field)
                 }
             }
-            impl From<Test> for Link<NodeType> {
-                fn from(test: Test) -> Link<NodeType> {
-                    Link::new(NodeType::MiddleNode(MiddleNode::Test(test)))
+            impl From<Test> for crate::ir2::Link<crate::ir2::NodeType> {
+                fn from(test: Test) -> crate::ir2::Link<crate::ir2::NodeType> {
+                    crate::ir2::Link::new(crate::ir2::NodeType::MiddleNode(crate::ir2::MiddleNode::Test(test)))
                 }
             }
         };
