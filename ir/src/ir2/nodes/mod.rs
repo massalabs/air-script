@@ -1,9 +1,9 @@
-mod add;
+mod binary_op;
 mod felt;
 mod function;
 mod scope;
 use crate::ir2::{BackLink, Graph, IsChild, IsParent, Leaf, Link};
-pub use add::Add;
+pub use binary_op::{Add, Mul, Sub};
 pub use felt::Felt;
 pub use function::Function;
 pub use scope::Scope;
@@ -97,6 +97,8 @@ impl Debug for LeafNode {
 pub enum MiddleNode {
     Function(Function),
     Add(Add),
+    Sub(Sub),
+    Mul(Mul),
     Scope(Scope),
 }
 
@@ -105,6 +107,8 @@ impl IsParent for MiddleNode {
         match self {
             MiddleNode::Function(function) => function.get_children(),
             MiddleNode::Add(add) => add.get_children(),
+            MiddleNode::Sub(sub) => sub.get_children(),
+            MiddleNode::Mul(mul) => mul.get_children(),
             MiddleNode::Scope(scope) => scope.get_children(),
         }
     }
@@ -115,6 +119,8 @@ impl IsChild for MiddleNode {
         match self {
             MiddleNode::Function(function) => function.get_parent(),
             MiddleNode::Add(add) => add.get_parent(),
+            MiddleNode::Sub(sub) => sub.get_parent(),
+            MiddleNode::Mul(mul) => mul.get_parent(),
             MiddleNode::Scope(scope) => scope.get_parent(),
         }
     }
@@ -122,6 +128,8 @@ impl IsChild for MiddleNode {
         match self {
             MiddleNode::Function(function) => function.set_parent(parent),
             MiddleNode::Add(add) => add.set_parent(parent),
+            MiddleNode::Sub(sub) => sub.set_parent(parent),
+            MiddleNode::Mul(mul) => mul.set_parent(parent),
             MiddleNode::Scope(scope) => scope.set_parent(parent),
         }
     }
@@ -132,6 +140,8 @@ impl From<MiddleNode> for Link<NodeType> {
         match middle_node {
             MiddleNode::Function(function) => function.into(),
             MiddleNode::Add(add) => add.into(),
+            MiddleNode::Sub(sub) => sub.into(),
+            MiddleNode::Mul(mul) => mul.into(),
             MiddleNode::Scope(scope) => scope.into(),
         }
     }
@@ -142,6 +152,8 @@ impl Debug for MiddleNode {
         match self {
             MiddleNode::Function(function) => write!(f, "{:?}", function),
             MiddleNode::Add(add) => write!(f, "{:?}", add),
+            MiddleNode::Sub(sub) => write!(f, "{:?}", sub),
+            MiddleNode::Mul(mul) => write!(f, "{:?}", mul),
             MiddleNode::Scope(scope) => write!(f, "{:?}", scope),
         }
     }
