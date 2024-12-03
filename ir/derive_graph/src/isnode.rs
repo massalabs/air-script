@@ -2,10 +2,22 @@ extern crate proc_macro;
 use quote::{format_ident, quote};
 use syn::{DeriveInput, Token};
 
-pub fn impl_node_wrapper(input: &DeriveInput) -> proc_macro2::TokenStream {
+pub fn impl_isnode(input: &DeriveInput) -> proc_macro2::TokenStream {
     let ty = &input.ident;
     let name = format_ident!("{}_node", ty.to_string().to_lowercase());
-    let fields = extract_struct_fields(input);
+    match &input.data {
+        syn::Data::Struct(data) => impl_isnode_struct(ty, &name, data),
+        syn::Data::Enum(data) => impl_isnode_enum(ty, &name, data),
+        _ => panic!("IsNode only supports structs and enums"),
+    }
+}
+
+fn impl_isnode_struct(
+    ty: &syn::Ident,
+    name: &proc_macro2::Ident,
+    struct_data: &syn::DataStruct,
+) -> proc_macro2::TokenStream {
+    let fields: Vec<&syn::Field> = struct_data.fields.iter().collect();
     let (node_field_name, field_names) = extract_field_names(&fields);
     let new_signature = make_new_signature(&field_names);
     let getters = make_getters(&field_names);
@@ -48,18 +60,11 @@ pub fn impl_node_wrapper(input: &DeriveInput) -> proc_macro2::TokenStream {
     impls
 }
 
-fn extract_struct_fields(input: &DeriveInput) -> Vec<&syn::Field> {
-    match &input.data {
-        syn::Data::Struct(data) => data.fields.iter().collect(),
-        _ => panic!("NodeWrapper only supports structs"),
-    }
-}
-
 fn extract_field_names(fields: &[&syn::Field]) -> (proc_macro2::Ident, Vec<proc_macro2::Ident>) {
     let node_field = fields
         .iter()
         .find(|field| field.attrs.iter().any(|attr| attr.path().is_ident("node")))
-        .expect("NodeWrapper requires a node field");
+        .expect("IsNode requires a node field");
     let node_field_name = node_field.ident.clone().unwrap();
     let field_names = node_field
         .attrs
@@ -110,6 +115,84 @@ fn make_getters(field_names: &[proc_macro2::Ident]) -> Vec<proc_macro2::TokenStr
         .collect()
 }
 
+fn impl_isnode_enum(
+    ty: &syn::Ident,
+    name: &proc_macro2::Ident,
+    data: &syn::DataEnum,
+) -> proc_macro2::TokenStream {
+    let variants: Vec<&syn::Variant> = data.variants.iter().collect();
+    let variant_names = extract_variant_names(&variants);
+    let spec_names = extract_variant_spec(&variants);
+    quote! {
+        impl crate::ir2::IsParent for #ty {
+            fn get_children(&self) -> crate::ir2::Link<Vec<crate::ir2::Link<crate::ir2::NodeType>>> {
+                match self {
+                    #(
+                        #ty::#variant_names(#(#spec_names),*) => crate::ir2::IsParent::get_children(#(#spec_names),*),
+                    )*
+                }
+            }
+        }
+        impl crate::ir2::IsChild for #ty {
+            fn get_parent(&self) -> crate::ir2::BackLink<crate::ir2::NodeType> {
+                match self {
+                    #(
+                        #ty::#variant_names(#(#spec_names),*) => crate::ir2::IsChild::get_parent(#(#spec_names),*),
+                    )*
+                }
+            }
+            fn set_parent(&mut self, parent: crate::ir2::Link<crate::ir2::NodeType>) {
+                match self {
+                    #(
+                        #ty::#variant_names(#(#spec_names),*) => crate::ir2::IsChild::set_parent(#(#spec_names),*, parent),
+                    )*
+                }
+            }
+        }
+        impl std::fmt::Debug for #ty {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                match self {
+                    #(
+                        #ty::#variant_names(#(#spec_names),*) => write!(f, "{:?}", #(#spec_names),*),
+                    )*
+                }
+            }
+        }
+        impl From<#ty> for crate::ir2::Link<crate::ir2::NodeType> {
+            fn from(#name: #ty) -> crate::ir2::Link<crate::ir2::NodeType> {
+                match #name {
+                    #(
+                        #ty::#variant_names(#(#spec_names),*) => #(#spec_names),*.into(),
+                    )*
+                }
+            }
+        }
+    }
+}
+
+fn extract_variant_names(variants: &[&syn::Variant]) -> Vec<proc_macro2::Ident> {
+    variants
+        .iter()
+        .map(|variant| variant.ident.clone())
+        .collect()
+}
+
+fn extract_variant_spec<'a>(variants: &[&'a syn::Variant]) -> Vec<Vec<syn::Ident>> {
+    let variant_spec: Vec<&syn::Fields> = variants.iter().map(|variant| &variant.fields).collect();
+    variant_spec
+        .iter()
+        .map(|fields| {
+            fields
+                .iter()
+                .map(|field| {
+                    let ty = &field.ty;
+                    format_ident!("{}_node", quote! {#ty}.to_string().to_lowercase())
+                })
+                .collect()
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -117,7 +200,7 @@ mod tests {
     use syn::parse2;
 
     #[test]
-    fn test_derive_node_wrapper() {
+    fn test_derive_is_node() {
         let input = quote! {
             #[derive(IsNode)]
             struct Test {
@@ -164,8 +247,62 @@ mod tests {
             }
         };
         let ast = parse2(input).unwrap();
-        let output = impl_node_wrapper(&ast);
+        let output = impl_isnode(&ast);
 
+        assert_eq!(output.to_string(), expected.to_string());
+    }
+
+    #[test]
+    fn test_derive_is_node_enum() {
+        let input = quote! {
+            #[derive(IsNode)]
+            enum Test {
+                A(ANode),
+                B(BNode),
+            }
+        };
+        let expected = quote! {
+            impl crate::ir2::IsParent for Test {
+                fn get_children(&self) -> crate::ir2::Link<Vec<crate::ir2::Link<crate::ir2::NodeType>>> {
+                    match self {
+                        Test::A(anode_node) => crate::ir2::IsParent::get_children(anode_node),
+                        Test::B(bnode_node) => crate::ir2::IsParent::get_children(bnode_node),
+                    }
+                }
+            }
+            impl crate::ir2::IsChild for Test {
+                fn get_parent(&self) -> crate::ir2::BackLink<crate::ir2::NodeType> {
+                    match self {
+                        Test::A(anode_node) => crate::ir2::IsChild::get_parent(anode_node),
+                        Test::B(bnode_node) => crate::ir2::IsChild::get_parent(bnode_node),
+                    }
+                }
+                fn set_parent(&mut self, parent: crate::ir2::Link<crate::ir2::NodeType>) {
+                    match self {
+                        Test::A(anode_node) => crate::ir2::IsChild::set_parent(anode_node, parent),
+                        Test::B(bnode_node) => crate::ir2::IsChild::set_parent(bnode_node, parent),
+                    }
+                }
+            }
+            impl std::fmt::Debug for Test {
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    match self {
+                        Test::A(anode_node) => write!(f, "{:?}", anode_node),
+                        Test::B(bnode_node) => write!(f, "{:?}", bnode_node),
+                    }
+                }
+            }
+            impl From<Test> for crate::ir2::Link<crate::ir2::NodeType> {
+                fn from(test_node: Test) -> crate::ir2::Link<crate::ir2::NodeType> {
+                    match test_node {
+                        Test::A(anode_node) => anode_node.into(),
+                        Test::B(bnode_node) => bnode_node.into(),
+                    }
+                }
+            }
+        };
+        let ast = parse2(input).unwrap();
+        let output = impl_isnode(&ast);
         assert_eq!(output.to_string(), expected.to_string());
     }
 }

@@ -3,7 +3,7 @@ mod blocks;
 mod felt;
 mod scope;
 mod structured_op;
-use crate::ir2::{BackLink, Graph, IsChild, IsParent, Leaf, Link};
+use crate::ir2::{BackLink, Graph, IsChild, IsNode, IsParent, Leaf, Link};
 pub use binary_op::{Add, Mul, Sub};
 pub use blocks::{Evaluator, For, Function, If};
 pub use felt::Felt;
@@ -95,7 +95,7 @@ impl Debug for LeafNode {
     }
 }
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, IsNode)]
 pub enum MiddleNode {
     Add(Add),
     Sub(Sub),
@@ -107,88 +107,6 @@ pub enum MiddleNode {
     For(For),
     Fold(Fold),
     Call(Call),
-}
-
-impl IsParent for MiddleNode {
-    fn get_children(&self) -> Link<Vec<Link<NodeType>>> {
-        match self {
-            MiddleNode::Add(add) => add.get_children(),
-            MiddleNode::Sub(sub) => sub.get_children(),
-            MiddleNode::Mul(mul) => mul.get_children(),
-            MiddleNode::Scope(scope) => scope.get_children(),
-            MiddleNode::Function(function) => function.get_children(),
-            MiddleNode::Evaluator(evaluator) => evaluator.get_children(),
-            MiddleNode::If(if_node) => if_node.get_children(),
-            MiddleNode::For(for_node) => for_node.get_children(),
-            MiddleNode::Fold(fold) => fold.get_children(),
-            MiddleNode::Call(call) => call.get_children(),
-        }
-    }
-}
-
-impl IsChild for MiddleNode {
-    fn get_parent(&self) -> BackLink<NodeType> {
-        match self {
-            MiddleNode::Add(add) => add.get_parent(),
-            MiddleNode::Sub(sub) => sub.get_parent(),
-            MiddleNode::Mul(mul) => mul.get_parent(),
-            MiddleNode::Scope(scope) => scope.get_parent(),
-            MiddleNode::Function(function) => function.get_parent(),
-            MiddleNode::Evaluator(evaluator) => evaluator.get_parent(),
-            MiddleNode::If(if_node) => if_node.get_parent(),
-            MiddleNode::For(for_node) => for_node.get_parent(),
-            MiddleNode::Fold(fold) => fold.get_parent(),
-            MiddleNode::Call(call) => call.get_parent(),
-        }
-    }
-    fn set_parent(&mut self, parent: Link<NodeType>) {
-        match self {
-            MiddleNode::Add(add) => add.set_parent(parent),
-            MiddleNode::Sub(sub) => sub.set_parent(parent),
-            MiddleNode::Mul(mul) => mul.set_parent(parent),
-            MiddleNode::Scope(scope) => scope.set_parent(parent),
-            MiddleNode::Function(function) => function.set_parent(parent),
-            MiddleNode::Evaluator(evaluator) => evaluator.set_parent(parent),
-            MiddleNode::If(if_node) => if_node.set_parent(parent),
-            MiddleNode::For(for_node) => for_node.set_parent(parent),
-            MiddleNode::Fold(fold) => fold.set_parent(parent),
-            MiddleNode::Call(call) => call.set_parent(parent),
-        }
-    }
-}
-
-impl From<MiddleNode> for Link<NodeType> {
-    fn from(middle_node: MiddleNode) -> Link<NodeType> {
-        match middle_node {
-            MiddleNode::Add(add) => add.into(),
-            MiddleNode::Sub(sub) => sub.into(),
-            MiddleNode::Mul(mul) => mul.into(),
-            MiddleNode::Scope(scope) => scope.into(),
-            MiddleNode::Function(function) => function.into(),
-            MiddleNode::Evaluator(evaluator) => evaluator.into(),
-            MiddleNode::If(if_node) => if_node.into(),
-            MiddleNode::For(for_node) => for_node.into(),
-            MiddleNode::Fold(fold) => fold.into(),
-            MiddleNode::Call(call) => call.into(),
-        }
-    }
-}
-
-impl Debug for MiddleNode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            MiddleNode::Add(add) => write!(f, "{:?}", add),
-            MiddleNode::Sub(sub) => write!(f, "{:?}", sub),
-            MiddleNode::Mul(mul) => write!(f, "{:?}", mul),
-            MiddleNode::Scope(scope) => write!(f, "{:?}", scope),
-            MiddleNode::Function(function) => write!(f, "{:?}", function),
-            MiddleNode::Evaluator(evaluator) => write!(f, "{:?}", evaluator),
-            MiddleNode::If(if_node) => write!(f, "{:?}", if_node),
-            MiddleNode::For(for_node) => write!(f, "{:?}", for_node),
-            MiddleNode::Fold(fold) => write!(f, "{:?}", fold),
-            MiddleNode::Call(call) => write!(f, "{:?}", call),
-        }
-    }
 }
 
 #[derive(Clone, Eq, PartialEq)]
