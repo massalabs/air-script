@@ -1,13 +1,13 @@
 mod binary_op;
 mod blocks;
-mod felt;
+mod leaf_op;
 mod scope;
 mod structured_op;
 mod unary_op;
-use crate::ir2::{BackLink, Graph, IsChild, IsNode, IsParent, Leaf, Link};
+use crate::ir2::{BackLink, Graph, IsChild, IsLeaf, IsNode, IsParent, Leaf, Link};
 pub use binary_op::{Add, Mul, Sub};
 pub use blocks::{Evaluator, For, Function, If};
-pub use felt::Felt;
+pub use leaf_op::Felt;
 pub use scope::Scope;
 use std::fmt::Debug;
 use std::ops::{Deref, DerefMut};
@@ -57,7 +57,7 @@ impl Debug for RootNode {
     }
 }
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, IsLeaf)]
 pub enum LeafNode {
     Value(Leaf<Felt>),
 }
@@ -65,35 +65,6 @@ pub enum LeafNode {
 impl IsParent for LeafNode {
     fn get_children(&self) -> Link<Vec<Link<NodeType>>> {
         unreachable!("LeafNode has no children: {:?}", self)
-    }
-}
-
-impl IsChild for LeafNode {
-    fn get_parent(&self) -> BackLink<NodeType> {
-        match self {
-            LeafNode::Value(leaf) => leaf.get_parent(),
-        }
-    }
-    fn set_parent(&mut self, parent: Link<NodeType>) {
-        match self {
-            LeafNode::Value(leaf) => leaf.set_parent(parent),
-        }
-    }
-}
-
-impl From<LeafNode> for Link<NodeType> {
-    fn from(leaf_node: LeafNode) -> Link<NodeType> {
-        match leaf_node {
-            LeafNode::Value(leaf) => leaf.into(),
-        }
-    }
-}
-
-impl Debug for LeafNode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            LeafNode::Value(leaf) => write!(f, "{:?}", leaf),
-        }
     }
 }
 

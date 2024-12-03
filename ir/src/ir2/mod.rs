@@ -6,4 +6,4 @@ pub use link::{BackLink, Link};
 pub use nodes::{Add, Felt, Function, LeafNode, MiddleNode, NodeType, RootNode, Scope};
 
 extern crate derive_graph;
-pub use derive_graph::IsNode;
+pub use derive_graph::{IsLeaf, IsNode};
