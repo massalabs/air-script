@@ -1,5 +1,7 @@
+use air_parser::ast::QualifiedIdentifier;
+
 use crate::ir2::{Add, BackLink, Link, MiddleNode, NodeType, RootNode, Scope};
-use std::fmt::Debug;
+use std::{collections::BTreeMap, fmt::Debug};
 
 pub trait IsParent: Clone + Into<Link<NodeType>> + Debug {
     fn get_children(&self) -> Link<Vec<Link<NodeType>>>;
@@ -186,18 +188,68 @@ where
 #[derive(Clone, Eq, PartialEq)]
 pub struct Graph {
     nodes: Link<Vec<Link<NodeType>>>,
+    functions: BTreeMap<QualifiedIdentifier, Link<NodeType>>,
+    evaluators: BTreeMap<QualifiedIdentifier, Link<NodeType>>,
+    boundary_constraints_roots: Link<Vec<Link<NodeType>>>,
+    integrity_constraints_roots: Link<Vec<Link<NodeType>>>,
 }
 
+// Public API
 impl Graph {
     pub fn create() -> Link<NodeType> {
         Graph::default().into()
     }
+
+    pub fn num_nodes(&self) -> usize {
+        self.nodes.borrow().len()
+    }
+
+    pub fn insert_function(&mut self, ident: QualifiedIdentifier, node: Link<NodeType>) {
+        self.functions.insert(ident, node);
+    }
+    
+    pub fn get_function(&mut self, ident: &QualifiedIdentifier) -> Option<&Link<NodeType>> {
+        self.functions.get(ident)
+    }
+    
+    pub fn insert_evaluator(&mut self, ident: QualifiedIdentifier, node: Link<NodeType>) {
+        self.evaluators.insert(ident, node);
+    }
+
+    pub fn get_evaluator(&mut self, ident: &QualifiedIdentifier) -> Option<&Link<NodeType>> {
+        self.evaluators.get(ident)
+    }
+
+    pub fn insert_boundary_constraints_root(&mut self, root: Link<NodeType>) {
+        if !self.boundary_constraints_roots.borrow().contains(&root) {
+            self.boundary_constraints_roots.borrow_mut().push(root.clone());
+        }
+    }
+
+    pub fn remove_boundary_constraints_root(&mut self, root: Link<NodeType>) {
+        self.boundary_constraints_roots.borrow_mut().retain(|n| *n != root);
+    }
+
+    pub fn insert_integrity_constraints_root(&mut self, root: Link<NodeType>) {
+        if !self.integrity_constraints_roots.borrow().contains(&root) {
+            self.integrity_constraints_roots.borrow_mut().push(root.clone());
+        }
+    }
+
+    pub fn remove_integrity_constraints_root(&mut self, root: Link<NodeType>) {
+        self.boundary_constraints_roots.borrow_mut().retain(|n| *n != root);
+    }
 }
+
 
 impl Default for Graph {
     fn default() -> Self {
         Self {
             nodes: Link::new(Vec::default()),
+            functions: BTreeMap::new(),
+            evaluators: BTreeMap::new(),
+            boundary_constraints_roots: Link::new(Vec::default()),
+            integrity_constraints_roots: Link::new(Vec::default()),
         }
     }
 }
