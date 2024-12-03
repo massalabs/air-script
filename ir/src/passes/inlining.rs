@@ -5,7 +5,7 @@ use air_pass::Pass;
 
 use crate::{CompileError, Mir, MirGraph, NodeIndex, Operation};
 
-use super::{visitor::VisitDefault, Visit, VisitContext, VisitOrder};
+use super::{visitor_old::VisitDefaultOld, VisitOld, VisitContextOld, VisitOrderOld};
 
 //pub struct Inlining<'a> {
 //     #[allow(unused)]
@@ -16,7 +16,7 @@ pub struct Inlining {
     work_stack: Vec<NodeIndex>,
 }
 
-impl VisitContext for Inlining {
+impl VisitContextOld for Inlining {
     type Graph = MirGraph;
     fn visit(&mut self, graph: &mut MirGraph, node_index: NodeIndex) {
         let node = graph.node(&node_index).clone();
@@ -33,8 +33,8 @@ impl VisitContext for Inlining {
     fn integrity_roots(&self, graph: &MirGraph) -> HashSet<NodeIndex> {
         graph.integrity_constraints_roots.clone()
     }
-    fn visit_order(&self) -> VisitOrder {
-        VisitOrder::Manual
+    fn visit_order(&self) -> VisitOrderOld {
+        VisitOrderOld::Manual
     }
 }
 
@@ -46,12 +46,12 @@ impl Pass for Inlining {
 
     fn run<'a>(&mut self, mut ir: Self::Input<'a>) -> Result<Self::Output<'a>, Self::Error> {
         let mut context = Inlining::new();
-        Visit::run(&mut context, &mut ir.constraint_graph_mut());
+        VisitOld::run(&mut context, &mut ir.constraint_graph_mut());
         Ok(ir)
     }
 }
 
-impl VisitDefault for Inlining {}
+impl VisitDefaultOld for Inlining {}
 
 // impl<'a> Inlining<'a> {
 //     pub fn new(diagnostics: &'a DiagnosticsHandler) -> Self {

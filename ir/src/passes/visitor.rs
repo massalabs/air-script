@@ -1,11 +1,4 @@
-use std::collections::HashSet;
-
-use crate::{Node, NodeIndex, Operation};
-
-pub trait Graph {
-    fn children(&self, node: &Operation) -> Vec<NodeIndex>;
-    fn node(&self, node_index: &NodeIndex) -> &Node;
-}
+use crate::ir2::{IsParent, Link, NodeType};
 
 pub enum VisitOrder {
     Manual,
@@ -14,14 +7,12 @@ pub enum VisitOrder {
 }
 pub trait VisitDefault {}
 pub trait VisitContext
-where
-    Self::Graph: Graph,
 {
     type Graph;
-    fn visit(&mut self, graph: &mut Self::Graph, node_index: NodeIndex);
-    fn as_stack_mut(&mut self) -> &mut Vec<NodeIndex>;
-    fn boundary_roots(&self, graph: &Self::Graph) -> HashSet<NodeIndex>;
-    fn integrity_roots(&self, graph: &Self::Graph) -> HashSet<NodeIndex>;
+    fn visit(&mut self, graph: &mut Self::Graph, link: Link<NodeType>);
+    fn as_stack_mut(&mut self) -> &mut Vec<Link<NodeType>>;
+    fn boundary_roots(&self, graph: &Self::Graph) -> Link<Vec<Link<NodeType>>>;
+    fn integrity_roots(&self, graph: &Self::Graph) -> Link<Vec<Link<NodeType>>>;
     fn visit_order(&self) -> VisitOrder;
 }
 pub trait Visit: VisitContext {
@@ -36,56 +27,53 @@ pub trait Visit: VisitContext {
         }
     }
     fn visit_manual(&mut self, graph: &mut Self::Graph) {
-        for root_index in self.boundary_roots(graph).iter().chain(self.integrity_roots(graph).iter()) {
-            self.visit(graph, *root_index);
+        for root_index in self.boundary_roots(graph).borrow().iter().chain(self.integrity_roots(graph).borrow().iter()) {
+            self.visit(graph, root_index.clone());
         }
     }
     fn visit_postorder(&mut self, graph: &mut Self::Graph) {
-        for root_index in self.boundary_roots(graph).iter().chain(self.integrity_roots(graph).iter()) {
-            self.visit_later(*root_index);
-            let mut last: Option<NodeIndex> = None;
-            while let Some(node_index) = self.peek() {
-                let node = graph.node(&node_index);
-                let children = graph.children(&node.op);
-                if children.is_empty() || last.is_some() && children.contains(&last.unwrap()) {
-                    self.visit(graph, node_index);
+        for root_index in self.boundary_roots(graph).borrow().iter().chain(self.integrity_roots(graph).borrow().iter()) {
+            self.visit_later(root_index.clone());
+            let mut last: Option<Link<NodeType>> = None;
+            while let Some(link) = self.peek() {
+                let children = link.get_children();
+                if children.borrow().is_empty() || last.is_some() && children.borrow().contains(&last.clone().unwrap()) {
+                    self.visit(graph, link.clone());
                     self.next_node();
-                    last = Some(node_index);
+                    last = Some(link.clone());
                 } else {
-                    for child in children.iter().rev() {
-                        self.visit_later(*child);
+                    for child in children.borrow().iter().rev() {
+                        self.visit_later(child.clone());
                     }
                 }
             }
         }
     }
     fn visit_depthfirst(&mut self, graph: &mut Self::Graph) {
-        for root_index in self.boundary_roots(graph).iter().chain(self.integrity_roots(graph).iter()) {
-            self.visit_later(*root_index);
-            while let Some(node_index) = self.next_node() {
-                let node = graph.node(&node_index);
-                let children = graph.children(&node.op);
-                for child in children.iter().rev() {
-                    self.visit_later(*child);
+        for root_index in self.boundary_roots(graph).borrow().iter().chain(self.integrity_roots(graph).borrow().iter()) {
+            self.visit_later(root_index.clone());
+            while let Some(link) = self.next_node() {
+                let children = link.get_children();
+                for child in children.borrow().iter().rev() {
+                    self.visit_later(child.clone());
                 }
-                self.visit(graph, node_index);
+                self.visit(graph, link);
             }
         }
     }
-    fn peek(&mut self) -> Option<NodeIndex> {
-        self.as_stack_mut().last().copied()
+    fn peek(&mut self) -> Option<Link<NodeType>> {
+        self.as_stack_mut().last().cloned()
     }
-    fn next_node(&mut self) -> Option<NodeIndex> {
+    fn next_node(&mut self) -> Option<Link<NodeType>> {
         self.as_stack_mut().pop()
     }
-    fn visit_later(&mut self, node_index: NodeIndex) {
-        self.as_stack_mut().push(node_index);
+    fn visit_later(&mut self, link: Link<NodeType>) {
+        self.as_stack_mut().push(link);
     }
 }
 
 impl<T> Visit for T
 where
     T: VisitContext + VisitDefault,
-    T::Graph: Graph,
 {
 }

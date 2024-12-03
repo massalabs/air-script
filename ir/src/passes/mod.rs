@@ -3,13 +3,15 @@ mod inlining;
 mod translate;
 mod value_numbering;
 mod visitor;
+mod visitor_old;
 mod unrolling;
 
 pub use self::constant_propagation::ConstantPropagation;
 pub use self::inlining::Inlining;
 pub use self::translate::AstToMir;
 pub use self::value_numbering::ValueNumbering;
-pub use self::visitor::{Graph, Visit, VisitContext, VisitOrder};
+pub use self::visitor_old::{Graph, VisitOld, VisitContextOld, VisitOrderOld};
+pub use self::visitor::{Visit, VisitContext, VisitOrder};
 pub use self::unrolling::Unrolling;
 
 use air_pass::Pass;

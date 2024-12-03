@@ -6,7 +6,7 @@ use air_pass::Pass;
 
 use crate::{CompileError, ConstantValue, FoldOperator, Mir, MirGraph, MirType, MirValue, NodeIndex, Operation, SpannedMirValue, SpannedVariable, TraceAccess};
 
-use super::{Visit, VisitContext, VisitOrder};
+use super::{VisitOld, VisitContextOld, VisitOrderOld};
 
 //pub struct Unrolling<'a> {
 //     #[allow(unused)]
@@ -51,16 +51,16 @@ impl Pass for Unrolling {
     }
 }
 
-impl Visit for Unrolling {
+impl VisitOld for Unrolling {
 
     fn run(&mut self, graph: &mut Self::Graph) {
 
         // First pass, unroll all nodes fully, except for For nodes
         self.during_first_pass = true;
         match self.visit_order() {
-            VisitOrder::Manual => self.visit_manual(graph),
-            VisitOrder::PostOrder => self.visit_postorder(graph),
-            VisitOrder::DepthFirst => self.visit_depthfirst(graph),
+            VisitOrderOld::Manual => self.visit_manual(graph),
+            VisitOrderOld::PostOrder => self.visit_postorder(graph),
+            VisitOrderOld::DepthFirst => self.visit_depthfirst(graph),
         }
         while let Some(node_index) = self.next_node() {
             self.visit(graph, node_index);
@@ -69,9 +69,9 @@ impl Visit for Unrolling {
         // Second pass, inline For nodes
         self.during_first_pass = false;
         match self.visit_order() {
-            VisitOrder::Manual => self.visit_manual(graph),
-            VisitOrder::PostOrder => self.visit_postorder(graph),
-            VisitOrder::DepthFirst => self.visit_depthfirst(graph),
+            VisitOrderOld::Manual => self.visit_manual(graph),
+            VisitOrderOld::PostOrder => self.visit_postorder(graph),
+            VisitOrderOld::DepthFirst => self.visit_depthfirst(graph),
         }
         while let Some(node_index) = self.next_node() {
             self.visit(graph, node_index);
@@ -101,7 +101,7 @@ impl Unrolling {
     // 2. Remove what is done during lowering from AST to MIR (unroll, ...)
     // 3. Check how it translates to the MIR structure
     fn run_visitor(&mut self, ir: &mut MirGraph) -> ControlFlow<()> {
-        Visit::run(self, ir);
+        VisitOld::run(self, ir);
         ControlFlow::Continue(())
     }
 }
@@ -571,7 +571,7 @@ impl Unrolling {
     }
 }
 
-impl VisitContext for Unrolling {
+impl VisitContextOld for Unrolling {
     fn visit(&mut self, graph: &mut MirGraph, node_index: NodeIndex) {
         if self.during_first_pass {
             self.visit_first_pass(graph, node_index);
@@ -598,11 +598,11 @@ impl VisitContext for Unrolling {
         return graph.integrity_constraints_roots.clone()
     }
     
-    fn visit_order(&self) -> super::VisitOrder {
+    fn visit_order(&self) -> super::VisitOrderOld {
         if self.during_first_pass {
-            return super::VisitOrder::PostOrder;
+            return super::VisitOrderOld::PostOrder;
         } else {
-            return super::VisitOrder::PostOrder;
+            return super::VisitOrderOld::PostOrder;
         }
     }
 }
