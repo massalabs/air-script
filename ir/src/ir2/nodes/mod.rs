@@ -3,6 +3,7 @@ mod blocks;
 mod felt;
 mod scope;
 mod structured_op;
+mod unary_op;
 use crate::ir2::{BackLink, Graph, IsChild, IsNode, IsParent, Leaf, Link};
 pub use binary_op::{Add, Mul, Sub};
 pub use blocks::{Evaluator, For, Function, If};
@@ -11,6 +12,7 @@ pub use scope::Scope;
 use std::fmt::Debug;
 use std::ops::{Deref, DerefMut};
 pub use structured_op::{Call, Fold};
+pub use unary_op::{Boundary, Enf};
 
 #[derive(Clone, Eq, PartialEq)]
 pub enum RootNode {
@@ -107,6 +109,8 @@ pub enum MiddleNode {
     For(For),
     Fold(Fold),
     Call(Call),
+    Boundary(Boundary),
+    Enf(Enf),
 }
 
 #[derive(Clone, Eq, PartialEq)]
