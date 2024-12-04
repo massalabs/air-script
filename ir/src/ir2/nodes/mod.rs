@@ -1,3 +1,4 @@
+mod aggregated_op;
 mod binary_op;
 mod blocks;
 mod leaf_op;
@@ -6,6 +7,7 @@ mod structured_op;
 mod unary_op;
 pub use crate::ir::SpannedMirValue;
 use crate::ir2::{BackLink, Graph, IsChild, IsLeaf, IsNode, IsParent, Leaf, Link};
+pub use aggregated_op::{Matrix, Vector};
 pub use binary_op::{Add, Mul, Sub};
 pub use blocks::{Evaluator, For, Function, If};
 use leaf_op::Parameter;
@@ -84,6 +86,8 @@ pub enum MiddleNode {
     Call(Call),
     Boundary(Boundary),
     Enf(Enf),
+    Vector(Vector),
+    Matrix(Matrix),
 }
 
 #[derive(Clone, Eq, PartialEq)]
