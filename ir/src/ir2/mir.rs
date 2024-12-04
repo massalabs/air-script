@@ -1,9 +1,4 @@
-mod constraints;
-mod degree;
-mod operation;
-mod trace;
-mod value;
-
+/*
 pub use self::constraints::{ConstraintDomain, ConstraintError, ConstraintRoot, Constraints};
 pub use self::degree::IntegrityConstraintDegree;
 pub use self::operation::{FoldOperator, Operation, SpannedVariable};
@@ -11,7 +6,7 @@ pub use self::trace::TraceAccess;
 pub use self::value::{
     ConstantValue, MirType, MirValue, PeriodicColumnAccess, PublicInputAccess, SpannedMirValue,
     TraceAccessBinding,
-};
+};*/
 
 use air_parser::ast::TraceSegment;
 pub use air_parser::{
@@ -35,7 +30,7 @@ use std::collections::BTreeMap;
 
 use miden_diagnostics::{SourceSpan, Spanned};
 
-use crate::graph::MirGraph;
+use crate::{graph::MirGraph, ConstraintDomain, ConstraintRoot, Constraints};
 
 /// The intermediate representation of a complete AirScript program
 ///
@@ -45,7 +40,7 @@ use crate::graph::MirGraph;
 /// translated into an algebraic graph representation, on which further analysis,
 /// optimization, and code generation are performed.
 #[derive(Debug, Spanned)]
-pub struct MirOld {
+pub struct Mir {
     /// The name of the [air_parser::ast::Program] from which this IR was derived
     #[span]
     pub name: Identifier,
@@ -65,7 +60,7 @@ pub struct MirOld {
     /// The constraints enforced by this program, in their algebraic graph representation.
     pub constraints: Constraints,
 }
-impl Default for MirOld {
+impl Default for Mir {
     fn default() -> Self {
         Self::new(Identifier::new(
             SourceSpan::UNKNOWN,
@@ -73,7 +68,7 @@ impl Default for MirOld {
         ))
     }
 }
-impl MirOld {
+impl Mir {
     /// Create a new, empty [Mir] container
     ///
     /// An empty [Mir] is meaningless until it has been populated with

@@ -20,7 +20,7 @@ use std::sync::Arc;
 use air_pass::Pass;
 use miden_diagnostics::{CodeMap, DiagnosticsConfig, DiagnosticsHandler, Verbosity};
 
-pub fn compile(source: &str) -> Result<crate::Mir, ()> {
+pub fn compile(source: &str) -> Result<crate::MirOld, ()> {
     let compiler = Compiler::default();
     match compiler.compile(source) {
         Ok(mir) => Ok(mir),
@@ -85,14 +85,14 @@ impl Compiler {
         }
     }
 
-    pub fn compile(&self, source: &str) -> Result<crate::Mir, CompileError> {
+    pub fn compile(&self, source: &str) -> Result<crate::MirOld, CompileError> {
         air_parser::parse(&self.diagnostics, self.codemap.clone(), source)
             .map_err(CompileError::Parse)
             .and_then(|ast| {
                 let mut pipeline =
                     air_parser::transforms::ConstantPropagation::new(&self.diagnostics)
                         /*.chain(air_parser::transforms::Inlining::new(&self.diagnostics))*/
-                        .chain(crate::passes::AstToMir::new(&self.diagnostics));
+                        .chain(crate::passes::AstToMirOld::new(&self.diagnostics));
                 pipeline.run(ast)
             })
     }

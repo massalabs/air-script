@@ -2,7 +2,7 @@ use air_parser::{ast::{self, TraceSegment}, LexicalScope};
 use air_pass::Pass;
 
 use miden_diagnostics::{DiagnosticsHandler, Severity, SourceSpan, Span, Spanned};
-use mir::{Mir, SpannedMirValue};
+use mir::{MirOld, SpannedMirValue};
 
 use crate::{graph::NodeIndex, ir::*, CompileError};
 
@@ -17,7 +17,7 @@ impl<'a> MirToAir<'a> {
     }
 }
 impl<'p> Pass for MirToAir<'p> {
-    type Input<'a> = Mir;
+    type Input<'a> = MirOld;
     type Output<'a> = Air;
     type Error = CompileError;
 
@@ -64,7 +64,7 @@ enum MemoizedBinding {
 struct AirBuilder<'a> {
     diagnostics: &'a DiagnosticsHandler,
     air: &'a mut Air,
-    mir: &'a Mir,
+    mir: &'a MirOld,
     trace_columns: Vec<TraceSegment>,
 }
 

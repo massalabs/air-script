@@ -3,7 +3,7 @@ mod tests {
     use crate::graph::pretty;
     use crate::passes::Inlining;
     use crate::ConstantValue;
-    use crate::MirOld;
+    use crate::Mir;
     use crate::MirGraph;
     use crate::MirType;
     use crate::MirValue;
@@ -120,7 +120,7 @@ mod tests {
         println!("============= Inlining pass =============");
         let mut inliner = Inlining::new();
 
-        let mut mir_original = MirOld::default();
+        let mut mir_original = Mir::default();
         *mir_original.constraint_graph_mut() = original.clone();
 
         let result = inliner.run(mir_original).unwrap();

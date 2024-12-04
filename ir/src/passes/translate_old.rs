@@ -3,25 +3,25 @@ use air_pass::Pass;
 
 use miden_diagnostics::{DiagnosticsHandler, SourceSpan, Spanned};
 
-use crate::{graph::NodeIndex, ir::*, ir2::Mir, CompileError, MirGraph};
+use crate::{graph::NodeIndex, ir::*, CompileError, MirGraph};
 
-pub struct AstToMir<'a> {
+pub struct AstToMirOld<'a> {
     diagnostics: &'a DiagnosticsHandler,
 }
-impl<'a> AstToMir<'a> {
+impl<'a> AstToMirOld<'a> {
     /// Create a new instance of this pass
     #[inline]
     pub fn new(diagnostics: &'a DiagnosticsHandler) -> Self {
         Self { diagnostics }
     }
 }
-impl<'p> Pass for AstToMir<'p> {
+impl<'p> Pass for AstToMirOld<'p> {
     type Input<'a> = ast::Program;
-    type Output<'a> = Mir;
+    type Output<'a> = MirOld;
     type Error = CompileError;
 
     fn run<'a>(&mut self, program: Self::Input<'a>) -> Result<Self::Output<'a>, Self::Error> {
-        let mut mir = Mir::new(program.name);
+        let mut mir = MirOld::new(program.name);
 
         //TODO MIR: Implement AST > MIR lowering
         // 1. Start from the previous lowering from AST to AIR
@@ -90,7 +90,7 @@ impl<'p> Pass for AstToMir<'p> {
 struct MirBuilder<'a> {
     #[allow(unused)]
     diagnostics: &'a DiagnosticsHandler,
-    mir: &'a mut Mir,
+    mir: &'a mut MirOld,
     random_values: Option<ast::RandomValues>,
     trace_columns: Vec<ast::TraceSegment>,
     bindings: LexicalScope<Identifier, NodeIndex>,

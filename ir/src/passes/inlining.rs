@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, HashSet};
 use air_pass::Pass;
 //use miden_diagnostics::DiagnosticsHandler;
 
-use crate::{CompileError, Mir, MirGraph, NodeIndex, Operation};
+use crate::{CompileError, MirOld, MirGraph, NodeIndex, Operation};
 
 use super::{visitor_old::VisitDefaultOld, VisitOld, VisitContextOld, VisitOrderOld};
 
@@ -40,8 +40,8 @@ impl VisitContextOld for Inlining {
 
 //impl<'p> Pass for Inlining<'p> {}
 impl Pass for Inlining {
-    type Input<'a> = Mir;
-    type Output<'a> = Mir;
+    type Input<'a> = MirOld;
+    type Output<'a> = MirOld;
     type Error = CompileError;
 
     fn run<'a>(&mut self, mut ir: Self::Input<'a>) -> Result<Self::Output<'a>, Self::Error> {

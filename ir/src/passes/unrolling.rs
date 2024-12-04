@@ -4,7 +4,7 @@ use air_parser::ast::Boundary;
 use air_pass::Pass;
 //use miden_diagnostics::DiagnosticsHandler;
 
-use crate::{CompileError, ConstantValue, FoldOperator, Mir, MirGraph, MirType, MirValue, NodeIndex, Operation, SpannedMirValue, SpannedVariable, TraceAccess};
+use crate::{CompileError, ConstantValue, FoldOperator, MirOld, MirGraph, MirType, MirValue, NodeIndex, Operation, SpannedMirValue, SpannedVariable, TraceAccess};
 
 use super::{VisitOld, VisitContextOld, VisitOrderOld};
 
@@ -39,8 +39,8 @@ pub struct Unrolling {
 
 //impl<'p> Pass for Unrolling<'p> {}
 impl Pass for Unrolling {
-    type Input<'a> = Mir;
-    type Output<'a> = Mir;
+    type Input<'a> = MirOld;
+    type Output<'a> = MirOld;
     type Error = CompileError;
 
     fn run<'a>(&mut self, mut ir: Self::Input<'a>) -> Result<Self::Output<'a>, Self::Error> {

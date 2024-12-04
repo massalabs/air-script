@@ -1,5 +1,6 @@
 mod constant_propagation;
 mod inlining;
+mod translate_old;
 mod translate;
 mod value_numbering;
 mod visitor;
@@ -8,6 +9,7 @@ mod unrolling;
 
 pub use self::constant_propagation::ConstantPropagation;
 pub use self::inlining::Inlining;
+pub use self::translate_old::AstToMirOld;
 pub use self::translate::AstToMir;
 pub use self::value_numbering::ValueNumbering;
 pub use self::visitor_old::{Graph, VisitOld, VisitContextOld, VisitOrderOld};
