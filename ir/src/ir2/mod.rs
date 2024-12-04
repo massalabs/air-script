@@ -1,5 +1,6 @@
 mod graph;
 mod link;
+mod pretty_print;
 mod nodes;
 pub use graph::{Graph, IsChild, IsNode, IsParent, Leaf, Node, NotChild, NotNode, NotParent};
 pub use link::{BackLink, Link};
