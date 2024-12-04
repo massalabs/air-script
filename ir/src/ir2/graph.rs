@@ -71,10 +71,10 @@ pub trait IsChild: Clone + Into<Link<NodeType>> + Debug {
     }
 }
 
-trait NotParent {}
-trait NotChild {}
-trait IsNode: IsParent + IsChild {}
-trait NotNode {}
+pub trait NotParent {}
+pub trait NotChild {}
+pub trait IsNode: IsParent + IsChild {}
+pub trait NotNode {}
 
 impl<T: NotParent + IsChild> NotNode for T {}
 impl<T: IsParent + IsChild> IsNode for T {}
@@ -207,11 +207,11 @@ impl Graph {
     pub fn insert_function(&mut self, ident: QualifiedIdentifier, node: Link<NodeType>) {
         self.functions.insert(ident, node);
     }
-    
+
     pub fn get_function(&mut self, ident: &QualifiedIdentifier) -> Option<&Link<NodeType>> {
         self.functions.get(ident)
     }
-    
+
     pub fn insert_evaluator(&mut self, ident: QualifiedIdentifier, node: Link<NodeType>) {
         self.evaluators.insert(ident, node);
     }
@@ -222,25 +222,32 @@ impl Graph {
 
     pub fn insert_boundary_constraints_root(&mut self, root: Link<NodeType>) {
         if !self.boundary_constraints_roots.borrow().contains(&root) {
-            self.boundary_constraints_roots.borrow_mut().push(root.clone());
+            self.boundary_constraints_roots
+                .borrow_mut()
+                .push(root.clone());
         }
     }
 
     pub fn remove_boundary_constraints_root(&mut self, root: Link<NodeType>) {
-        self.boundary_constraints_roots.borrow_mut().retain(|n| *n != root);
+        self.boundary_constraints_roots
+            .borrow_mut()
+            .retain(|n| *n != root);
     }
 
     pub fn insert_integrity_constraints_root(&mut self, root: Link<NodeType>) {
         if !self.integrity_constraints_roots.borrow().contains(&root) {
-            self.integrity_constraints_roots.borrow_mut().push(root.clone());
+            self.integrity_constraints_roots
+                .borrow_mut()
+                .push(root.clone());
         }
     }
 
     pub fn remove_integrity_constraints_root(&mut self, root: Link<NodeType>) {
-        self.boundary_constraints_roots.borrow_mut().retain(|n| *n != root);
+        self.boundary_constraints_roots
+            .borrow_mut()
+            .retain(|n| *n != root);
     }
 }
-
 
 impl Default for Graph {
     fn default() -> Self {

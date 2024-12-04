@@ -4,10 +4,11 @@ mod leaf_op;
 mod scope;
 mod structured_op;
 mod unary_op;
+pub use crate::ir::SpannedMirValue;
 use crate::ir2::{BackLink, Graph, IsChild, IsLeaf, IsNode, IsParent, Leaf, Link};
 pub use binary_op::{Add, Mul, Sub};
 pub use blocks::{Evaluator, For, Function, If};
-pub use leaf_op::Felt;
+use leaf_op::Parameter;
 pub use scope::Scope;
 use std::fmt::Debug;
 use std::ops::{Deref, DerefMut};
@@ -59,7 +60,8 @@ impl Debug for RootNode {
 
 #[derive(Clone, Eq, PartialEq, IsLeaf)]
 pub enum LeafNode {
-    Value(Leaf<Felt>),
+    Value(Leaf<SpannedMirValue>),
+    Parameter(Leaf<Parameter>),
 }
 
 impl IsParent for LeafNode {
