@@ -48,7 +48,15 @@ pub struct Matrix {
 }
 
 impl Matrix {
-    pub fn new(parent: Link<NodeType>, values: Vec<Link<NodeType>>) -> Self {
+    pub fn new(parent: Link<NodeType>, values: Vec<Vec<Link<NodeType>>>) -> Self {
+        let values = values
+            .into_iter()
+            .map(|row| {
+                let vector = Vector::default();
+                vector.get_children().borrow_mut().extend(row);
+                vector.into()
+            })
+            .collect();
         Self {
             node: Node::new(parent.into(), Link::new(values)),
         }

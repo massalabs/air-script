@@ -5,7 +5,6 @@ use syn::{DeriveInput, Token};
 pub fn impl_isleaf(input: &DeriveInput) -> proc_macro2::TokenStream {
     let ty = &input.ident;
     let name = format_ident!("{}_leaf", ty.to_string().to_lowercase());
-    eprintln!("name: {:?}", name);
     match &input.data {
         syn::Data::Enum(data) => impl_isleaf_enum(ty, &name, data),
         _ => panic!("IsLeaf only supports enums"),
@@ -77,7 +76,6 @@ fn extract_variant_spec<'a>(variants: &[&'a syn::Variant]) -> Vec<Vec<syn::Ident
                         syn::Type::Path(ty) => &ty.path.segments[0].ident,
                         _ => panic!("IsLeaf only supports Path types"),
                     };
-                    eprintln!("ty: {:?}", ty);
                     format_ident!("{}_leaf", quote! {#ty}.to_string().to_lowercase())
                 })
                 .collect()
