@@ -116,7 +116,7 @@ impl From<Node> for Link<NodeType> {
 #[derive(Clone, Eq, PartialEq)]
 pub struct Leaf<T> {
     parent: BackLink<NodeType>,
-    data: T,
+    pub data: T,
 }
 
 impl<T> Leaf<T> {

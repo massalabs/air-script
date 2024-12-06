@@ -140,48 +140,6 @@ impl Debug for NodeType {
     }
 }
 
-
-let add = Add::new(
-    lhs,
-    rhs
-)
-
-
-Visit(add)
-    let children = add.get_children()
-    for child in children {
-        Visit(child)
-    }
-    Handle(add)
-}
-
-
-lhs = Vector(1,2,3)
-rhs = Vector(3,4,5)
-
-Graph:
-    Add(
-        Vector(1,2,3),
-        Vector(3,4,5)
-    ),
-    Add2
-=> 
-Vector(
-    Add(1,3),
-    Add(2,4),
-    Add(3,5)
-)
-
-let new_vec = add.lhs.iter().zip(add.rhs.iter()).map(|(lhs, rhs)| Add(lhs, rhs)).collect();
-let new_node = Vector(new_vec);
-Remplacer Add par new_node
-
-
-
-
-
-
-
 // Binary
 impl Add {
     pub fn new(lhs: Link<NodeType>, rhs: Link<NodeType>) -> Add {

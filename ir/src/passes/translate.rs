@@ -48,9 +48,7 @@ impl<'p> Pass for AstToMir<'p> {
             trace_columns,
             bindings: Default::default(),
         };
-
-        Function::new()
-
+        
         for (ident, func) in program.functions.iter() {
             builder.insert_function_body(ident, func)?;
         }
