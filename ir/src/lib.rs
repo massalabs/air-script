@@ -1,8 +1,7 @@
 mod codegen;
-//mod graph;
-//pub use self::graph::{MirGraph, Node, NodeIndex};
-//mod ir;
+
 pub mod ir2;
+mod ir3;
 pub mod passes;
 #[cfg(test)]
 mod tests2;
