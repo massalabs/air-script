@@ -7,9 +7,9 @@ pub struct Enf {
     node: Node,
 }
 
-#[derive(Clone, Eq, PartialEq, IsNode)]
+#[derive(Clone, Eq, PartialEq, Default, IsNode)]
 pub struct Boundary {
-    kind: BoundaryKind,
+    pub kind: BoundaryKind,
     #[node(expr)]
     node: Node,
 }

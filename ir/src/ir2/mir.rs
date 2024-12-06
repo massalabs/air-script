@@ -10,8 +10,7 @@ pub use self::value::{
 
 use air_parser::ast::TraceSegment;
 pub use air_parser::{
-    ast::{
-        AccessType, Boundary, Identifier, PeriodicColumn, PublicInput, QualifiedIdentifier,
+    ast::{Identifier, PeriodicColumn, PublicInput, QualifiedIdentifier,
         TraceSegmentId,
     },
     Symbol,
@@ -30,7 +29,8 @@ use std::collections::BTreeMap;
 
 use miden_diagnostics::{SourceSpan, Spanned};
 
-use crate::{graph::MirGraph, ConstraintDomain, ConstraintRoot, Constraints};
+use super::constraints::{ConstraintDomain, ConstraintRoot, Constraints};
+use super::Graph;
 
 /// The intermediate representation of a complete AirScript program
 ///
@@ -147,13 +147,13 @@ impl Mir {
 
     /// Return a reference to the raw [AlgebraicGraph] corresponding to the constraints
     #[inline]
-    pub fn constraint_graph(&self) -> &MirGraph {
+    pub fn constraint_graph(&self) -> &Graph {
         self.constraints.graph()
     }
 
     /// Return a mutable reference to the raw [AlgebraicGraph] corresponding to the constraints
     #[inline]
-    pub fn constraint_graph_mut(&mut self) -> &mut MirGraph {
+    pub fn constraint_graph_mut(&mut self) -> &mut Graph {
         self.constraints.graph_mut()
     }
 }

@@ -6,18 +6,18 @@ use mir::{MirOld, SpannedMirValue};
 
 use crate::{graph::NodeIndex, ir::*, CompileError};
 
-pub struct MirToAir<'a> {
+pub struct MirToAirOld<'a> {
     diagnostics: &'a DiagnosticsHandler,
 }
-impl<'a> MirToAir<'a> {
+impl<'a> MirToAirOld<'a> {
     /// Create a new instance of this pass
     #[inline]
     pub fn new(diagnostics: &'a DiagnosticsHandler) -> Self {
         Self { diagnostics }
     }
 }
-impl<'p> Pass for MirToAir<'p> {
-    type Input<'a> = Mir;
+impl<'p> Pass for MirToAirOld<'p> {
+    type Input<'a> = MirOld;
     type Output<'a> = Air;
     type Error = CompileError;
 

@@ -1,9 +1,5 @@
-use std::{cell::RefCell, collections::BTreeMap, rc::Rc};
-
-use crate::MirGraph;
-
+use std::{cell::RefCell, rc::Rc};
 use super::{Graph, Link, NodeType};
-
 
 #[derive(Debug, Clone)]
 struct PrettyShared<'a> {
@@ -117,10 +113,11 @@ pub fn pretty(graph: &Graph, roots: &[Link<NodeType>]) -> String {
     result
 }
 
+#[allow(unused_variables)]
 fn pretty_rec(link: Link<NodeType>, ctx: &mut PrettyCtx, result: &mut String) {
     
     todo!();
-    
+
     /*match link.borrow().clone() {
         NodeType::RootNode(root_node) => {
             match root_node {

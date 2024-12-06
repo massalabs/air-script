@@ -1,6 +1,6 @@
 extern crate proc_macro;
 use quote::{format_ident, quote};
-use syn::{DeriveInput, Token};
+use syn::DeriveInput;
 
 pub fn impl_isleaf(input: &DeriveInput) -> proc_macro2::TokenStream {
     let ty = &input.ident;

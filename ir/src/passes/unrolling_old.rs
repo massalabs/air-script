@@ -4,9 +4,9 @@ use air_parser::ast::Boundary;
 use air_pass::Pass;
 //use miden_diagnostics::DiagnosticsHandler;
 
-use crate::{ir2::*, CompileError};
+use crate::{CompileError, ConstantValue, FoldOperator, MirOld, MirGraph, MirType, MirValue, NodeIndex, Operation, SpannedMirValue, SpannedVariable, TraceAccess};
 
-use super::{Visit, VisitContext, VisitOrder};
+use super::{VisitOld, VisitContextOld, VisitOrderOld};
 
 //pub struct Unrolling<'a> {
 //     #[allow(unused)]
@@ -15,32 +15,32 @@ use super::{Visit, VisitContext, VisitOrder};
 
 #[derive(Clone, Default)]
 pub struct ForInliningContext {
-    body_index: Link<NodeType>,
-    iterators: Vec<Link<NodeType>>,
-    selector: Option<Link<NodeType>>,
+    body_index: NodeIndex,
+    iterators: Vec<NodeIndex>,
+    selector: Option<NodeIndex>,
     index: usize,
-    parent_for: Link<NodeType>,
+    parent_for: NodeIndex,
 }
 
 impl ForInliningContext {}
 
-pub struct Unrolling {
+pub struct UnrollingOld {
     // general context
-    work_stack: Vec<Link<NodeType>>,
+    work_stack: Vec<NodeIndex>,
     during_first_pass: bool,
 
     // context for both passes
-    bodies_to_inline: HashMap<Link<NodeType>, ForInliningContext>,
+    bodies_to_inline: HashMap<NodeIndex, ForInliningContext>,
 
     // context for second pass
     for_inlining_context: ForInliningContext,
-    nodes_to_replace: HashMap<Link<NodeType>, Link<NodeType>>,
+    nodes_to_replace: HashMap<NodeIndex, NodeIndex>,
 }
 
 //impl<'p> Pass for Unrolling<'p> {}
-impl Pass for Unrolling {
-    type Input<'a> = Mir;
-    type Output<'a> = Mir;
+impl Pass for UnrollingOld {
+    type Input<'a> = MirOld;
+    type Output<'a> = MirOld;
     type Error = CompileError;
 
     fn run<'a>(&mut self, mut ir: Self::Input<'a>) -> Result<Self::Output<'a>, Self::Error> {
@@ -51,16 +51,16 @@ impl Pass for Unrolling {
     }
 }
 
-impl Visit for Unrolling {
+impl VisitOld for UnrollingOld {
 
     fn run(&mut self, graph: &mut Self::Graph) {
 
         // First pass, unroll all nodes fully, except for For nodes
         self.during_first_pass = true;
         match self.visit_order() {
-            VisitOrder::Manual => self.visit_manual(graph),
-            VisitOrder::PostOrder => self.visit_postorder(graph),
-            VisitOrder::DepthFirst => self.visit_depthfirst(graph),
+            VisitOrderOld::Manual => self.visit_manual(graph),
+            VisitOrderOld::PostOrder => self.visit_postorder(graph),
+            VisitOrderOld::DepthFirst => self.visit_depthfirst(graph),
         }
         while let Some(node_index) = self.next_node() {
             self.visit(graph, node_index);
@@ -69,9 +69,9 @@ impl Visit for Unrolling {
         // Second pass, inline For nodes
         self.during_first_pass = false;
         match self.visit_order() {
-            VisitOrder::Manual => self.visit_manual(graph),
-            VisitOrder::PostOrder => self.visit_postorder(graph),
-            VisitOrder::DepthFirst => self.visit_depthfirst(graph),
+            VisitOrderOld::Manual => self.visit_manual(graph),
+            VisitOrderOld::PostOrder => self.visit_postorder(graph),
+            VisitOrderOld::DepthFirst => self.visit_depthfirst(graph),
         }
         while let Some(node_index) = self.next_node() {
             self.visit(graph, node_index);
@@ -86,7 +86,7 @@ impl Visit for Unrolling {
 //         Self {}
 //     }
 // }
-impl Unrolling {
+impl UnrollingOld {
     pub fn new() -> Self {
         Self { 
             work_stack: vec![],
@@ -100,8 +100,8 @@ impl Unrolling {
     // 1. Understand the basics of the previous inlining process
     // 2. Remove what is done during lowering from AST to MIR (unroll, ...)
     // 3. Check how it translates to the MIR structure
-    fn run_visitor(&mut self, ir: &mut Graph) -> ControlFlow<()> {
-        Visit::run(self, ir);
+    fn run_visitor(&mut self, ir: &mut MirGraph) -> ControlFlow<()> {
+        VisitOld::run(self, ir);
         ControlFlow::Continue(())
     }
 }
@@ -112,8 +112,8 @@ enum BinaryOp {
     Mul,
 }
 
-impl Unrolling {
-    fn visit_value(&mut self, graph: &mut Graph, node_index: Link<NodeType>, spanned_mir_value: SpannedMirValue) {
+impl UnrollingOld {
+    fn visit_value(&mut self, graph: &mut MirGraph, node_index: NodeIndex, spanned_mir_value: SpannedMirValue) {
 
         match spanned_mir_value.value {
             MirValue::Constant(c) => match c {
@@ -209,7 +209,7 @@ impl Unrolling {
         }
     }
 
-    fn visit_binary_op(&mut self, graph: &mut Graph, node_index: Link<NodeType>, lhs: Link<NodeType>, rhs: Link<NodeType>, binary_op: BinaryOp) {
+    fn visit_binary_op(&mut self, graph: &mut MirGraph, node_index: NodeIndex, lhs: NodeIndex, rhs: NodeIndex, binary_op: BinaryOp) {
         let lhs_op = graph.node(&lhs).op().clone();
         let rhs_op = graph.node(&rhs).op().clone();
 
@@ -237,7 +237,7 @@ impl Unrolling {
         }
     }
 
-    fn visit_enf(&mut self, graph: &mut Graph, node_index: Link<NodeType>, child_node_index: Link<NodeType>) {
+    fn visit_enf(&mut self, graph: &mut MirGraph, node_index: NodeIndex, child_node_index: NodeIndex) {
         let child_op = graph.node(&child_node_index).op().clone();
 
         match child_op {
@@ -256,7 +256,7 @@ impl Unrolling {
         }
     }
 
-    fn visit_fold(&mut self, graph: &mut Graph, node_index: Link<NodeType>, iterator: Link<NodeType>, fold_operator: FoldOperator, accumulator: Link<NodeType>) {
+    fn visit_fold(&mut self, graph: &mut MirGraph, node_index: NodeIndex, iterator: NodeIndex, fold_operator: FoldOperator, accumulator: NodeIndex) {
         // We need to expand this Fold into a nested sequence of binary expressions (add or mul depending on fold_operator)
 
         let iterator = graph.node(&iterator).op().clone();
@@ -288,7 +288,7 @@ impl Unrolling {
         graph.update_node(&node_index, graph.node(&acc_node_index).op().clone());
     }
 
-    fn visit_variable(&mut self, _graph: &mut Graph, _node_index: Link<NodeType>, spanned_variable: SpannedVariable) {
+    fn visit_variable(&mut self, _graph: &mut MirGraph, _node_index: NodeIndex, spanned_variable: SpannedVariable) {
         // Just check that the variable is a scalar, raise diag otherwise
         // List comprehension bodies should only be scalar expressions
         match spanned_variable.ty {
@@ -299,7 +299,7 @@ impl Unrolling {
         }
     }
 
-    fn visit_if(&mut self, graph: &mut Graph, node_index: Link<NodeType>, cond_node_index: Link<NodeType>, then_node_index: Link<NodeType>, else_node_index: Link<NodeType>) {
+    fn visit_if(&mut self, graph: &mut MirGraph, node_index: NodeIndex, cond_node_index: NodeIndex, then_node_index: NodeIndex, else_node_index: NodeIndex) {
         let cond_op = graph.node(&cond_node_index).op().clone();
         let then_op = graph.node(&then_node_index).op().clone();
         let else_op = graph.node(&else_node_index).op().clone();
@@ -332,7 +332,7 @@ impl Unrolling {
         }
     }
 
-    fn visit_boundary(&mut self, graph: &mut Graph, node_index: Link<NodeType>, boundary: Boundary, child_node_index: Link<NodeType>) {
+    fn visit_boundary(&mut self, graph: &mut MirGraph, node_index: NodeIndex, boundary: Boundary, child_node_index: NodeIndex) {
         let child_op = graph.node(&child_node_index).op().clone();
 
         match child_op {
@@ -351,7 +351,7 @@ impl Unrolling {
         }
     }
 
-    fn visit_for(&mut self, graph: &mut Graph, node_index: Link<NodeType>, iterators: Vec<Link<NodeType>>, body: Link<NodeType>, selector: Option<Link<NodeType>>) {
+    fn visit_for(&mut self, graph: &mut MirGraph, node_index: NodeIndex, iterators: Vec<NodeIndex>, body: NodeIndex, selector: Option<NodeIndex>) {
         
         // For each value produced by the iterators, we need to:
         // - Duplicate the body
@@ -406,7 +406,7 @@ impl Unrolling {
         graph.update_node(&node_index, Operation::Vector(new_vec));
     }
 
-    fn visit_first_pass(&mut self, graph: &mut Graph, node_index: Link<NodeType>) {
+    fn visit_first_pass(&mut self, graph: &mut MirGraph, node_index: NodeIndex) {
         let op = graph.node(&node_index).op().clone();
         match op {
             Operation::Value(spanned_mir_value) => {
@@ -459,7 +459,7 @@ impl Unrolling {
         }
     }
 
-    fn visit_second_pass(&mut self, graph: &mut Graph, node_index: Link<NodeType>) {
+    fn visit_second_pass(&mut self, graph: &mut MirGraph, node_index: NodeIndex) {
         if self.bodies_to_inline.contains_key(&node_index) {
             // A new body to inline, we should replace the op with the corresponding iteration in the body
             self.for_inlining_context = self.bodies_to_inline.get(&node_index).unwrap().clone();
@@ -571,8 +571,8 @@ impl Unrolling {
     }
 }
 
-impl VisitContext for Unrolling {
-    fn visit(&mut self, graph: &mut Graph, node_index: Link<NodeType>) {
+impl VisitContextOld for UnrollingOld {
+    fn visit(&mut self, graph: &mut MirGraph, node_index: NodeIndex) {
         if self.during_first_pass {
             self.visit_first_pass(graph, node_index);
         } else {
@@ -580,29 +580,29 @@ impl VisitContext for Unrolling {
         }
     }
 
-    fn as_stack_mut(&mut self) -> &mut Vec<Link<NodeType>> {
+    fn as_stack_mut(&mut self) -> &mut Vec<NodeIndex> {
         &mut self.work_stack
     }
     
-    type Graph = Graph;
+    type Graph = MirGraph;
     
-    fn boundary_roots(&self, graph: &Self::Graph) -> Link<Vec<Link<NodeType>>> {
+    fn boundary_roots(&self, graph: &Self::Graph) -> HashSet<NodeIndex> {
         if self.during_first_pass {
             return graph.boundary_constraints_roots.clone();
         } else {
             return self.bodies_to_inline.keys().cloned().collect();
         }
     }
-
-    fn integrity_roots(&self, graph: &Self::Graph) -> Link<Vec<Link<NodeType>>> {
+    
+    fn integrity_roots(&self, graph: &Self::Graph) -> HashSet<NodeIndex> {
         return graph.integrity_constraints_roots.clone()
     }
     
-    fn visit_order(&self) -> super::VisitOrder {
+    fn visit_order(&self) -> super::VisitOrderOld {
         if self.during_first_pass {
-            return super::VisitOrder::PostOrder;
+            return super::VisitOrderOld::PostOrder;
         } else {
-            return super::VisitOrder::PostOrder;
+            return super::VisitOrderOld::PostOrder;
         }
     }
 }
