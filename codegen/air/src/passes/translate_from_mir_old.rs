@@ -1,7 +1,7 @@
-use air_parser::{ast::{self, TraceSegment}, LexicalScope};
+use air_parser::ast::TraceSegment;
 use air_pass::Pass;
 
-use miden_diagnostics::{DiagnosticsHandler, Severity, SourceSpan, Span, Spanned};
+use miden_diagnostics::{DiagnosticsHandler, Severity, SourceSpan};
 use mir::{MirOld, SpannedMirValue};
 
 use crate::{graph::NodeIndex, ir::*, CompileError};
@@ -49,16 +49,6 @@ impl<'p> Pass for MirToAirOld<'p> {
 
         Ok(air)
     }
-}
-
-#[derive(Debug, Clone)]
-enum MemoizedBinding {
-    /// The binding was reduced to a node in the graph
-    Scalar(NodeIndex),
-    /// The binding represents a vector of nodes in the graph
-    Vector(Vec<NodeIndex>),
-    /// The binding represents a matrix of nodes in the graph
-    Matrix(Vec<Vec<NodeIndex>>),
 }
 
 struct AirBuilder<'a> {

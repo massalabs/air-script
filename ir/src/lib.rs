@@ -1,7 +1,7 @@
 mod codegen;
 mod graph;
 mod ir;
-mod ir2;
+pub mod ir2;
 pub mod passes;
 #[cfg(test)]
 mod tests;
@@ -9,6 +9,7 @@ mod tests;
 pub use self::codegen::CodeGenerator;
 pub use self::graph::{MirGraph, Node, NodeIndex};
 pub use self::ir::*;
+//pub use self::ir2::{Mir, Link, NodeType, LeafNode, MiddleNode, Graph, MirValue};
 
 use miden_diagnostics::{Diagnostic, ToDiagnostic};
 

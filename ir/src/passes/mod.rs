@@ -14,11 +14,11 @@ pub use self::visitor_old::{Graph, VisitOld, VisitContextOld, VisitOrderOld};
 
 //mod inlining;
 mod translate;
-mod unrolling;
+//mod unrolling;
 mod visitor;
 //pub use self::inlining::Inlining;
 pub use self::translate::AstToMir;
-pub use self::unrolling::Unrolling;
+//pub use self::unrolling::Unrolling;
 pub use self::visitor::{Visit, VisitContext, VisitOrder};
 
 use air_pass::Pass;
