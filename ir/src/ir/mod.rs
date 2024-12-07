@@ -51,7 +51,7 @@ pub struct MirOld {
     pub name: Identifier,
 
     pub trace_columns: Vec<TraceSegment>,
-    
+
     /// The periodic columns referenced by this program.
     ///
     /// These are taken straight from the [air_parser::ast::Program] without modification.

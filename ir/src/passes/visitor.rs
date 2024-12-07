@@ -6,8 +6,7 @@ pub enum VisitOrder {
     PostOrder,
 }
 pub trait VisitDefault {}
-pub trait VisitContext
-{
+pub trait VisitContext {
     type Graph;
     fn visit(&mut self, graph: &mut Self::Graph, link: Link<NodeType>);
     fn as_stack_mut(&mut self) -> &mut Vec<Link<NodeType>>;
@@ -27,17 +26,29 @@ pub trait Visit: VisitContext {
         }
     }
     fn visit_manual(&mut self, graph: &mut Self::Graph) {
-        for root_index in self.boundary_roots(graph).borrow().iter().chain(self.integrity_roots(graph).borrow().iter()) {
+        for root_index in self
+            .boundary_roots(graph)
+            .borrow()
+            .iter()
+            .chain(self.integrity_roots(graph).borrow().iter())
+        {
             self.visit(graph, root_index.clone());
         }
     }
     fn visit_postorder(&mut self, graph: &mut Self::Graph) {
-        for root_index in self.boundary_roots(graph).borrow().iter().chain(self.integrity_roots(graph).borrow().iter()) {
+        for root_index in self
+            .boundary_roots(graph)
+            .borrow()
+            .iter()
+            .chain(self.integrity_roots(graph).borrow().iter())
+        {
             self.visit_later(root_index.clone());
             let mut last: Option<Link<NodeType>> = None;
             while let Some(link) = self.peek() {
                 let children = link.get_children();
-                if children.borrow().is_empty() || last.is_some() && children.borrow().contains(&last.clone().unwrap()) {
+                if children.borrow().is_empty()
+                    || last.is_some() && children.borrow().contains(&last.clone().unwrap())
+                {
                     self.visit(graph, link.clone());
                     self.next_node();
                     last = Some(link.clone());
@@ -50,7 +61,12 @@ pub trait Visit: VisitContext {
         }
     }
     fn visit_depthfirst(&mut self, graph: &mut Self::Graph) {
-        for root_index in self.boundary_roots(graph).borrow().iter().chain(self.integrity_roots(graph).borrow().iter()) {
+        for root_index in self
+            .boundary_roots(graph)
+            .borrow()
+            .iter()
+            .chain(self.integrity_roots(graph).borrow().iter())
+        {
             self.visit_later(root_index.clone());
             while let Some(link) = self.next_node() {
                 let children = link.get_children();
@@ -72,8 +88,4 @@ pub trait Visit: VisitContext {
     }
 }
 
-impl<T> Visit for T
-where
-    T: VisitContext + VisitDefault,
-{
-}
+impl<T> Visit for T where T: VisitContext + VisitDefault {}

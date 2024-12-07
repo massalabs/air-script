@@ -10,7 +10,7 @@ mod visitor_old;
 pub use self::inlining_old::InliningOld;
 pub use self::translate_old::AstToMirOld;
 pub use self::unrolling_old::UnrollingOld;
-pub use self::visitor_old::{Graph, VisitOld, VisitContextOld, VisitOrderOld};
+pub use self::visitor_old::{Graph, VisitContextOld, VisitOld, VisitOrderOld};
 
 //mod inlining;
 mod translate;

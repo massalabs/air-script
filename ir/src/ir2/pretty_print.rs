@@ -1,5 +1,5 @@
-use std::{cell::RefCell, rc::Rc};
 use super::{Graph, Link, NodeType};
+use std::{cell::RefCell, rc::Rc};
 
 #[derive(Debug, Clone)]
 struct PrettyShared<'a> {
@@ -115,7 +115,6 @@ pub fn pretty(graph: &Graph, roots: &[Link<NodeType>]) -> String {
 
 #[allow(unused_variables)]
 fn pretty_rec(link: Link<NodeType>, ctx: &mut PrettyCtx, result: &mut String) {
-    
     todo!();
 
     /*match link.borrow().clone() {
@@ -129,7 +128,7 @@ fn pretty_rec(link: Link<NodeType>, ctx: &mut PrettyCtx, result: &mut String) {
                 super::LeafNode::Value(leaf) => todo!(),
                 super::LeafNode::Parameter(leaf) => todo!(),
             }
-            
+
         },
         NodeType::MiddleNode(middle_node) => {
             match middle_node {
@@ -190,14 +189,13 @@ fn pretty_rec(link: Link<NodeType>, ctx: &mut PrettyCtx, result: &mut String) {
         },
     }*/
 
-
     /*match link.borrow() {
 
     }*/
 
     /*match op {
         Operation::Definition(args_idx, ret_idx, body_idx) => {
-            
+
         }
         Operation::Value(spanned_val) => {
             let val = &spanned_val.value;

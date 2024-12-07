@@ -64,7 +64,8 @@ impl SpannedVariable {
 
 #[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub enum FoldOperator {
-    #[default] Add,
+    #[default]
+    Add,
     Mul,
 }
 

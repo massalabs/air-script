@@ -88,9 +88,9 @@ impl Compiler {
             .map_err(CompileError::Parse)
             .and_then(|ast| {
                 /*let mut pipeline =
-                    air_parser::transforms::ConstantPropagation::new(&self.diagnostics)
-                        .chain(air_parser::transforms::Inlining::new(&self.diagnostics))
-                        .chain(crate::passes::AstToAir::new(&self.diagnostics));*/
+                air_parser::transforms::ConstantPropagation::new(&self.diagnostics)
+                    .chain(air_parser::transforms::Inlining::new(&self.diagnostics))
+                    .chain(crate::passes::AstToAir::new(&self.diagnostics));*/
                 let mut pipeline =
                     air_parser::transforms::ConstantPropagation::new(&self.diagnostics)
                         .chain(mir::passes::AstToMirOld::new(&self.diagnostics))

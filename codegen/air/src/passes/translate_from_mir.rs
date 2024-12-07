@@ -4,7 +4,9 @@ use air_parser::ast::TraceSegment;
 use air_pass::Pass;
 
 use miden_diagnostics::{DiagnosticsHandler, Severity, SourceSpan};
-use mir::ir2::{ConstantValue, IsParent, LeafNode, Link, MiddleNode, Mir, MirValue, NodeType, SpannedMirValue};
+use mir::ir2::{
+    ConstantValue, IsParent, LeafNode, Link, MiddleNode, Mir, MirValue, NodeType, SpannedMirValue,
+};
 
 use crate::{graph::NodeIndex, ir::*, CompileError};
 
@@ -28,7 +30,7 @@ impl<'p> Pass for MirToAir<'p> {
         //TODO: Implement MIR > AIR lowering
 
         air.trace_segment_widths = mir.trace_columns.iter().map(|ts| ts.size as u16).collect();
-        air.num_random_values =  mir.num_random_values;
+        air.num_random_values = mir.num_random_values;
         air.periodic_columns = mir.periodic_columns.clone();
         air.public_inputs = mir.public_inputs.clone();
 
@@ -64,88 +66,71 @@ impl<'a> AirBuilder<'a> {
     fn insert_mir_operation(&mut self, mir_node: &Link<NodeType>) -> NodeIndex {
         match mir_node.borrow().deref() {
             NodeType::RootNode(_root_node) => unreachable!(),
-            NodeType::LeafNode(leaf_node) => {
-                match leaf_node {
-                    LeafNode::Value(leaf) => {
-                        let mir_value = &leaf.data.value;
+            NodeType::LeafNode(leaf_node) => match leaf_node {
+                LeafNode::Value(leaf) => {
+                    let mir_value = &leaf.data.value;
 
-                        let value = match mir_value {
-                            MirValue::Constant(constant_value) => {
-                                if let ConstantValue::Felt(felt) = constant_value {
-                                    Value::Constant(*felt)
-                                } else {
-                                    unreachable!()
-                                }
-                            },
-                            MirValue::TraceAccess(trace_access) => {
-                                Value::TraceAccess(
-                                    TraceAccess { 
-                                        segment: trace_access.segment,
-                                        column: trace_access.column,
-                                        row_offset: trace_access.row_offset
-                                    }
-                                )
-                            },
-                            MirValue::PeriodicColumn(periodic_column_access) => {
-                                Value::PeriodicColumn(
-                                    PeriodicColumnAccess {
-                                        name: periodic_column_access.name.clone(),
-                                        cycle: periodic_column_access.cycle
-                                    }
-                                )
-                            },
-                            MirValue::PublicInput(public_input_access) => {
-                                Value::PublicInput(
-                                    PublicInputAccess {
-                                        name: public_input_access.name.clone(),
-                                        index: public_input_access.index
-                                    }
-                                )
-                            },
-                            MirValue::RandomValue(rv) => {
-                                Value::RandomValue(*rv)
-                            },
-                            _ => unreachable!(),
-                        };
+                    let value = match mir_value {
+                        MirValue::Constant(constant_value) => {
+                            if let ConstantValue::Felt(felt) = constant_value {
+                                Value::Constant(*felt)
+                            } else {
+                                unreachable!()
+                            }
+                        }
+                        MirValue::TraceAccess(trace_access) => Value::TraceAccess(TraceAccess {
+                            segment: trace_access.segment,
+                            column: trace_access.column,
+                            row_offset: trace_access.row_offset,
+                        }),
+                        MirValue::PeriodicColumn(periodic_column_access) => {
+                            Value::PeriodicColumn(PeriodicColumnAccess {
+                                name: periodic_column_access.name.clone(),
+                                cycle: periodic_column_access.cycle,
+                            })
+                        }
+                        MirValue::PublicInput(public_input_access) => {
+                            Value::PublicInput(PublicInputAccess {
+                                name: public_input_access.name.clone(),
+                                index: public_input_access.index,
+                            })
+                        }
+                        MirValue::RandomValue(rv) => Value::RandomValue(*rv),
+                        _ => unreachable!(),
+                    };
 
-                        return self.insert_op(Operation::Value(value));
-                    },
-                    LeafNode::Parameter(_leaf) => unreachable!(),
+                    return self.insert_op(Operation::Value(value));
                 }
+                LeafNode::Parameter(_leaf) => unreachable!(),
             },
-            NodeType::MiddleNode(middle_node) => {
-                match middle_node {
-                    MiddleNode::Add(add) => {
-                        let lhs = add.lhs();
-                        let rhs = add.rhs();
-                        let lhs_node_index = self.insert_mir_operation(&lhs);
-                        let rhs_node_index = self.insert_mir_operation(&rhs);
-                        return self.insert_op(Operation::Add(lhs_node_index, rhs_node_index));
-                        
-                    },
-                    MiddleNode::Sub(sub) => {
-                        let lhs = sub.lhs();
-                        let rhs = sub.rhs();
-                        let lhs_node_index = self.insert_mir_operation(&lhs);
-                        let rhs_node_index = self.insert_mir_operation(&rhs);
-                        return self.insert_op(Operation::Sub(lhs_node_index, rhs_node_index));
-                        
-                    },
-                    MiddleNode::Mul(mul) => {
-                        let lhs = mul.lhs();
-                        let rhs = mul.rhs();
-                        let lhs_node_index = self.insert_mir_operation(&lhs);
-                        let rhs_node_index = self.insert_mir_operation(&rhs);
-                        return self.insert_op(Operation::Mul(lhs_node_index, rhs_node_index));
-                    },
-                    _ => unreachable!(),
+            NodeType::MiddleNode(middle_node) => match middle_node {
+                MiddleNode::Add(add) => {
+                    let lhs = add.lhs();
+                    let rhs = add.rhs();
+                    let lhs_node_index = self.insert_mir_operation(&lhs);
+                    let rhs_node_index = self.insert_mir_operation(&rhs);
+                    return self.insert_op(Operation::Add(lhs_node_index, rhs_node_index));
                 }
+                MiddleNode::Sub(sub) => {
+                    let lhs = sub.lhs();
+                    let rhs = sub.rhs();
+                    let lhs_node_index = self.insert_mir_operation(&lhs);
+                    let rhs_node_index = self.insert_mir_operation(&rhs);
+                    return self.insert_op(Operation::Sub(lhs_node_index, rhs_node_index));
+                }
+                MiddleNode::Mul(mul) => {
+                    let lhs = mul.lhs();
+                    let rhs = mul.rhs();
+                    let lhs_node_index = self.insert_mir_operation(&lhs);
+                    let rhs_node_index = self.insert_mir_operation(&rhs);
+                    return self.insert_op(Operation::Mul(lhs_node_index, rhs_node_index));
+                }
+                _ => unreachable!(),
             },
         }
     }
 
     fn build_boundary_constraint(&mut self, bc: &Link<NodeType>) -> Result<(), CompileError> {
-
         match bc.borrow().deref() {
             NodeType::RootNode(_root_node) => unreachable!(),
             NodeType::LeafNode(_leaf_node) => unreachable!(),
@@ -157,7 +142,7 @@ impl<'a> AirBuilder<'a> {
                             self.build_boundary_constraint(node)?;
                         }
                         return Ok(());
-                    },
+                    }
                     mir::ir2::MiddleNode::Matrix(matrix) => {
                         let rows = matrix.get_children().borrow().deref().clone();
                         for row in rows.iter() {
@@ -167,11 +152,13 @@ impl<'a> AirBuilder<'a> {
                             }
                         }
                         return Ok(());
-                    },
+                    }
                     mir::ir2::MiddleNode::Enf(enf) => {
                         let child_op = enf.expr();
 
-                        let NodeType::MiddleNode(MiddleNode::Sub(sub)) = child_op.borrow().deref().clone() else {
+                        let NodeType::MiddleNode(MiddleNode::Sub(sub)) =
+                            child_op.borrow().deref().clone()
+                        else {
                             unreachable!(); // Raise diag
                         };
                         let lhs = sub.lhs();
@@ -179,25 +166,28 @@ impl<'a> AirBuilder<'a> {
 
                         // Check that lhs is a Bounded trace access
                         // TODO: Put in a helper function
-                        let NodeType::MiddleNode(MiddleNode::Boundary(boundary)) = lhs.borrow().deref().clone() else {
+                        let NodeType::MiddleNode(MiddleNode::Boundary(boundary)) =
+                            lhs.borrow().deref().clone()
+                        else {
                             unreachable!(); // Raise diag
                         };
                         let expected_trace_access_expr = boundary.expr();
-                        let NodeType::LeafNode(LeafNode::Value(leaf)) = expected_trace_access_expr.borrow().deref().clone() else {
+                        let NodeType::LeafNode(LeafNode::Value(leaf)) =
+                            expected_trace_access_expr.borrow().deref().clone()
+                        else {
                             unreachable!(); // Raise diag
                         };
                         let SpannedMirValue {
                             value: MirValue::TraceAccess(trace_access),
                             span: lhs_span,
-                        } = &leaf.data else {
+                        } = &leaf.data
+                        else {
                             unreachable!(); // Raise diag
                         };
 
-                        if let Some(prev) = self.trace_columns[trace_access.segment].mark_constrained(
-                            *lhs_span,
-                            trace_access.column,
-                            boundary.kind,
-                        ) {
+                        if let Some(prev) = self.trace_columns[trace_access.segment]
+                            .mark_constrained(*lhs_span, trace_access.column, boundary.kind)
+                        {
                             self.diagnostics
                                 .diagnostic(Severity::Error)
                                 .with_message("overlapping boundary constraints")
@@ -210,16 +200,17 @@ impl<'a> AirBuilder<'a> {
                             return Err(CompileError::Failed);
                         }
 
-                        let lhs = self.air.constraint_graph_mut().insert_node(Operation::Value(Value::TraceAccess(
-                            TraceAccess {
+                        let lhs = self
+                            .air
+                            .constraint_graph_mut()
+                            .insert_node(Operation::Value(Value::TraceAccess(TraceAccess {
                                 segment: trace_access.segment,
                                 column: trace_access.column,
                                 row_offset: trace_access.row_offset,
-                            }
-                        )));
+                            })));
                         let rhs = self.insert_mir_operation(&rhs);
 
-                        // Compare the inferred trace segment and domain of the operands                
+                        // Compare the inferred trace segment and domain of the operands
                         let domain = boundary.kind.into();
                         {
                             let graph = self.air.constraint_graph();
@@ -256,27 +247,32 @@ impl<'a> AirBuilder<'a> {
                         self.air
                             .constraints
                             .insert_constraint(trace_access.segment, root, domain);
-                        
+
                         return Ok(());
-                    },
+                    }
                     mir::ir2::MiddleNode::Sub(sub) => {
                         // Check that lhs is a Bounded trace access
                         // TODO: Put in a helper function
                         let lhs = sub.lhs();
                         let rhs = sub.rhs();
-                        
-                        let NodeType::MiddleNode(MiddleNode::Boundary(boundary)) = lhs.borrow().deref().clone() else {
+
+                        let NodeType::MiddleNode(MiddleNode::Boundary(boundary)) =
+                            lhs.borrow().deref().clone()
+                        else {
                             unreachable!(); // Raise diag
                         };
                         let expected_trace_access_expr = boundary.expr();
-                        let NodeType::LeafNode(LeafNode::Value(leaf)) = expected_trace_access_expr.borrow().deref().clone() else {
+                        let NodeType::LeafNode(LeafNode::Value(leaf)) =
+                            expected_trace_access_expr.borrow().deref().clone()
+                        else {
                             unreachable!(); // Raise diag
                         };
 
                         let SpannedMirValue {
                             value: MirValue::TraceAccess(_trace_access),
                             span: _lhs_span,
-                        } = &leaf.data else {
+                        } = &leaf.data
+                        else {
                             unreachable!(); // Raise diag
                         };
 
@@ -303,15 +299,13 @@ impl<'a> AirBuilder<'a> {
                                     row_offset: 0,
                                 };
                                 (trace_access, lhs_span)
-                            },                    
+                            }
                             _ => unreachable!("Expected TraceAccess, received {:?}", leaf.data), // Raise diag
                         };
 
-                        if let Some(prev) = self.trace_columns[trace_access.segment].mark_constrained(
-                            lhs_span,
-                            trace_access.column,
-                            boundary.kind,
-                        ) {
+                        if let Some(prev) = self.trace_columns[trace_access.segment]
+                            .mark_constrained(lhs_span, trace_access.column, boundary.kind)
+                        {
                             self.diagnostics
                                 .diagnostic(Severity::Error)
                                 .with_message("overlapping boundary constraints")
@@ -324,16 +318,17 @@ impl<'a> AirBuilder<'a> {
                             return Err(CompileError::Failed);
                         }
 
-                        let lhs = self.air.constraint_graph_mut().insert_node(Operation::Value(Value::TraceAccess(
-                            TraceAccess {
+                        let lhs = self
+                            .air
+                            .constraint_graph_mut()
+                            .insert_node(Operation::Value(Value::TraceAccess(TraceAccess {
                                 segment: trace_access.segment,
                                 column: trace_access.column,
                                 row_offset: trace_access.row_offset,
-                            }
-                        )));
+                            })));
                         let rhs = self.insert_mir_operation(&rhs);
 
-                        // Compare the inferred trace segment and domain of the operands                
+                        // Compare the inferred trace segment and domain of the operands
                         let domain = boundary.kind.into();
                         {
                             let graph = self.air.constraint_graph();
@@ -371,104 +366,103 @@ impl<'a> AirBuilder<'a> {
                             .constraints
                             .insert_constraint(trace_access.segment, root, domain);
                         return Ok(());
-                    },
+                    }
                     _ => unreachable!("{:?}", bc),
                 }
-            },
+            }
         }
     }
 
     fn build_integrity_constraint(&mut self, ic: &Link<NodeType>) -> Result<(), CompileError> {
-
         match ic.borrow().deref() {
             NodeType::RootNode(_root_node) => unreachable!(),
             NodeType::LeafNode(_leaf_node) => unreachable!(),
-            NodeType::MiddleNode(middle_node) => {
-                match middle_node {
-                    mir::ir2::MiddleNode::Vector(vector) => {
-                        let vec = vector.get_children().borrow().deref().clone();
-                        for node in vec.iter() {
+            NodeType::MiddleNode(middle_node) => match middle_node {
+                mir::ir2::MiddleNode::Vector(vector) => {
+                    let vec = vector.get_children().borrow().deref().clone();
+                    for node in vec.iter() {
+                        self.build_integrity_constraint(node)?;
+                    }
+                    return Ok(());
+                }
+                mir::ir2::MiddleNode::Matrix(matrix) => {
+                    let rows = matrix.get_children().borrow().deref().clone();
+                    for row in rows.iter() {
+                        let row = row.get_children().borrow().deref().clone();
+                        for node in row.iter() {
                             self.build_integrity_constraint(node)?;
                         }
-                        return Ok(());
-
-                    },
-                    mir::ir2::MiddleNode::Matrix(matrix) => {
-                        let rows= matrix.get_children().borrow().deref().clone();
-                        for row in rows.iter() {
-                            let row = row.get_children().borrow().deref().clone();
-                            for node in row.iter() {
-                                self.build_integrity_constraint(node)?;
-                            }
-                        }
-                        return Ok(());
-                    },
-                    mir::ir2::MiddleNode::Enf(enf) => {
-                        let child_op = enf.expr().clone();
-                        match child_op.borrow().clone() {
-                            NodeType::MiddleNode(MiddleNode::Sub(sub)) => {
-                                let lhs = sub.lhs();
-                                let rhs = sub.rhs();
-                                let lhs_node_index = self.insert_mir_operation(&lhs);
-                                let rhs_node_index = self.insert_mir_operation(&rhs);
-                                let root = self.insert_op(Operation::Sub(lhs_node_index, rhs_node_index));
-                                let (trace_segment, domain) = self
-                                    .air
-                                    .constraint_graph()
-                                    .node_details(&root, ConstraintDomain::EveryRow)?;
-                                self.air
-                                    .constraints
-                                    .insert_constraint(trace_segment, root, domain);
-                            },
-                            NodeType::MiddleNode(MiddleNode::If(if_node)) => {
-                                let cond = if_node.cond();
-                                let then_branch = if_node.then_branch();
-                                let else_branch = if_node.else_branch();
-                                let cond_node_index = self.insert_mir_operation(&cond);
-                                let then_node_index = self.insert_mir_operation(&then_branch);
-                                let else_node_index = self.insert_mir_operation(&else_branch);
-        
-                                let pos_root = self.insert_op(Operation::Mul(then_node_index, cond_node_index));
-                                let one = self.insert_op(Operation::Value(Value::Constant(1)));
-                                let neg_cond = self.insert_op(Operation::Sub(one, cond_node_index));
-                                let neg_root = self.insert_op(Operation::Mul(else_node_index, neg_cond));
-        
-                                let (trace_segment, domain) = self
-                                    .air
-                                    .constraint_graph()
-                                    .node_details(&pos_root, ConstraintDomain::EveryRow)?;
-                                self.air
-                                    .constraints
-                                    .insert_constraint(trace_segment, pos_root, domain);
-                                let (trace_segment, domain) = self
-                                    .air
-                                    .constraint_graph()
-                                    .node_details(&neg_root, ConstraintDomain::EveryRow)?;
-                                self.air
-                                    .constraints
-                                    .insert_constraint(trace_segment, neg_root, domain);
-                            }
-                            _ => unreachable!()
-                        }
-                        return Ok(());
-                    },
-                    mir::ir2::MiddleNode::Sub(sub) => {
-                        let lhs = sub.lhs();
-                        let rhs = sub.rhs();
-                        let lhs_node_index = self.insert_mir_operation(&lhs);
-                        let rhs_node_index = self.insert_mir_operation(&rhs);
-                        let root = self.insert_op(Operation::Sub(lhs_node_index, rhs_node_index));
-                        let (trace_segment, domain) = self
-                            .air
-                            .constraint_graph()
-                            .node_details(&root, ConstraintDomain::EveryRow)?;
-                        self.air
-                            .constraints
-                            .insert_constraint(trace_segment, root, domain);
                     }
-                    _ => unreachable!(),
+                    return Ok(());
                 }
-            }
+                mir::ir2::MiddleNode::Enf(enf) => {
+                    let child_op = enf.expr().clone();
+                    match child_op.borrow().clone() {
+                        NodeType::MiddleNode(MiddleNode::Sub(sub)) => {
+                            let lhs = sub.lhs();
+                            let rhs = sub.rhs();
+                            let lhs_node_index = self.insert_mir_operation(&lhs);
+                            let rhs_node_index = self.insert_mir_operation(&rhs);
+                            let root =
+                                self.insert_op(Operation::Sub(lhs_node_index, rhs_node_index));
+                            let (trace_segment, domain) = self
+                                .air
+                                .constraint_graph()
+                                .node_details(&root, ConstraintDomain::EveryRow)?;
+                            self.air
+                                .constraints
+                                .insert_constraint(trace_segment, root, domain);
+                        }
+                        NodeType::MiddleNode(MiddleNode::If(if_node)) => {
+                            let cond = if_node.cond();
+                            let then_branch = if_node.then_branch();
+                            let else_branch = if_node.else_branch();
+                            let cond_node_index = self.insert_mir_operation(&cond);
+                            let then_node_index = self.insert_mir_operation(&then_branch);
+                            let else_node_index = self.insert_mir_operation(&else_branch);
+
+                            let pos_root =
+                                self.insert_op(Operation::Mul(then_node_index, cond_node_index));
+                            let one = self.insert_op(Operation::Value(Value::Constant(1)));
+                            let neg_cond = self.insert_op(Operation::Sub(one, cond_node_index));
+                            let neg_root =
+                                self.insert_op(Operation::Mul(else_node_index, neg_cond));
+
+                            let (trace_segment, domain) = self
+                                .air
+                                .constraint_graph()
+                                .node_details(&pos_root, ConstraintDomain::EveryRow)?;
+                            self.air
+                                .constraints
+                                .insert_constraint(trace_segment, pos_root, domain);
+                            let (trace_segment, domain) = self
+                                .air
+                                .constraint_graph()
+                                .node_details(&neg_root, ConstraintDomain::EveryRow)?;
+                            self.air
+                                .constraints
+                                .insert_constraint(trace_segment, neg_root, domain);
+                        }
+                        _ => unreachable!(),
+                    }
+                    return Ok(());
+                }
+                mir::ir2::MiddleNode::Sub(sub) => {
+                    let lhs = sub.lhs();
+                    let rhs = sub.rhs();
+                    let lhs_node_index = self.insert_mir_operation(&lhs);
+                    let rhs_node_index = self.insert_mir_operation(&rhs);
+                    let root = self.insert_op(Operation::Sub(lhs_node_index, rhs_node_index));
+                    let (trace_segment, domain) = self
+                        .air
+                        .constraint_graph()
+                        .node_details(&root, ConstraintDomain::EveryRow)?;
+                    self.air
+                        .constraints
+                        .insert_constraint(trace_segment, root, domain);
+                }
+                _ => unreachable!(),
+            },
         }
 
         Ok(())

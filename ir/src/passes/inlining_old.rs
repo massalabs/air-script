@@ -3,9 +3,9 @@ use std::collections::{BTreeMap, HashSet};
 use air_pass::Pass;
 //use miden_diagnostics::DiagnosticsHandler;
 
-use crate::{CompileError, MirOld, MirGraph, NodeIndex, Operation};
+use crate::{CompileError, MirGraph, MirOld, NodeIndex, Operation};
 
-use super::{visitor_old::VisitDefaultOld, VisitOld, VisitContextOld, VisitOrderOld};
+use super::{visitor_old::VisitDefaultOld, VisitContextOld, VisitOld, VisitOrderOld};
 
 //pub struct Inlining<'a> {
 //     #[allow(unused)]

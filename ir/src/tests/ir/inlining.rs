@@ -3,8 +3,8 @@ mod tests {
     use crate::graph::pretty;
     use crate::passes::InliningOld;
     use crate::ConstantValue;
-    use crate::MirOld;
     use crate::MirGraph;
+    use crate::MirOld;
     use crate::MirType;
     use crate::MirValue;
     use crate::Node;
@@ -126,6 +126,9 @@ mod tests {
         let result = inliner.run(mir_original).unwrap();
         println!("=========================================");
         println!("INLINED raw:\n{:?}", result);
-        println!("INLINED:\n{}", pretty(&result.constraint_graph(), &[double, main]));
+        println!(
+            "INLINED:\n{}",
+            pretty(&result.constraint_graph(), &[double, main])
+        );
     }
 }

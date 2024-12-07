@@ -36,12 +36,20 @@ pub trait VisitOld: VisitContextOld {
         }
     }
     fn visit_manual(&mut self, graph: &mut Self::Graph) {
-        for root_index in self.boundary_roots(graph).iter().chain(self.integrity_roots(graph).iter()) {
+        for root_index in self
+            .boundary_roots(graph)
+            .iter()
+            .chain(self.integrity_roots(graph).iter())
+        {
             self.visit(graph, *root_index);
         }
     }
     fn visit_postorder(&mut self, graph: &mut Self::Graph) {
-        for root_index in self.boundary_roots(graph).iter().chain(self.integrity_roots(graph).iter()) {
+        for root_index in self
+            .boundary_roots(graph)
+            .iter()
+            .chain(self.integrity_roots(graph).iter())
+        {
             self.visit_later(*root_index);
             let mut last: Option<NodeIndex> = None;
             while let Some(node_index) = self.peek() {
@@ -60,7 +68,11 @@ pub trait VisitOld: VisitContextOld {
         }
     }
     fn visit_depthfirst(&mut self, graph: &mut Self::Graph) {
-        for root_index in self.boundary_roots(graph).iter().chain(self.integrity_roots(graph).iter()) {
+        for root_index in self
+            .boundary_roots(graph)
+            .iter()
+            .chain(self.integrity_roots(graph).iter())
+        {
             self.visit_later(*root_index);
             while let Some(node_index) = self.next_node() {
                 let node = graph.node(&node_index);

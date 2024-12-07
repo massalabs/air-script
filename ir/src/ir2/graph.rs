@@ -194,12 +194,23 @@ impl Graph {
         self.functions.get(ident)
     }
 
+    pub fn get_function_mut(&mut self, ident: &QualifiedIdentifier) -> Option<&mut Link<NodeType>> {
+        self.functions.get_mut(ident)
+    }
+
     pub fn insert_evaluator(&mut self, ident: QualifiedIdentifier, node: Link<NodeType>) {
         self.evaluators.insert(ident, node);
     }
 
     pub fn get_evaluator(&self, ident: &QualifiedIdentifier) -> Option<&Link<NodeType>> {
         self.evaluators.get(ident)
+    }
+
+    pub fn get_evaluator_mut(
+        &mut self,
+        ident: &QualifiedIdentifier,
+    ) -> Option<&mut Link<NodeType>> {
+        self.evaluators.get_mut(ident)
     }
 
     pub fn insert_boundary_constraints_root(&mut self, root: Link<NodeType>) {

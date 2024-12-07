@@ -68,7 +68,6 @@ pub struct SpannedMirValue {
     pub value: MirValue,
 }
 
-
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum MirType {
     Felt,
@@ -86,7 +85,6 @@ impl From<ast::Type> for MirType {
         }
     }
 }
-
 
 /// Represents an access of a [PeriodicColumn], similar in nature to [TraceAccess]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]

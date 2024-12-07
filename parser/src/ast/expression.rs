@@ -795,7 +795,8 @@ impl fmt::Display for BinaryOp {
 /// Describes the type of boundary in the boundary constraint.
 #[derive(Debug, Copy, Clone, PartialEq, Default, Eq)]
 pub enum Boundary {
-    #[default] First,
+    #[default]
+    First,
     Last,
 }
 impl fmt::Display for Boundary {

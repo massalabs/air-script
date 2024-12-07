@@ -20,20 +20,20 @@ fn impl_isnode_struct(
     let fields: Vec<&syn::Field> = struct_data.fields.iter().collect();
     let (node_field_name, field_names) = extract_field_names(&fields);
     /*let extra_fields = fields
-        .iter()
-        .filter_map(|field| {
-            if field.ident == Some(node_field_name.clone()) {
-                None
-            } else {
-                Some(*field)
-            }
-        })
-        .collect::<Vec<_>>();*/
+    .iter()
+    .filter_map(|field| {
+        if field.ident == Some(node_field_name.clone()) {
+            None
+        } else {
+            Some(*field)
+        }
+    })
+    .collect::<Vec<_>>();*/
     //let new_signature = make_new_signature(&field_names, &extra_fields);
     /*let extra_field_names = extra_fields
-        .iter()
-        .map(|field| field.ident.clone().unwrap())
-        .collect::<Vec<_>>();*/
+    .iter()
+    .map(|field| field.ident.clone().unwrap())
+    .collect::<Vec<_>>();*/
     let getters = make_getters(&field_names);
     let impls = quote! {
         impl #ty {

@@ -17,8 +17,8 @@ pub use scope::Scope;
 pub use structured_op::{Call, Fold};
 pub use unary_op::{Boundary, Enf};
 
-use miden_diagnostics::SourceSpan;
 use air_parser::ast;
+use miden_diagnostics::SourceSpan;
 
 use std::fmt::Debug;
 use std::ops::{Deref, DerefMut};
@@ -153,7 +153,9 @@ impl Add {
         match lhs.borrow_mut().deref_mut() {
             NodeType::LeafNode(leaf_node) => leaf_node.swap_parent(self.clone().into()),
             NodeType::RootNode(root_node) => root_node.swap_parent(self.clone().into()),
-            NodeType::MiddleNode(parent_and_child) => parent_and_child.swap_parent(self.clone().into()),
+            NodeType::MiddleNode(parent_and_child) => {
+                parent_and_child.swap_parent(self.clone().into())
+            }
         }
     }
     fn add_rhs(&mut self, rhs: Link<NodeType>) {
@@ -161,7 +163,9 @@ impl Add {
         match rhs.borrow_mut().deref_mut() {
             NodeType::LeafNode(leaf_node) => leaf_node.swap_parent(self.clone().into()),
             NodeType::RootNode(root_node) => root_node.swap_parent(self.clone().into()),
-            NodeType::MiddleNode(parent_and_child) => parent_and_child.swap_parent(self.clone().into()),
+            NodeType::MiddleNode(parent_and_child) => {
+                parent_and_child.swap_parent(self.clone().into())
+            }
         }
     }
 }
@@ -178,7 +182,9 @@ impl Sub {
         match lhs.borrow_mut().deref_mut() {
             NodeType::LeafNode(leaf_node) => leaf_node.swap_parent(self.clone().into()),
             NodeType::RootNode(root_node) => root_node.swap_parent(self.clone().into()),
-            NodeType::MiddleNode(parent_and_child) => parent_and_child.swap_parent(self.clone().into()),
+            NodeType::MiddleNode(parent_and_child) => {
+                parent_and_child.swap_parent(self.clone().into())
+            }
         }
     }
     fn add_rhs(&mut self, rhs: Link<NodeType>) {
@@ -186,7 +192,9 @@ impl Sub {
         match rhs.borrow_mut().deref_mut() {
             NodeType::LeafNode(leaf_node) => leaf_node.swap_parent(self.clone().into()),
             NodeType::RootNode(root_node) => root_node.swap_parent(self.clone().into()),
-            NodeType::MiddleNode(parent_and_child) => parent_and_child.swap_parent(self.clone().into()),
+            NodeType::MiddleNode(parent_and_child) => {
+                parent_and_child.swap_parent(self.clone().into())
+            }
         }
     }
 }
@@ -203,7 +211,9 @@ impl Mul {
         match lhs.borrow_mut().deref_mut() {
             NodeType::LeafNode(leaf_node) => leaf_node.swap_parent(self.clone().into()),
             NodeType::RootNode(root_node) => root_node.swap_parent(self.clone().into()),
-            NodeType::MiddleNode(parent_and_child) => parent_and_child.swap_parent(self.clone().into()),
+            NodeType::MiddleNode(parent_and_child) => {
+                parent_and_child.swap_parent(self.clone().into())
+            }
         }
     }
     fn add_rhs(&mut self, rhs: Link<NodeType>) {
@@ -211,12 +221,14 @@ impl Mul {
         match rhs.borrow_mut().deref_mut() {
             NodeType::LeafNode(leaf_node) => leaf_node.swap_parent(self.clone().into()),
             NodeType::RootNode(root_node) => root_node.swap_parent(self.clone().into()),
-            NodeType::MiddleNode(parent_and_child) => parent_and_child.swap_parent(self.clone().into()),
+            NodeType::MiddleNode(parent_and_child) => {
+                parent_and_child.swap_parent(self.clone().into())
+            }
         }
     }
 }
 
-    // Unary
+// Unary
 impl Enf {
     pub fn new(child: Link<NodeType>) -> Enf {
         let mut enf_node = Enf::default();
@@ -234,7 +246,7 @@ impl Boundary {
     }
 }
 
-    // Aggregated
+// Aggregated
 impl Vector {
     pub fn new(values: Vec<Link<NodeType>>) -> Vector {
         let mut vec_node = Vector::default();
@@ -256,7 +268,7 @@ impl Matrix {
     }
 }
 
-    // Blocks
+// Blocks
 impl Function {
     pub fn new(args: Vec<Link<NodeType>>, ret: Link<NodeType>, body: Link<NodeType>) -> Function {
         let mut func_node = Function::default();
@@ -268,28 +280,40 @@ impl Function {
         func_node
     }
     pub fn add_arg(&mut self, arg: Link<NodeType>) {
-        self.get_children().borrow_mut().insert(self.args_count, arg.clone());
+        self.get_children()
+            .borrow_mut()
+            .insert(self.args_count, arg.clone());
         match arg.borrow_mut().deref_mut() {
             NodeType::LeafNode(leaf_node) => leaf_node.swap_parent(self.clone().into()),
             NodeType::RootNode(root_node) => root_node.swap_parent(self.clone().into()),
-            NodeType::MiddleNode(parent_and_child) => parent_and_child.swap_parent(self.clone().into()),
+            NodeType::MiddleNode(parent_and_child) => {
+                parent_and_child.swap_parent(self.clone().into())
+            }
         }
         self.args_count += 1;
     }
     pub fn add_ret(&mut self, ret: Link<NodeType>) {
-        self.get_children().borrow_mut().insert(self.args_count, ret.clone());
+        self.get_children()
+            .borrow_mut()
+            .insert(self.args_count, ret.clone());
         match ret.borrow_mut().deref_mut() {
             NodeType::LeafNode(leaf_node) => leaf_node.swap_parent(self.clone().into()),
             NodeType::RootNode(root_node) => root_node.swap_parent(self.clone().into()),
-            NodeType::MiddleNode(parent_and_child) => parent_and_child.swap_parent(self.clone().into()),
+            NodeType::MiddleNode(parent_and_child) => {
+                parent_and_child.swap_parent(self.clone().into())
+            }
         }
     }
     fn add_body(&mut self, body: Link<NodeType>) {
-        self.get_children().borrow_mut().insert(self.args_count + 1, body.clone());
+        self.get_children()
+            .borrow_mut()
+            .insert(self.args_count + 1, body.clone());
         match body.borrow_mut().deref_mut() {
             NodeType::LeafNode(leaf_node) => leaf_node.swap_parent(self.clone().into()),
             NodeType::RootNode(root_node) => root_node.swap_parent(self.clone().into()),
-            NodeType::MiddleNode(parent_and_child) => parent_and_child.swap_parent(self.clone().into()),
+            NodeType::MiddleNode(parent_and_child) => {
+                parent_and_child.swap_parent(self.clone().into())
+            }
         }
     }
 }
@@ -304,26 +328,38 @@ impl Evaluator {
         eval_node
     }
     pub fn add_arg(&mut self, arg: Link<NodeType>) {
-        self.get_children().borrow_mut().insert(self.args_count, arg.clone());
+        self.get_children()
+            .borrow_mut()
+            .insert(self.args_count, arg.clone());
         match arg.borrow_mut().deref_mut() {
             NodeType::LeafNode(leaf_node) => leaf_node.swap_parent(self.clone().into()),
             NodeType::RootNode(root_node) => root_node.swap_parent(self.clone().into()),
-            NodeType::MiddleNode(parent_and_child) => parent_and_child.swap_parent(self.clone().into()),
+            NodeType::MiddleNode(parent_and_child) => {
+                parent_and_child.swap_parent(self.clone().into())
+            }
         }
         self.args_count += 1;
     }
     fn add_body(&mut self, body: Link<NodeType>) {
-        self.get_children().borrow_mut().insert(self.args_count, body.clone());
+        self.get_children()
+            .borrow_mut()
+            .insert(self.args_count, body.clone());
         match body.borrow_mut().deref_mut() {
             NodeType::LeafNode(leaf_node) => leaf_node.swap_parent(self.clone().into()),
             NodeType::RootNode(root_node) => root_node.swap_parent(self.clone().into()),
-            NodeType::MiddleNode(parent_and_child) => parent_and_child.swap_parent(self.clone().into()),
+            NodeType::MiddleNode(parent_and_child) => {
+                parent_and_child.swap_parent(self.clone().into())
+            }
         }
     }
 }
 
 impl If {
-    pub fn new(cond: Link<NodeType>, then_branch: Link<NodeType>, else_branch: Link<NodeType>) -> If {
+    pub fn new(
+        cond: Link<NodeType>,
+        then_branch: Link<NodeType>,
+        else_branch: Link<NodeType>,
+    ) -> If {
         let mut if_node = If::default();
         if_node.add_cond(cond);
         if_node.add_then_branch(then_branch);
@@ -335,7 +371,9 @@ impl If {
         match cond.borrow_mut().deref_mut() {
             NodeType::LeafNode(leaf_node) => leaf_node.swap_parent(self.clone().into()),
             NodeType::RootNode(root_node) => root_node.swap_parent(self.clone().into()),
-            NodeType::MiddleNode(parent_and_child) => parent_and_child.swap_parent(self.clone().into()),
+            NodeType::MiddleNode(parent_and_child) => {
+                parent_and_child.swap_parent(self.clone().into())
+            }
         }
     }
     fn add_then_branch(&mut self, then_branch: Link<NodeType>) {
@@ -343,7 +381,9 @@ impl If {
         match then_branch.borrow_mut().deref_mut() {
             NodeType::LeafNode(leaf_node) => leaf_node.swap_parent(self.clone().into()),
             NodeType::RootNode(root_node) => root_node.swap_parent(self.clone().into()),
-            NodeType::MiddleNode(parent_and_child) => parent_and_child.swap_parent(self.clone().into()),
+            NodeType::MiddleNode(parent_and_child) => {
+                parent_and_child.swap_parent(self.clone().into())
+            }
         }
     }
     fn add_else_branch(&mut self, else_branch: Link<NodeType>) {
@@ -351,13 +391,19 @@ impl If {
         match else_branch.borrow_mut().deref_mut() {
             NodeType::LeafNode(leaf_node) => leaf_node.swap_parent(self.clone().into()),
             NodeType::RootNode(root_node) => root_node.swap_parent(self.clone().into()),
-            NodeType::MiddleNode(parent_and_child) => parent_and_child.swap_parent(self.clone().into()),
+            NodeType::MiddleNode(parent_and_child) => {
+                parent_and_child.swap_parent(self.clone().into())
+            }
         }
     }
 }
 
 impl For {
-    pub fn new(iterators: Vec<Link<NodeType>>, body: Link<NodeType>, selector: Option<Link<NodeType>>) -> For {
+    pub fn new(
+        iterators: Vec<Link<NodeType>>,
+        body: Link<NodeType>,
+        selector: Option<Link<NodeType>>,
+    ) -> For {
         let mut for_node = For::default();
         for iter in iterators {
             for_node.add_iterator(iter);
@@ -369,35 +415,51 @@ impl For {
         for_node
     }
     fn add_iterator(&mut self, iterator: Link<NodeType>) {
-        self.get_children().borrow_mut().insert(self.iterators_count, iterator.clone());
+        self.get_children()
+            .borrow_mut()
+            .insert(self.iterators_count, iterator.clone());
         match iterator.borrow_mut().deref_mut() {
             NodeType::LeafNode(leaf_node) => leaf_node.swap_parent(self.clone().into()),
             NodeType::RootNode(root_node) => root_node.swap_parent(self.clone().into()),
-            NodeType::MiddleNode(parent_and_child) => parent_and_child.swap_parent(self.clone().into()),
+            NodeType::MiddleNode(parent_and_child) => {
+                parent_and_child.swap_parent(self.clone().into())
+            }
         }
         self.iterators_count += 1;
     }
     fn add_body(&mut self, body: Link<NodeType>) {
-        self.get_children().borrow_mut().insert(self.iterators_count, body.clone());
+        self.get_children()
+            .borrow_mut()
+            .insert(self.iterators_count, body.clone());
         match body.borrow_mut().deref_mut() {
             NodeType::LeafNode(leaf_node) => leaf_node.swap_parent(self.clone().into()),
             NodeType::RootNode(root_node) => root_node.swap_parent(self.clone().into()),
-            NodeType::MiddleNode(parent_and_child) => parent_and_child.swap_parent(self.clone().into()),
+            NodeType::MiddleNode(parent_and_child) => {
+                parent_and_child.swap_parent(self.clone().into())
+            }
         }
     }
     fn add_selector(&mut self, selector: Link<NodeType>) {
-        self.get_children().borrow_mut().insert(self.iterators_count + 1, selector.clone());
+        self.get_children()
+            .borrow_mut()
+            .insert(self.iterators_count + 1, selector.clone());
         match selector.borrow_mut().deref_mut() {
             NodeType::LeafNode(leaf_node) => leaf_node.swap_parent(self.clone().into()),
             NodeType::RootNode(root_node) => root_node.swap_parent(self.clone().into()),
-            NodeType::MiddleNode(parent_and_child) => parent_and_child.swap_parent(self.clone().into()),
+            NodeType::MiddleNode(parent_and_child) => {
+                parent_and_child.swap_parent(self.clone().into())
+            }
         }
     }
 }
 
-    // Structured
+// Structured
 impl Fold {
-    pub fn new(iterator: Link<NodeType>, operator: FoldOperator, initial_value: Link<NodeType>) -> Fold {
+    pub fn new(
+        iterator: Link<NodeType>,
+        operator: FoldOperator,
+        initial_value: Link<NodeType>,
+    ) -> Fold {
         let mut fold_node = Fold::default();
         fold_node.operator = operator;
         fold_node.add_iterator(iterator);
@@ -409,7 +471,9 @@ impl Fold {
         match iterator.borrow_mut().deref_mut() {
             NodeType::LeafNode(leaf_node) => leaf_node.swap_parent(self.clone().into()),
             NodeType::RootNode(root_node) => root_node.swap_parent(self.clone().into()),
-            NodeType::MiddleNode(parent_and_child) => parent_and_child.swap_parent(self.clone().into()),
+            NodeType::MiddleNode(parent_and_child) => {
+                parent_and_child.swap_parent(self.clone().into())
+            }
         }
     }
     fn add_initial_value(&mut self, initial_value: Link<NodeType>) {
@@ -417,7 +481,9 @@ impl Fold {
         match initial_value.borrow_mut().deref_mut() {
             NodeType::LeafNode(leaf_node) => leaf_node.swap_parent(self.clone().into()),
             NodeType::RootNode(root_node) => root_node.swap_parent(self.clone().into()),
-            NodeType::MiddleNode(parent_and_child) => parent_and_child.swap_parent(self.clone().into()),
+            NodeType::MiddleNode(parent_and_child) => {
+                parent_and_child.swap_parent(self.clone().into())
+            }
         }
     }
 }
@@ -436,21 +502,27 @@ impl Call {
         match function.borrow_mut().deref_mut() {
             NodeType::LeafNode(leaf_node) => leaf_node.swap_parent(self.clone().into()),
             NodeType::RootNode(root_node) => root_node.swap_parent(self.clone().into()),
-            NodeType::MiddleNode(parent_and_child) => parent_and_child.swap_parent(self.clone().into()),
+            NodeType::MiddleNode(parent_and_child) => {
+                parent_and_child.swap_parent(self.clone().into())
+            }
         }
     }
     fn add_argument(&mut self, argument: Link<NodeType>) {
-        self.get_children().borrow_mut().insert(self.arguments_count + 1, argument.clone());
+        self.get_children()
+            .borrow_mut()
+            .insert(self.arguments_count + 1, argument.clone());
         match argument.borrow_mut().deref_mut() {
             NodeType::LeafNode(leaf_node) => leaf_node.swap_parent(self.clone().into()),
             NodeType::RootNode(root_node) => root_node.swap_parent(self.clone().into()),
-            NodeType::MiddleNode(parent_and_child) => parent_and_child.swap_parent(self.clone().into()),
+            NodeType::MiddleNode(parent_and_child) => {
+                parent_and_child.swap_parent(self.clone().into())
+            }
         }
         self.arguments_count += 1;
     }
 }
 
-    // Scope
+// Scope
 impl Scope {
     pub fn new(child: Link<NodeType>) -> Scope {
         let mut scope_node = Scope::default();
@@ -459,7 +531,7 @@ impl Scope {
     }
 }
 
-    // Leaf
+// Leaf
 /*impl Value {
     pub fn new<T>(data: T) -> Value
     where

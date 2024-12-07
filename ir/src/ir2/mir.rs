@@ -10,9 +10,7 @@ pub use self::value::{
 
 use air_parser::ast::TraceSegment;
 pub use air_parser::{
-    ast::{Identifier, PeriodicColumn, PublicInput, QualifiedIdentifier,
-        TraceSegmentId,
-    },
+    ast::{Identifier, PeriodicColumn, PublicInput, QualifiedIdentifier, TraceSegmentId},
     Symbol,
 };
 
@@ -46,7 +44,7 @@ pub struct Mir {
     pub name: Identifier,
 
     pub trace_columns: Vec<TraceSegment>,
-    
+
     /// The periodic columns referenced by this program.
     ///
     /// These are taken straight from the [air_parser::ast::Program] without modification.

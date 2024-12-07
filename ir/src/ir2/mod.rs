@@ -1,16 +1,16 @@
+mod constraints;
 mod graph;
 mod link;
-mod pretty_print;
 mod mir;
-mod trace;
 mod nodes;
-mod constraints;
+mod pretty_print;
+mod trace;
 
 extern crate derive_graph;
 
+pub use derive_graph::{IsLeaf, IsNode};
 pub use graph::{Graph, IsChild, IsNode, IsParent, Leaf, Node};
 pub use link::{BackLink, Link};
-pub use nodes::*;
 pub use mir::Mir;
-pub use derive_graph::{IsLeaf, IsNode};
+pub use nodes::*;
 pub use trace::TraceAccess;
