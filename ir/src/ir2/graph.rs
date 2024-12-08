@@ -198,6 +198,10 @@ impl Graph {
         self.functions.get_mut(ident)
     }
 
+    pub fn get_function_nodes(&self) -> Vec<Link<NodeType>> {
+        self.functions.values().cloned().collect()
+    }
+
     pub fn insert_evaluator(&mut self, ident: QualifiedIdentifier, node: Link<NodeType>) {
         self.evaluators.insert(ident, node);
     }
@@ -211,6 +215,10 @@ impl Graph {
         ident: &QualifiedIdentifier,
     ) -> Option<&mut Link<NodeType>> {
         self.evaluators.get_mut(ident)
+    }
+
+    pub fn get_evaluator_nodes(&self) -> Vec<Link<NodeType>> {
+        self.evaluators.values().cloned().collect()
     }
 
     pub fn insert_boundary_constraints_root(&mut self, root: Link<NodeType>) {
