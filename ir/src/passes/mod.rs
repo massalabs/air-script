@@ -1,11 +1,5 @@
-mod constant_propagation;
+/*mod constant_propagation;
 mod value_numbering;
-use std::collections::HashMap;
-use std::ops::Deref;
-
-use crate::ir2::{
-    Add, Boundary, Fold, If, IsParent, LeafNode, Link, Matrix, MiddleNode, Mul, NodeType, Scope, Sub, Vector
-};
 
 pub use self::constant_propagation::ConstantPropagation;
 pub use self::value_numbering::ValueNumbering;
@@ -17,7 +11,7 @@ mod visitor_old;
 pub use self::inlining_old::InliningOld;
 pub use self::translate_old::AstToMirOld;
 pub use self::unrolling_old::UnrollingOld;
-pub use self::visitor_old::{Graph, VisitContextOld, VisitOld, VisitOrderOld};
+pub use self::visitor_old::{Graph, VisitContextOld, VisitOld, VisitOrderOld};*/
 
 mod inlining;
 mod translate;
@@ -28,7 +22,14 @@ pub use self::translate::AstToMir;
 pub use self::unrolling::Unrolling;
 pub use self::visitor::{Visit, VisitContext, VisitOrder};
 
+use std::collections::HashMap;
+use std::ops::Deref;
+
 use air_pass::Pass;
+
+use crate::ir2::{
+    Add, Boundary, Fold, If, IsParent, LeafNode, Link, Matrix, MiddleNode, Mul, NodeType, Scope, Sub, Vector
+};
 
 pub struct DumpAst;
 impl Pass for DumpAst {

@@ -7,14 +7,13 @@ mod structured_op;
 mod unary_op;
 
 use crate::ir2::{BackLink, Graph, IsChild, IsLeaf, IsNode, IsParent, Leaf, Link};
-use crate::FoldOperator;
 
 pub use aggregated_op::{Matrix, Vector};
 pub use binary_op::{Add, Mul, Sub};
 pub use blocks::{Evaluator, For, Function, If};
 pub use leaf_op::*;
 pub use scope::Scope;
-pub use structured_op::{Call, Fold};
+pub use structured_op::{Call, Fold, FoldOperator};
 pub use unary_op::{Boundary, Enf};
 
 use air_parser::ast;

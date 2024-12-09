@@ -8,6 +8,7 @@ mod trace;
 
 extern crate derive_graph;
 
+pub use constraints::ConstraintError;
 pub use derive_graph::{IsLeaf, IsNode};
 pub use graph::{Graph, IsChild, IsNode, IsParent, Leaf, Node};
 pub use link::{BackLink, Link};

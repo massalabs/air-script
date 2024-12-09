@@ -8,7 +8,7 @@ use air_pass::Pass;
 
 use miden_diagnostics::{DiagnosticsHandler, SourceSpan, Spanned};
 
-use crate::{ir2::*, CompileError, FoldOperator};
+use crate::{ir2::*, CompileError};
 
 pub struct AstToMir<'a> {
     diagnostics: &'a DiagnosticsHandler,

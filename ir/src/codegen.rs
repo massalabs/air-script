@@ -4,5 +4,5 @@ pub trait CodeGenerator {
     type Output;
 
     /// Generates code using this generator, consuming it in the process
-    fn generate(&self, ir: &crate::MirOld) -> anyhow::Result<Self::Output>;
+    fn generate(&self, ir: &crate::ir2::Mir) -> anyhow::Result<Self::Output>;
 }

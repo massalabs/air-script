@@ -7,7 +7,7 @@ use air_parser::ast::Boundary as BoundaryKind;
 use air_pass::Pass;
 //use miden_diagnostics::DiagnosticsHandler;
 
-use crate::{ir2::*, CompileError, FoldOperator};
+use crate::{ir2::*, CompileError};
 
 use super::{duplicate_node_or_replace, Visit, VisitContext, VisitOrder};
 

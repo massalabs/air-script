@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::HashMap,
     ops::{ControlFlow, Deref, DerefMut},
     vec,
 };
@@ -12,7 +12,7 @@ use crate::{
     CompileError,
 };
 
-use super::{duplicate_node_or_replace, visitor::VisitDefault, Visit, VisitContext, VisitOrder};
+use super::{duplicate_node_or_replace, Visit, VisitContext, VisitOrder};
 
 //pub struct Inlining<'a> {
 //     #[allow(unused)]
@@ -171,7 +171,7 @@ impl Visit for Inlining {
     }
 }
 
-impl VisitDefault for Inlining {}
+//impl VisitDefault for Inlining {}
 
 // impl<'a> Inlining<'a> {
 //     pub fn new(diagnostics: &'a DiagnosticsHandler) -> Self {

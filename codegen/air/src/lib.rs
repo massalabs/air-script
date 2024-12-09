@@ -2,8 +2,8 @@ mod codegen;
 mod graph;
 mod ir;
 pub mod passes;
-#[cfg(test)]
-mod tests;
+//#[cfg(test)]
+//mod tests;
 
 #[cfg(test)]
 mod tests2;

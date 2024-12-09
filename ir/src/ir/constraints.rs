@@ -4,11 +4,6 @@ use crate::graph::{MirGraph, NodeIndex};
 
 use super::*;
 
-#[derive(Debug, thiserror::Error)]
-pub enum ConstraintError {
-    #[error("cannot merge incompatible constraint domains ({0} and {1})")]
-    IncompatibleConstraintDomains(ConstraintDomain, ConstraintDomain),
-}
 
 /// [Constraints] is the algebraic graph representation of all the constraints
 /// in an [AirScript]. The graph contains all of the constraints, each of which

@@ -1,4 +1,4 @@
-use crate::tests::compile;
+use crate::tests2::compile;
 
 #[test]
 fn fn_def_complex_case() {
