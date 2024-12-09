@@ -44,6 +44,135 @@ impl Pass for DumpAst {
     }
 }
 
+pub fn duplicate_node(node: Link<NodeType>) -> Link<NodeType> {
+    match node.borrow().deref() {
+        NodeType::RootNode(RootNode::Graph(graph)) => {
+            let mut new_graph = Graph::default();
+            let children = graph.get_children().borrow().deref().clone();
+            let new_children = children.iter().map(|child| self.duplicate_node(*child)).collect();
+            for new_child in new_children {
+                new_graph.add_child(new_child);
+            }
+            return new_graph.into();
+        },
+        NodeType::LeafNode(leaf_node) => {
+            match leaf_node {
+                LeafNode::Value(value_leaf) => {
+                    return value_leaf.data.clone().into();
+                }
+                LeafNode::Parameter(parameter_leaf) => {
+                    return parameter_leaf.data.clone().into();
+                }
+            }
+        }
+        NodeType::MiddleNode(middle_node) => {
+            match middle_node {
+                MiddleNode::Call(call) => {
+                    let arguments = call.arguments();
+                    let function = call.function();
+                    let new_arguments = arguments.iter().map(|arg| self.duplicate_node(arg)).collect();
+                    return Call::new(function, new_arguments).into();
+                }
+                MiddleNode::Function(_function) => {
+                    unreachable!();
+                },
+                MiddleNode::Evaluator(_evaluator) => {
+                    unreachable!();
+                },
+                MiddleNode::Add(add) => {
+                    let lhs = add.lhs();
+                    let rhs = add.rhs();
+                    let new_lhs_node = self.duplicate_node(lhs);
+                    let new_rhs_node = self.duplicate_node(rhs);
+                    return Add::new(new_lhs_node, new_rhs_node).into();
+                },
+                MiddleNode::Sub(sub) => {
+                    let lhs = sub.lhs();
+                    let rhs = sub.rhs();
+                    let new_lhs_node = self.duplicate_node(lhs);
+                    let new_rhs_node = self.duplicate_node(rhs);
+                    return Sub::new(new_lhs_node, new_rhs_node).into();
+                },
+                MiddleNode::Mul(mul) => {
+                    let lhs = mul.lhs();
+                    let rhs = mul.rhs();
+                    let new_lhs_node = self.duplicate_node(lhs);
+                    let new_rhs_node = self.duplicate_node(rhs);
+                    return Mul::new(new_lhs_node, new_rhs_node).into();
+                },
+                MiddleNode::Scope(scope) => {
+                    let new_scope = Scope::default();
+                    let children = scope.get_children().borrow().deref().clone();
+                    for child in children {
+                        let new_child = self.duplicate_node(child);
+                        new_scope.add_child(new_child);
+                    }
+                    return new_scope.into();
+                },
+                MiddleNode::If(if_node) => {
+                    let cond = if_node.cond();
+                    let then_branch = if_node.then_branch();
+                    let else_branch = if_node.else_branch();
+                    let new_cond = self.duplicate_node(cond);
+                    let new_then_branch = self.duplicate_node(then_branch);
+                    let new_else_branch = self.duplicate_node(else_branch);
+                    return If::new(new_cond, new_then_branch, new_else_branch).into();
+                },
+                MiddleNode::For(for_node) => {
+                    let iterators = for_node.iterators();
+                    let body = for_node.body();
+                    let selector = for_node.selector();
+                    let new_iterators = iterators.iter().map(|iterator| self.duplicate_node(iterator)).collect();
+                    let new_body = self.duplicate_node(body);
+                    let new_selector = selector.map(|selector| self.duplicate_node(selector));
+                    return For::new(new_iterators, new_body, new_selector).into();
+                },
+                MiddleNode::Fold(fold) => {
+                    let iterator = fold.iterator();
+                    let operator = fold.operator;
+                    let initial_value = fold.initial_value();
+                    let new_iterator = self.duplicate_node(iterator);
+                    let new_initial_value = self.duplicate_node(initial_value);
+                    return Fold::new(new_iterator, operator, new_initial_value).into();
+                },
+                MiddleNode::Boundary(boundary) => {
+                    let expr = boundary.expr();
+                    let kind = boundary.kind;
+                    let new_expr = self.duplicate_node(expr);
+                    return Boundary::new(new_expr, kind).into();
+                },
+                MiddleNode::Access(access) => {
+                    let indexable = access.indexable();
+                    let access_type = access.access_type;
+                    let new_indexable = self.duplicate_node(indexable);
+                    return Access::new(new_indexable, access_type).into();
+                },
+                MiddleNode::Enf(enf) => {
+                    let expr = enf.expr();
+                    let new_expr = self.duplicate_node(expr);
+                    return Enf::new(expr).into();
+                },
+                MiddleNode::Vector(vector) => {
+                    let children = vector.get_children().borrow().deref();
+                    let new_children = children.iter().map(|child| self.duplicate_node(*child)).collect();
+                    return Vector::new(new_children).into();
+                },
+                MiddleNode::Matrix(matrix) => {
+                    let new_matrix = Vec::new();
+                    let children = matrix.get_children().borrow().deref();
+                    for row in children.iter() {
+                        let row_children = row.get_children().borrow().deref();
+                        let new_row = row_children.iter().map(|child| self.duplicate_node(*child)).collect();
+                        new_matrix.push(new_row);
+                    }
+                    return Matrix::new(new_matrix).into();
+                },
+            }
+        }
+    }
+}
+
+
 // Helper used to duplicate nodes and their children recursively, used during Inlining and Unrolling
 // Additionnally, if a Leaf is a Parameter, it is replaced with the corresponding item of the replace_parameter_list Vec.
 // This is useful for inlining function calls (and replacing their parameters with the arguments of the call) for Inlining,

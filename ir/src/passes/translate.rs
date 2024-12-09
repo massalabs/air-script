@@ -10,6 +10,8 @@ use miden_diagnostics::{DiagnosticsHandler, SourceSpan, Spanned};
 
 use crate::{ir2::*, CompileError};
 
+use super::duplicate_node;
+
 pub struct AstToMir<'a> {
     diagnostics: &'a DiagnosticsHandler,
 }
@@ -712,65 +714,6 @@ impl<'a> MirBuilder<'a> {
         }
     }
 
-    fn duplicate_node(&mut self, node: Link<NodeType>) -> Link<NodeType> {
-
-        match node.borrow().deref() {
-            NodeType::RootNode(_root_node) => unreachable!(),
-            NodeType::LeafNode(leaf_node) => {
-                match leaf_node {
-                    LeafNode::Value(value_leaf) => {
-                        return value_leaf.data.clone().into();
-                    }
-                    LeafNode::Parameter(parameter_leaf) => {
-                        return parameter_leaf.data.clone().into();
-                    }
-                }
-            }
-            NodeType::MiddleNode(middle_node) => {
-                match middle_node {
-                    MiddleNode::Call(_call) => {
-                        todo!();
-                    }
-                    MiddleNode::Function(_function) => {
-                        todo!();
-                    },
-                    MiddleNode::Evaluator(_evaluator) => { 
-                        todo!();
-                    },
-                    MiddleNode::Add(add) => {
-                        let lhs = add.lhs();
-                        let rhs = add.rhs();
-                        let new_lhs_node = self.duplicate_node(lhs);
-                        let new_rhs_node = self.duplicate_node(rhs);
-                        return Add::new(new_lhs_node, new_rhs_node).into();
-                    },
-                    MiddleNode::Sub(sub) => {
-                        let lhs = sub.lhs();
-                        let rhs = sub.rhs();
-                        let new_lhs_node = self.duplicate_node(lhs);
-                        let new_rhs_node = self.duplicate_node(rhs);
-                        return Sub::new(new_lhs_node, new_rhs_node).into();
-                    },
-                    MiddleNode::Mul(mul) => {
-                        let lhs = mul.lhs();
-                        let rhs = mul.rhs();
-                        let new_lhs_node = self.duplicate_node(lhs);
-                        let new_rhs_node = self.duplicate_node(rhs);
-                        return Mul::new(new_lhs_node, new_rhs_node).into();
-                    },
-                    MiddleNode::Scope(scope) => todo!(),
-                    MiddleNode::If(_) => todo!(),
-                    MiddleNode::For(_) => todo!(),
-                    MiddleNode::Fold(fold) => todo!(),
-                    MiddleNode::Boundary(boundary) => todo!(),
-                    MiddleNode::Enf(enf) => todo!(),
-                    MiddleNode::Vector(vector) => todo!(),
-                    MiddleNode::Matrix(matrix) => todo!(),
-                }
-            }
-        }
-    }
-
     // Use square and multiply algorithm to expand the exp into a series of multiplications
     fn expand_exp(&mut self, lhs: Link<NodeType>, rhs: u64, span: SourceSpan) -> Link<NodeType> {
         // 0 -> 1
@@ -778,17 +721,17 @@ impl<'a> MirBuilder<'a> {
         // n (n pair) -> 
         match rhs {
             0 => self.insert_typed_constant(Some(span), ast::ConstantExpr::Scalar(1)),
-            1 => self.duplicate_node(lhs.clone()),
+            1 => duplicate_node(lhs.clone()),
             n if n % 2 == 0 => {
-                let new_lhs = self.duplicate_node(lhs.clone());
-                let new_rhs = self.duplicate_node(lhs.clone());
+                let new_lhs = duplicate_node(lhs.clone());
+                let new_rhs = duplicate_node(lhs.clone());
                 let square = Mul::new(new_lhs, new_rhs).into();
                 self.expand_exp(square, n / 2, span)
             }
             n => {
-                let new_lhs = self.duplicate_node(lhs.clone());
-                let new_rhs = self.duplicate_node(lhs.clone());
-                let new_lhs_clone = self.duplicate_node(lhs.clone());
+                let new_lhs = duplicate_node(lhs.clone());
+                let new_rhs = duplicate_node(lhs.clone());
+                let new_lhs_clone = duplicate_node(lhs.clone());
                 let square = Mul::new(new_lhs, new_rhs).into();
                 let rec: Link<NodeType> = self.expand_exp(square, (n - 1) / 2, span);
                 Mul::new(new_lhs_clone, rec).into()
@@ -934,7 +877,7 @@ impl<'a> MirBuilder<'a> {
                     .get(access.name.as_ref())
                     .expect("undefined variable")
                     .clone();
-                let let_bound_access_expr_duplicated = self.duplicate_node(let_bound_access_expr);
+                let let_bound_access_expr_duplicated = duplicate_node(let_bound_access_expr);
                 return Access::new(let_bound_access_expr_duplicated, access.access_type);
             }
             // These should have been eliminated by previous compiler passes
