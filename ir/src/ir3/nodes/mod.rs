@@ -1,20 +1,20 @@
+mod accessor;
 mod boundary;
 mod call;
 mod enf;
 mod fold;
 mod function;
-mod index_access;
 mod matrix;
 mod structured_ops;
 mod value;
 mod vector;
 
+pub use accessor::Accessor;
 pub use boundary::Boundary;
 pub use call::Call;
 pub use enf::Enf;
 pub use fold::Fold;
 pub use function::{Evaluator, Function, Parameter};
-pub use index_access::IndexAccess;
 pub use matrix::Matrix;
 pub use structured_ops::{Add, For, If, Mul, Sub};
 pub use value::Value;
