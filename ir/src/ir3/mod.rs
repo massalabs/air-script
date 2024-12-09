@@ -6,8 +6,8 @@ use std::ops::DerefMut;
 pub use graph::Graph;
 pub use link::{BackLink, Link};
 pub use nodes::{
-    Add, Boundary, Call, Enf, Evaluator, Fold, For, Function, If, Matrix, Mul, Parameter, Sub,
-    Value, Vector,
+    Add, Boundary, Call, Enf, Evaluator, Fold, For, Function, If, IndexAccess, Matrix, Mul,
+    Parameter, Sub, Value, Vector,
 };
 
 pub trait Parent {
@@ -69,6 +69,7 @@ pub enum Op {
     Fold(Fold),
     Vector(Vector),
     Matrix(Matrix),
+    IndexAccess(IndexAccess),
     #[default]
     None,
 }
@@ -88,6 +89,7 @@ pub enum Owner {
     Fold(Fold),
     Vector(Vector),
     Matrix(Matrix),
+    IndexAccess(IndexAccess),
     #[default]
     None,
 }
