@@ -28,7 +28,8 @@ use std::ops::Deref;
 use air_pass::Pass;
 
 use crate::ir2::{
-    Add, Boundary, Call, Enf, Fold, For, If, IsParent, LeafNode, Link, Matrix, MiddleNode, Mul, NodeType, Scope, Sub, Vector
+    Add, Boundary, Call, Enf, Fold, For, If, IsParent, LeafNode, Link, Matrix, MiddleNode, Mul,
+    NodeType, Scope, Sub, Vector,
 };
 
 pub struct DumpAst;
@@ -49,7 +50,6 @@ impl Pass for DumpAst {
 // and for unrolling loops (and replacing their parameters with the iterator values) for Unrolling.
 // Inlining: replace_parameter_list = arguments should be the arguments from the Call()
 // Unrolling: replace_parameter_list = self.for_inlining_context.unwrap().iterators
-fn duplicate_node_or_replace(
     current_replace_map: &mut HashMap<Link<NodeType>, Link<NodeType>>,
     node: Link<NodeType>,
     replace_parameter_list: Vec<Link<NodeType>>,
@@ -129,6 +129,12 @@ fn duplicate_node_or_replace(
                     let expr_node = boundary.expr();
                     let new_expr_node = current_replace_map.get(&expr_node).unwrap().clone();
                     let new_node = Boundary::new(new_expr_node, boundary.kind).into();
+                    current_replace_map.insert(node, new_node);
+                }
+                MiddleNode::Access(access) => {
+                    let expr_node = access.indexable();
+                    let new_expr_node = current_replace_map.get(&expr_node).unwrap().clone();
+                    let new_node = Access::new(new_expr_node, access.access_type).into();
                     current_replace_map.insert(node, new_node);
                 }
                 MiddleNode::Vector(_vector) => {

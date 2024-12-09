@@ -18,9 +18,9 @@ pub use crate::CompileError;
 
 use std::sync::Arc;
 
+use crate::ir2::Mir;
 use air_pass::Pass;
 use miden_diagnostics::{CodeMap, DiagnosticsConfig, DiagnosticsHandler, Verbosity};
-use crate::ir2::Mir;
 
 pub fn compile(source: &str) -> Result<Mir, ()> {
     let compiler = Compiler::default();
@@ -93,7 +93,7 @@ impl Compiler {
             .and_then(|ast| {
                 let mut pipeline =
                     air_parser::transforms::ConstantPropagation::new(&self.diagnostics)
-                        .chain(air_parser::transforms::Inlining::new(&self.diagnostics))
+                        //.chain(air_parser::transforms::Inlining::new(&self.diagnostics))
                         .chain(crate::passes::AstToMir::new(&self.diagnostics));
                 pipeline.run(ast)
             })

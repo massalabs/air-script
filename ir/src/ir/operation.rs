@@ -62,12 +62,6 @@ impl SpannedVariable {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Default)]
-pub enum FoldOperator {
-    #[default]
-    Add,
-    Mul,
-}
 
 impl Operation {
     /// Corresponds to the binding power of this [Operation]

@@ -3,7 +3,7 @@ use std::{
     ops::{ControlFlow, Deref, DerefMut},
 };
 
-use air_parser::ast::Boundary as BoundaryKind;
+use air_parser::ast::{AccessType, Boundary as BoundaryKind};
 use air_pass::Pass;
 //use miden_diagnostics::DiagnosticsHandler;
 
@@ -434,6 +434,70 @@ impl Unrolling {
             _ => {}
         }
     }
+    
+    fn visit_index_access(
+        &mut self,
+        node: Link<NodeType>,
+        access_type: AccessType,
+        child_node: Link<NodeType>,
+    ) {
+        match access_type {
+            AccessType::default() => { 
+                // Check that the child node is a scalar, raise diag otherwise
+                match child_node.borrow().deref() {
+                    NodeType::MiddleNode(MiddleNode::Vector(child_vec)) => {
+                        unreachable!(); // raise diag
+                    },
+                    NodeType::MiddleNode(MiddleNode::Matrix(child_mat)) => {
+                        unreachable!(); // raise diag
+                    },
+                    _ => {}
+                };
+            }
+            AccessType::Index(index) => {
+                // Check that the child node is a vector, raise diag otherwise
+                // Replace the current node by the index-th element of the vector
+                // Raise diag if index is out of bounds
+                let NodeType::MiddleNode(MiddleNode::Vector(child_vec)) = child_node.borrow().deref() else {
+                    unreachable!(); // raise diag
+                };
+
+                let child_index = match child_vec.get_children().borrow().deref().get(index) {
+                    Some(child_index) => child_index,
+                    None => unreachable!(), // raise diag
+                };
+                node.borrow_mut().deref_mut() = child_index.clone();
+            }
+            AccessType::Matrix(row, col) => { 
+                // Check that the child node is a matrix, raise diag otherwise
+                // Replace the current node by the index-th element of the vector
+                // Raise diag if index is out of bounds
+                let NodeType::MiddleNode(MiddleNode::Matrix(child_mat)) = child_node.borrow().deref() else {
+                    unreachable!(); // raise diag
+                };
+                
+                let child_row = match child_mat.get_children().borrow().deref().get(row) {
+                    Some(child_row) => child_row,
+                    None => unreachable!(), // raise diag
+                };
+                
+                let NodeType::MiddleNode(MiddleNode::Matrix(child_row)) = child_row.borrow().deref() else {
+                    unreachable!(); // raise diag
+                };
+                
+                let child_index = match child_row.get_children().borrow().deref().get(col) {
+                    Some(child_index) => child_index,
+                    None => unreachable!(), // raise diag
+                };
+
+                node.borrow_mut().deref_mut() = child_index.clone();
+            }
+            
+            AccessType::Slice(range_expr) => { 
+                unreachable!(); // Slices are not scalar, raise diag
+            }
+        }
+    }
 
     fn visit_for(
         &mut self,
@@ -555,6 +619,11 @@ impl Unrolling {
                         let body = for_node.body();
                         let selector = for_node.selector();
                         self.visit_for(node, iterators, body, selector);
+                    }
+                    MiddleNode::Access(access) => {
+                        let access_type = access.access_type;
+                        let child = access.indexable();
+                        self.visit_index_access(node, access_type, child);
                     }
                     MiddleNode::Fold(fold) => {
                         let iterator = fold.iterator();

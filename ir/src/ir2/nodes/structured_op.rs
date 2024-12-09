@@ -1,6 +1,5 @@
 use crate::ir2::{IsNode, Node};
 
-
 #[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub enum FoldOperator {
     #[default]

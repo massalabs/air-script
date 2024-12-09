@@ -237,59 +237,29 @@ impl<'a> MirBuilder<'a> {
             }
             // Enforce statements can be translated to Enf operations in the MIR on scalar expressions
             ast::Statement::Enforce(scalar_expr) => {
-                let scalar_expr_node = self.insert_scalar_expr(scalar_expr)?;
+                let scalar_expr_node: Link<NodeType> = self.insert_scalar_expr(scalar_expr)?;
 
-                // TODO:
-                match scalar_expr_node.clone().borrow().deref() {
-                    NodeType::MiddleNode(MiddleNode::Enf(_enf)) => match in_boundary {
-                        true => self
-                            .mir
-                            .constraint_graph_mut()
-                            .insert_boundary_constraints_root(scalar_expr_node),
-                        false => {
-                            match parent.borrow_mut().deref_mut() {
-                                NodeType::RootNode(root_node) => {
-                                    root_node.add_child(scalar_expr_node.clone().into())
-                                }
-                                NodeType::MiddleNode(middle_node) => {
-                                    middle_node.add_child(scalar_expr_node.clone().into())
-                                }
-                                NodeType::LeafNode(leaf_node) => {
-                                    leaf_node.add_child(scalar_expr_node.clone().into())
-                                }
-                            };
-                            if parent == self.mir.constraint_graph().clone().into() {
-                                self.mir
-                                    .constraint_graph_mut()
-                                    .insert_integrity_constraints_root(scalar_expr_node);
-                            }
-                        }
-                    },
-                    _ => {
-                        let enf_node = Enf::new(scalar_expr_node).into();
-                        match in_boundary {
-                            true => self
-                                .mir
+                let node_to_add = if let NodeType::MiddleNode(MiddleNode::Enf(_enf)) = scalar_expr_node.clone().borrow().deref() {
+                    scalar_expr_node
+                } else {
+                    Enf::new(scalar_expr_node).into()
+                };
+
+                match in_boundary {
+                    true => self
+                        .mir
+                        .constraint_graph_mut()
+                        .insert_boundary_constraints_root(node_to_add),
+                    false => {
+                        match parent.borrow_mut().deref_mut() {
+                            NodeType::RootNode(root_node) => root_node.add_child(node_to_add.clone().into()),
+                            NodeType::MiddleNode(middle_node) => middle_node.add_child(node_to_add.clone().into()),
+                            NodeType::LeafNode(leaf_node) => leaf_node.add_child(node_to_add.clone().into()),
+                        };
+                        if parent == self.mir.constraint_graph().clone().into() {
+                            self.mir
                                 .constraint_graph_mut()
-                                .insert_boundary_constraints_root(enf_node),
-                            false => {
-                                match parent.borrow_mut().deref_mut() {
-                                    NodeType::RootNode(root_node) => {
-                                        root_node.add_child(enf_node.clone().into())
-                                    }
-                                    NodeType::MiddleNode(middle_node) => {
-                                        middle_node.add_child(enf_node.clone().into())
-                                    }
-                                    NodeType::LeafNode(leaf_node) => {
-                                        leaf_node.add_child(enf_node.clone().into())
-                                    }
-                                };
-                                if parent == self.mir.constraint_graph().clone().into() {
-                                    self.mir
-                                        .constraint_graph_mut()
-                                        .insert_integrity_constraints_root(enf_node);
-                                }
-                            }
+                                .insert_integrity_constraints_root(node_to_add);
                         }
                     }
                 };
@@ -742,19 +712,86 @@ impl<'a> MirBuilder<'a> {
         }
     }
 
+    fn duplicate_node(&mut self, node: Link<NodeType>) -> Link<NodeType> {
+
+        match node.borrow().deref() {
+            NodeType::RootNode(root_node) => unreachable!(),
+            NodeType::LeafNode(leaf_node) => {
+                match leaf_node {
+                    LeafNode::Value(value_leaf) => {
+                        return value_leaf.data.clone().into();
+                    }
+                    LeafNode::Parameter(parameter_leaf) => {
+                        return parameter_leaf.data.clone().into();
+                    }
+                }
+            }
+            NodeType::MiddleNode(middle_node) => {
+                match middle_node {
+                    MiddleNode::Call(call) => {
+                        todo!();
+                    }
+                    MiddleNode::Function(_function) => {
+                        todo!();
+                    },
+                    MiddleNode::Evaluator(_evaluator) => { 
+                        todo!();
+                    },
+                    MiddleNode::Add(add) => {
+                        let lhs = add.lhs();
+                        let rhs = add.rhs();
+                        let new_lhs_node = self.duplicate_node(lhs);
+                        let new_rhs_node = self.duplicate_node(rhs);
+                        return Add::new(new_lhs_node, new_rhs_node).into();
+                    },
+                    MiddleNode::Sub(sub) => {
+                        let lhs = sub.lhs();
+                        let rhs = sub.rhs();
+                        let new_lhs_node = self.duplicate_node(lhs);
+                        let new_rhs_node = self.duplicate_node(rhs);
+                        return Sub::new(new_lhs_node, new_rhs_node).into();
+                    },
+                    MiddleNode::Mul(mul) => {
+                        let lhs = mul.lhs();
+                        let rhs = mul.rhs();
+                        let new_lhs_node = self.duplicate_node(lhs);
+                        let new_rhs_node = self.duplicate_node(rhs);
+                        return Mul::new(new_lhs_node, new_rhs_node).into();
+                    },
+                    MiddleNode::Scope(scope) => todo!(),
+                    MiddleNode::If(_) => todo!(),
+                    MiddleNode::For(_) => todo!(),
+                    MiddleNode::Fold(fold) => todo!(),
+                    MiddleNode::Boundary(boundary) => todo!(),
+                    MiddleNode::Enf(enf) => todo!(),
+                    MiddleNode::Vector(vector) => todo!(),
+                    MiddleNode::Matrix(matrix) => todo!(),
+                }
+            }
+        }
+    }
+
     // Use square and multiply algorithm to expand the exp into a series of multiplications
     fn expand_exp(&mut self, lhs: Link<NodeType>, rhs: u64, span: SourceSpan) -> Link<NodeType> {
+        // 0 -> 1
+        // 1 -> lhs
+        // n (n pair) -> 
         match rhs {
             0 => self.insert_typed_constant(Some(span), ast::ConstantExpr::Scalar(1)),
-            1 => lhs,
+            1 => self.duplicate_node(lhs.clone()),
             n if n % 2 == 0 => {
-                let square = Mul::new(lhs.clone(), lhs).into();
+                let new_lhs = self.duplicate_node(lhs.clone());
+                let new_rhs = self.duplicate_node(lhs.clone());
+                let square = Mul::new(new_lhs, new_rhs).into();
                 self.expand_exp(square, n / 2, span)
             }
             n => {
-                let square = Mul::new(lhs.clone(), lhs.clone()).into();
-                let rec = self.expand_exp(square, (n - 1) / 2, span);
-                Mul::new(lhs, rec).into()
+                let new_lhs = self.duplicate_node(lhs.clone());
+                let new_rhs = self.duplicate_node(lhs.clone());
+                let new_lhs_clone = self.duplicate_node(lhs.clone());
+                let square = Mul::new(new_lhs, new_rhs).into();
+                let rec: Link<NodeType> = self.expand_exp(square, (n - 1) / 2, span);
+                Mul::new(new_lhs_clone, rec).into()
             }
         }
     }
@@ -797,6 +834,7 @@ impl<'a> MirBuilder<'a> {
     // Assumed inlining was done, to update
     fn insert_symbol_access(&mut self, access: &ast::SymbolAccess) -> Link<NodeType> {
         use air_parser::ast::ResolvableIdentifier;
+        
         match access.name {
             // At this point during compilation, fully-qualified identifiers can only possibly refer
             // to a periodic column, as all functions have been inlined, and constants propagated.
@@ -891,11 +929,13 @@ impl<'a> MirBuilder<'a> {
                 }
 
                 // If we reach here, this must be a let-bound variable
-                return self
+                let let_bound_access_expr = self
                     .bindings
                     .get(access.name.as_ref())
                     .expect("undefined variable")
                     .clone();
+                let let_bound_access_expr_duplicated = self.duplicate_node(let_bound_access_expr);
+                return Access::new(let_bound_access_expr_duplicated, access.access_type);
             }
             // These should have been eliminated by previous compiler passes
             ResolvableIdentifier::Unresolved(_) => {
