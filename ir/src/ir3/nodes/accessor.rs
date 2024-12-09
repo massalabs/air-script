@@ -2,7 +2,7 @@ use std::{any::Any, hash::Hash};
 
 use air_parser::ast::{AccessType, RangeBound, Type};
 
-use crate::ir3::{BackLink, Child, Link, Op, Owner, Parent};
+use crate::ir3::{BackLink, Builder, Child, Link, NotSet, Op, Owner, Parent};
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Accessor {
@@ -88,5 +88,129 @@ impl Child for Accessor {
     }
     fn set_parent(&mut self, parent: Link<Self::Parent>) {
         self.parent = parent.into();
+    }
+}
+
+pub struct AccessorBuilder<State> {
+    _state: std::marker::PhantomData<State>,
+    parent: BackLink<Owner>,
+    indexable: Option<Link<Op>>,
+    access_type: Option<AccessType>,
+}
+
+type AccessorBuilderStart = AccessorBuilder<(BackLink<Owner>, NotSet, NotSet)>;
+type AccessorBuilderA = AccessorBuilder<(BackLink<Owner>, Link<Op>, NotSet)>;
+type AccessorBuilderB = AccessorBuilder<(BackLink<Owner>, NotSet, AccessType)>;
+type AccessorBuilderFinish = AccessorBuilder<(BackLink<Owner>, Link<Op>, AccessType)>;
+
+impl Builder for Accessor {
+    type BuilderType = AccessorBuilderStart;
+    fn builder() -> Self::BuilderType {
+        AccessorBuilder::default()
+    }
+}
+
+impl Default for AccessorBuilderStart {
+    fn default() -> Self {
+        Self {
+            _state: std::marker::PhantomData,
+            parent: BackLink::default(),
+            indexable: None,
+            access_type: None,
+        }
+    }
+}
+
+impl AccessorBuilderStart {
+    pub fn parent(mut self, parent: Link<Owner>) -> Self {
+        self.parent = parent.into();
+        self
+    }
+    pub fn indexable(mut self, indexable: Link<Op>) -> AccessorBuilderA {
+        self.indexable = Some(indexable);
+        unsafe { std::mem::transmute(self) }
+    }
+    pub fn access_type(mut self, access_type: AccessType) -> AccessorBuilderB {
+        self.access_type = Some(access_type);
+        unsafe { std::mem::transmute(self) }
+    }
+}
+
+impl AccessorBuilderA {
+    pub fn parent(mut self, parent: Link<Owner>) -> Self {
+        self.parent = parent.into();
+        self
+    }
+    pub fn indexable(mut self, indexable: Link<Op>) -> Self {
+        self.indexable = Some(indexable);
+        self
+    }
+    pub fn access_type(mut self, access_type: AccessType) -> AccessorBuilderFinish {
+        self.access_type = Some(access_type);
+        unsafe { std::mem::transmute(self) }
+    }
+}
+
+impl AccessorBuilderB {
+    pub fn parent(mut self, parent: Link<Owner>) -> Self {
+        self.parent = parent.into();
+        self
+    }
+    pub fn indexable(mut self, indexable: Link<Op>) -> AccessorBuilderFinish {
+        self.indexable = Some(indexable);
+        unsafe { std::mem::transmute(self) }
+    }
+    pub fn access_type(mut self, access_type: AccessType) -> Self {
+        self.access_type = Some(access_type);
+        self
+    }
+}
+
+impl AccessorBuilderFinish {
+    pub fn parent(mut self, parent: Link<Owner>) -> Self {
+        self.parent = parent.into();
+        self
+    }
+    pub fn indexable(mut self, indexable: Link<Op>) -> Self {
+        self.indexable = Some(indexable);
+        self
+    }
+    pub fn access_type(mut self, access_type: AccessType) -> Self {
+        self.access_type = Some(access_type);
+        self
+    }
+    pub fn build(self) -> Accessor {
+        Accessor {
+            parent: self.parent,
+            indexable: self.indexable.unwrap(),
+            access_type: self.access_type.unwrap(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_accessor_builder() {
+        let parent = Link::new(Owner::default());
+        let indexable = Link::new(Op::default());
+        let access_type = AccessType::Default;
+
+        let accessor = Accessor::builder()
+            .parent(parent.clone())
+            .indexable(indexable.clone())
+            .access_type(access_type.clone())
+            .build();
+
+        assert_eq!(
+            accessor,
+            Accessor {
+                parent: parent.into(),
+                indexable,
+                access_type
+            }
+        );
     }
 }

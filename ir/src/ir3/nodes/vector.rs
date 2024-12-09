@@ -1,4 +1,6 @@
-use crate::ir3::{BackLink, Child, Link, Op, Owner, Parent};
+use std::marker::PhantomData;
+
+use crate::ir3::{BackLink, Builder, Child, Link, NotSet, Op, Owner, Parent};
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Vector {
@@ -32,5 +34,90 @@ impl Child for Vector {
     }
     fn set_parent(&mut self, parent: Link<Self::Parent>) {
         self.parent = parent.into();
+    }
+}
+
+pub struct VectorBuilder<State> {
+    _state: PhantomData<State>,
+    parent: BackLink<Owner>,
+    size: Option<usize>,
+    elements: Vec<Link<Op>>,
+}
+
+impl Builder for VectorBuilder<(BackLink<Owner>, NotSet, Vec<Link<Op>>)> {
+    type BuilderType = VectorBuilder<(BackLink<Owner>, NotSet, Vec<Link<Op>>)>;
+    fn builder() -> Self::BuilderType {
+        VectorBuilder::default()
+    }
+}
+
+impl Default for VectorBuilder<(BackLink<Owner>, NotSet, Vec<Link<Op>>)> {
+    fn default() -> Self {
+        Self {
+            _state: PhantomData,
+            parent: BackLink::default(),
+            size: None,
+            elements: Vec::new(),
+        }
+    }
+}
+
+impl VectorBuilder<(BackLink<Owner>, NotSet, Vec<Link<Op>>)> {
+    pub fn parent(mut self, parent: Link<Owner>) -> Self {
+        self.parent = parent.into();
+        self
+    }
+    pub fn size(mut self, size: usize) -> VectorBuilder<(BackLink<Owner>, usize, Vec<Link<Op>>)> {
+        self.size = Some(size);
+        unsafe { std::mem::transmute(self) }
+    }
+    pub fn elements(mut self, elements: Link<Op>) -> Self {
+        self.elements.push(elements);
+        self
+    }
+}
+
+impl VectorBuilder<(BackLink<Owner>, usize, Vec<Link<Op>>)> {
+    pub fn parent(mut self, parent: Link<Owner>) -> Self {
+        self.parent = parent.into();
+        self
+    }
+    pub fn size(mut self, size: usize) -> Self {
+        self.size = Some(size);
+        self
+    }
+    pub fn elements(mut self, elements: Link<Op>) -> Self {
+        self.elements.push(elements);
+        self
+    }
+    pub fn build(self) -> Vector {
+        Vector {
+            parent: self.parent,
+            size: self.size.expect("size not set"),
+            elements: Link::new(self.elements),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::ir3::Add;
+
+    use super::*;
+
+    #[test]
+    fn test_vector_builder() {
+        let parent = Link::new(Owner::default());
+        let a = Link::new(Op::default());
+        let b = Link::new(Op::default());
+        let vector = VectorBuilder::default()
+            .parent(parent.clone())
+            .size(2)
+            .elements(a.clone())
+            .elements(b.clone())
+            .build();
+        assert_eq!(Link::from(vector.parent), parent.clone());
+        assert_eq!(vector.size, 2);
+        assert_eq!(vector.elements, Link::new(vec![a.clone(), b.clone()]));
     }
 }

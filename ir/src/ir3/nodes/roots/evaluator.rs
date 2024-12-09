@@ -1,0 +1,83 @@
+use crate::ir3::{Builder, Link, NotSet, Op, Parameter, Parent};
+
+#[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
+pub struct Evaluator {
+    pub parameters: Vec<Link<Parameter>>,
+    pub body: Link<Vec<Link<Op>>>,
+}
+
+impl Evaluator {
+    pub fn new(parameters: Vec<Link<Parameter>>, body: Vec<Link<Op>>) -> Self {
+        Self {
+            parameters,
+            body: Link::new(body),
+        }
+    }
+}
+
+impl Parent for Evaluator {
+    type Child = Op;
+    fn children(&self) -> Link<Vec<Link<Self::Child>>> {
+        self.body.clone()
+    }
+}
+
+pub struct EvaluatorBuilder<State> {
+    _state: std::marker::PhantomData<State>,
+    parameters: Vec<Link<Parameter>>,
+    body: Vec<Link<Op>>,
+}
+
+type EvaluatorBuilderState = EvaluatorBuilder<(Vec<Link<Parameter>>, Vec<Link<Op>>)>;
+
+impl Builder for Evaluator {
+    type BuilderType = EvaluatorBuilderState;
+    fn builder() -> Self::BuilderType {
+        EvaluatorBuilder::default()
+    }
+}
+
+impl Default for EvaluatorBuilderState {
+    fn default() -> Self {
+        Self {
+            _state: std::marker::PhantomData,
+            parameters: Vec::new(),
+            body: Vec::new(),
+        }
+    }
+}
+
+impl EvaluatorBuilderState {
+    pub fn parameters(mut self, parameter: Parameter) -> Self {
+        self.parameters.push(Link::from(parameter));
+        self
+    }
+    pub fn body(mut self, op: Op) -> Self {
+        self.body.push(Link::from(op));
+        self
+    }
+    pub fn build(self) -> Evaluator {
+        Evaluator::new(self.parameters, self.body)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ir3::{Add, Owner};
+
+    #[test]
+    fn test_evaluator_builder() {
+        let a = Parameter::new(0);
+        let b = Parameter::new(1);
+        let ev = Evaluator::builder()
+            .parameters(a.clone())
+            .parameters(b.clone())
+            .body(Op::Add(Add::default()))
+            .build();
+        assert_eq!(ev.parameters.len(), 2);
+        assert_eq!(ev.parameters[0].clone(), a.clone().into());
+        assert_eq!(ev.parameters[1].clone(), b.clone().into());
+        assert_eq!(ev.body.borrow().len(), 1);
+    }
+}

@@ -1,4 +1,4 @@
-use crate::ir3::{BackLink, Child, Link, Op, Owner, Parent};
+use crate::ir3::{BackLink, Builder, Child, Link, NotSet, Op, Owner, Parent};
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Fold {
@@ -41,5 +41,228 @@ impl Child for Fold {
     }
     fn set_parent(&mut self, parent: Link<Self::Parent>) {
         self.parent = parent.into();
+    }
+}
+
+pub struct FoldBuilder<State> {
+    _state: std::marker::PhantomData<State>,
+    parent: BackLink<Owner>,
+    iterator: Option<Link<Op>>,
+    operator: Option<Link<FoldOperator>>,
+    initial_value: Option<Link<Op>>,
+}
+
+type FoldBuilderStart = FoldBuilder<(BackLink<Owner>, NotSet, NotSet, NotSet)>;
+type FoldBuilderA = FoldBuilder<(BackLink<Owner>, Link<Op>, NotSet, NotSet)>;
+type FoldBuilderB = FoldBuilder<(BackLink<Owner>, NotSet, Link<FoldOperator>, NotSet)>;
+type FoldBuilderC = FoldBuilder<(BackLink<Owner>, NotSet, NotSet, Link<Op>)>;
+type FoldBuilderAB = FoldBuilder<(BackLink<Owner>, Link<Op>, Link<FoldOperator>, NotSet)>;
+type FoldBuilderAC = FoldBuilder<(BackLink<Owner>, Link<Op>, NotSet, Link<Op>)>;
+type FoldBuilderBC = FoldBuilder<(BackLink<Owner>, NotSet, Link<FoldOperator>, Link<Op>)>;
+type FoldBuilderFinish = FoldBuilder<(BackLink<Owner>, Link<Op>, Link<FoldOperator>, Link<Op>)>;
+
+impl Builder for Fold {
+    type BuilderType = FoldBuilderStart;
+    fn builder() -> Self::BuilderType {
+        FoldBuilder::default()
+    }
+}
+
+impl Default for FoldBuilderStart {
+    fn default() -> Self {
+        Self {
+            _state: std::marker::PhantomData,
+            parent: BackLink::default(),
+            iterator: None,
+            operator: None,
+            initial_value: None,
+        }
+    }
+}
+
+impl FoldBuilderStart {
+    pub fn parent(mut self, parent: Link<Owner>) -> Self {
+        self.parent = parent.into();
+        self
+    }
+    pub fn iterator(mut self, iterator: Link<Op>) -> FoldBuilderA {
+        self.iterator = Some(iterator);
+        unsafe { std::mem::transmute(self) }
+    }
+    pub fn operator(mut self, operator: Link<FoldOperator>) -> FoldBuilderB {
+        self.operator = Some(operator);
+        unsafe { std::mem::transmute(self) }
+    }
+    pub fn initial_value(mut self, initial_value: Link<Op>) -> FoldBuilderC {
+        self.initial_value = Some(initial_value);
+        unsafe { std::mem::transmute(self) }
+    }
+}
+
+impl FoldBuilderA {
+    pub fn parent(mut self, parent: Link<Owner>) -> Self {
+        self.parent = parent.into();
+        self
+    }
+    pub fn iterator(mut self, iterator: Link<Op>) -> Self {
+        self.iterator = Some(iterator);
+        self
+    }
+    pub fn operator(mut self, operator: Link<FoldOperator>) -> FoldBuilderAB {
+        self.operator = Some(operator);
+        unsafe { std::mem::transmute(self) }
+    }
+    pub fn initial_value(mut self, initial_value: Link<Op>) -> FoldBuilderAC {
+        self.initial_value = Some(initial_value);
+        unsafe { std::mem::transmute(self) }
+    }
+}
+
+impl FoldBuilderB {
+    pub fn parent(mut self, parent: Link<Owner>) -> Self {
+        self.parent = parent.into();
+        self
+    }
+    pub fn iterator(mut self, iterator: Link<Op>) -> FoldBuilderAB {
+        self.iterator = Some(iterator);
+        unsafe { std::mem::transmute(self) }
+    }
+    pub fn operator(mut self, operator: Link<FoldOperator>) -> Self {
+        self.operator = Some(operator);
+        self
+    }
+    pub fn initial_value(mut self, initial_value: Link<Op>) -> FoldBuilderBC {
+        self.initial_value = Some(initial_value);
+        unsafe { std::mem::transmute(self) }
+    }
+}
+
+impl FoldBuilderC {
+    pub fn parent(mut self, parent: Link<Owner>) -> Self {
+        self.parent = parent.into();
+        self
+    }
+    pub fn iterator(mut self, iterator: Link<Op>) -> FoldBuilderAC {
+        self.iterator = Some(iterator);
+        unsafe { std::mem::transmute(self) }
+    }
+    pub fn operator(mut self, operator: Link<FoldOperator>) -> FoldBuilderBC {
+        self.operator = Some(operator);
+        unsafe { std::mem::transmute(self) }
+    }
+    pub fn initial_value(mut self, initial_value: Link<Op>) -> Self {
+        self.initial_value = Some(initial_value);
+        self
+    }
+}
+
+impl FoldBuilderAB {
+    pub fn parent(mut self, parent: Link<Owner>) -> Self {
+        self.parent = parent.into();
+        self
+    }
+    pub fn iterator(mut self, iterator: Link<Op>) -> Self {
+        self.iterator = Some(iterator);
+        self
+    }
+    pub fn operator(mut self, operator: Link<FoldOperator>) -> Self {
+        self.operator = Some(operator);
+        self
+    }
+    pub fn initial_value(mut self, initial_value: Link<Op>) -> FoldBuilderFinish {
+        self.initial_value = Some(initial_value);
+        unsafe { std::mem::transmute(self) }
+    }
+}
+
+impl FoldBuilderAC {
+    pub fn parent(mut self, parent: Link<Owner>) -> Self {
+        self.parent = parent.into();
+        self
+    }
+    pub fn iterator(mut self, iterator: Link<Op>) -> Self {
+        self.iterator = Some(iterator);
+        self
+    }
+    pub fn operator(mut self, operator: Link<FoldOperator>) -> FoldBuilderFinish {
+        self.operator = Some(operator);
+        unsafe { std::mem::transmute(self) }
+    }
+    pub fn initial_value(mut self, initial_value: Link<Op>) -> Self {
+        self.initial_value = Some(initial_value);
+        self
+    }
+}
+
+impl FoldBuilderBC {
+    pub fn parent(mut self, parent: Link<Owner>) -> Self {
+        self.parent = parent.into();
+        self
+    }
+    pub fn iterator(mut self, iterator: Link<Op>) -> FoldBuilderFinish {
+        self.iterator = Some(iterator);
+        unsafe { std::mem::transmute(self) }
+    }
+    pub fn operator(mut self, operator: Link<FoldOperator>) -> Self {
+        self.operator = Some(operator);
+        self
+    }
+    pub fn initial_value(mut self, initial_value: Link<Op>) -> Self {
+        self.initial_value = Some(initial_value);
+        self
+    }
+}
+
+impl FoldBuilderFinish {
+    pub fn parent(mut self, parent: Link<Owner>) -> Self {
+        self.parent = parent.into();
+        self
+    }
+    pub fn iterator(mut self, iterator: Link<Op>) -> Self {
+        self.iterator = Some(iterator);
+        self
+    }
+    pub fn operator(mut self, operator: Link<FoldOperator>) -> Self {
+        self.operator = Some(operator);
+        self
+    }
+    pub fn initial_value(mut self, initial_value: Link<Op>) -> Self {
+        self.initial_value = Some(initial_value);
+        self
+    }
+    pub fn build(self) -> Fold {
+        Fold {
+            parent: self.parent,
+            iterator: self.iterator.unwrap(),
+            operator: self.operator.unwrap(),
+            initial_value: self.initial_value.unwrap(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::ir3::{Add, Evaluator, Mul};
+
+    use super::*;
+
+    #[test]
+    fn test_fold_builder() {
+        let parent = Link::new(Owner::Evaluator(Evaluator::default()));
+        let fold = Fold::builder()
+            .parent(parent.clone())
+            .iterator(Link::new(Op::Add(Add::default())))
+            .operator(Link::new(FoldOperator::Add))
+            .initial_value(Link::new(Op::Mul(Mul::default())))
+            .build();
+        assert_eq!(
+            fold,
+            Fold {
+                parent: parent.clone().into(),
+                iterator: Link::new(Op::Add(Add::default())),
+                operator: Link::new(FoldOperator::Add),
+                initial_value: Link::new(Op::Mul(Mul::default())),
+            }
+        );
     }
 }

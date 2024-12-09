@@ -22,8 +22,6 @@ pub trait Parent {
     }
 }
 
-pub trait Builder: Parent {}
-
 pub trait Child: Clone + Into<Link<Self>> + PartialEq {
     type Parent;
     fn get_parent(&self) -> BackLink<Self::Parent>;
@@ -46,6 +44,13 @@ pub trait Child: Clone + Into<Link<Self>> + PartialEq {
         // Change the parent
         self.set_parent(new_parent);
     }
+}
+
+pub struct NotSet;
+
+pub trait Builder {
+    type BuilderType;
+    fn builder() -> Self::BuilderType;
 }
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]

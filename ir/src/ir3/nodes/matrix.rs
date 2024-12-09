@@ -1,4 +1,6 @@
-use crate::ir3::{BackLink, Child, Link, Op, Owner, Parent, Vector};
+use std::marker::PhantomData;
+
+use crate::ir3::{BackLink, Builder, Child, Link, NotSet, Op, Owner, Parent, Vector};
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Matrix {
@@ -32,5 +34,93 @@ impl Child for Matrix {
     }
     fn set_parent(&mut self, parent: Link<Self::Parent>) {
         self.parent = parent.into();
+    }
+}
+
+pub struct MatrixBuilder<State> {
+    _state: PhantomData<State>,
+    parent: BackLink<Owner>,
+    size: Option<usize>,
+    elements: Vec<Link<Vector>>,
+}
+
+impl Builder for MatrixBuilder<(BackLink<Owner>, NotSet, Vec<Link<Vector>>)> {
+    type BuilderType = MatrixBuilder<(BackLink<Owner>, NotSet, Vec<Link<Vector>>)>;
+    fn builder() -> Self::BuilderType {
+        MatrixBuilder::default()
+    }
+}
+
+impl Default for MatrixBuilder<(BackLink<Owner>, NotSet, Vec<Link<Vector>>)> {
+    fn default() -> Self {
+        Self {
+            _state: PhantomData,
+            parent: BackLink::default(),
+            size: None,
+            elements: Vec::new(),
+        }
+    }
+}
+
+impl MatrixBuilder<(BackLink<Owner>, NotSet, Vec<Link<Vector>>)> {
+    pub fn parent(mut self, parent: Link<Owner>) -> Self {
+        self.parent = parent.into();
+        self
+    }
+    pub fn size(
+        mut self,
+        size: usize,
+    ) -> MatrixBuilder<(BackLink<Owner>, usize, Vec<Link<Vector>>)> {
+        self.size = Some(size);
+        unsafe { std::mem::transmute(self) }
+    }
+    pub fn elements(mut self, elements: Link<Vector>) -> Self {
+        self.elements.push(elements);
+        self
+    }
+}
+
+impl MatrixBuilder<(BackLink<Owner>, usize, Vec<Link<Vector>>)> {
+    pub fn parent(mut self, parent: Link<Owner>) -> Self {
+        self.parent = parent.into();
+        self
+    }
+    pub fn size(mut self, size: usize) -> Self {
+        self.size = Some(size);
+        self
+    }
+    pub fn elements(mut self, elements: Link<Vector>) -> Self {
+        self.elements.push(elements);
+        self
+    }
+    pub fn build(self) -> Matrix {
+        Matrix {
+            parent: self.parent,
+            size: self.size.expect("size not set"),
+            elements: Link::new(self.elements),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::ir3::Add;
+
+    use super::*;
+
+    #[test]
+    fn test_matrix_builder() {
+        let parent = Link::new(Owner::default());
+        let a = Link::new(Vector::default());
+        let b = Link::new(Vector::default());
+        let matrix = MatrixBuilder::default()
+            .parent(parent.clone())
+            .size(2)
+            .elements(a.clone())
+            .elements(b.clone())
+            .build();
+        assert_eq!(Link::from(matrix.parent), parent.clone());
+        assert_eq!(matrix.size, 2);
+        assert_eq!(matrix.elements, Link::new(vec![a.clone(), b.clone()]));
     }
 }

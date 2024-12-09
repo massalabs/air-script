@@ -1,7 +1,7 @@
-use miden_diagnostics::SourceSpan;
+use std::marker::PhantomData;
 
 use crate::{
-    ir3::{BackLink, Child, Link, Op, Owner},
+    ir3::{BackLink, Builder, Child, Link, NotSet, Op, Owner},
     MirValue, SpannedMirValue,
 };
 
@@ -36,5 +36,76 @@ impl Child for Value {
     }
     fn set_parent(&mut self, parent: Link<Self::Parent>) {
         self.parent = parent.into();
+    }
+}
+
+pub struct ValueBuilder<State> {
+    _state: PhantomData<State>,
+    parent: BackLink<Owner>,
+    value: Option<SpannedMirValue>,
+}
+
+impl Builder for Value {
+    type BuilderType = ValueBuilder<(BackLink<Owner>, NotSet)>;
+    fn builder() -> Self::BuilderType {
+        ValueBuilder::default()
+    }
+}
+
+impl Default for ValueBuilder<(BackLink<Owner>, NotSet)> {
+    fn default() -> Self {
+        Self {
+            _state: PhantomData,
+            parent: BackLink::default(),
+            value: None,
+        }
+    }
+}
+
+impl ValueBuilder<(BackLink<Owner>, NotSet)> {
+    pub fn parent(mut self, parent: Link<Owner>) -> Self {
+        self.parent = parent.into();
+        self
+    }
+    pub fn value(
+        mut self,
+        value: SpannedMirValue,
+    ) -> ValueBuilder<(BackLink<Owner>, SpannedMirValue)> {
+        self.value = Some(value);
+        unsafe { std::mem::transmute(self) }
+    }
+}
+
+impl ValueBuilder<(BackLink<Owner>, SpannedMirValue)> {
+    pub fn value(mut self, value: SpannedMirValue) -> Self {
+        self.value = Some(value);
+        self
+    }
+    pub fn parent(mut self, parent: Link<Owner>) -> Self {
+        self.parent = parent.into();
+        self
+    }
+    pub fn build(self) -> Value {
+        Value {
+            parent: self.parent,
+            value: self.value.expect("value not set"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ir3::{Add, Owner};
+
+    #[test]
+    fn test_value_builder() {
+        let parent = Link::new(Owner::Add(Add::default()));
+        let value = Value::builder()
+            .parent(parent.clone())
+            .value(SpannedMirValue::default())
+            .build();
+        assert_eq!(Link::from(value.parent), parent.clone());
+        assert_eq!(value.value, SpannedMirValue::default());
     }
 }

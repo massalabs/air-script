@@ -1,6 +1,6 @@
 use std::hash::Hash;
 
-use crate::ir3::{BackLink, Child, Link, Op, Owner, Parent};
+use crate::ir3::{BackLink, Builder, Child, Link, NotSet, Op, Owner, Parent};
 
 use air_parser::ast::Boundary as BoundaryKind;
 
@@ -54,5 +54,128 @@ impl Child for Boundary {
     }
     fn set_parent(&mut self, parent: Link<Self::Parent>) {
         self.parent = parent.into();
+    }
+}
+
+pub struct BoundaryBuilder<State> {
+    _state: std::marker::PhantomData<State>,
+    parent: BackLink<Owner>,
+    kind: Option<BoundaryKind>,
+    expr: Option<Link<Op>>,
+}
+
+type BoundaryBuilderStart = BoundaryBuilder<(BackLink<Owner>, NotSet, NotSet)>;
+type BoundaryBuilderA = BoundaryBuilder<(BackLink<Owner>, BoundaryKind, NotSet)>;
+type BoundaryBuilderB = BoundaryBuilder<(BackLink<Owner>, NotSet, Link<Op>)>;
+type BoundaryBuilderFinish = BoundaryBuilder<(BackLink<Owner>, BoundaryKind, Link<Op>)>;
+
+impl Builder for Boundary {
+    type BuilderType = BoundaryBuilderStart;
+    fn builder() -> Self::BuilderType {
+        BoundaryBuilder::default()
+    }
+}
+
+impl Default for BoundaryBuilderStart {
+    fn default() -> Self {
+        Self {
+            _state: std::marker::PhantomData,
+            parent: BackLink::default(),
+            kind: None,
+            expr: None,
+        }
+    }
+}
+
+impl BoundaryBuilderStart {
+    pub fn parent(mut self, parent: Link<Owner>) -> Self {
+        self.parent = parent.into();
+        self
+    }
+    pub fn kind(mut self, kind: BoundaryKind) -> BoundaryBuilderA {
+        self.kind = Some(kind);
+        unsafe { std::mem::transmute(self) }
+    }
+    pub fn expr(mut self, expr: Link<Op>) -> BoundaryBuilderB {
+        self.expr = Some(expr);
+        unsafe { std::mem::transmute(self) }
+    }
+}
+
+impl BoundaryBuilderA {
+    pub fn parent(mut self, parent: Link<Owner>) -> Self {
+        self.parent = parent.into();
+        self
+    }
+    pub fn kind(mut self, kind: BoundaryKind) -> Self {
+        self.kind = Some(kind);
+        self
+    }
+    pub fn expr(mut self, expr: Link<Op>) -> BoundaryBuilderFinish {
+        self.expr = Some(expr);
+        unsafe { std::mem::transmute(self) }
+    }
+}
+
+impl BoundaryBuilderB {
+    pub fn parent(mut self, parent: Link<Owner>) -> Self {
+        self.parent = parent.into();
+        self
+    }
+    pub fn kind(mut self, kind: BoundaryKind) -> BoundaryBuilderFinish {
+        self.kind = Some(kind);
+        unsafe { std::mem::transmute(self) }
+    }
+    pub fn expr(mut self, expr: Link<Op>) -> Self {
+        self.expr = Some(expr);
+        self
+    }
+}
+
+impl BoundaryBuilderFinish {
+    pub fn parent(mut self, parent: Link<Owner>) -> Self {
+        self.parent = parent.into();
+        self
+    }
+    pub fn kind(mut self, kind: BoundaryKind) -> Self {
+        self.kind = Some(kind);
+        self
+    }
+    pub fn expr(mut self, expr: Link<Op>) -> Self {
+        self.expr = Some(expr);
+        self
+    }
+    pub fn build(self) -> Boundary {
+        Boundary {
+            parent: self.parent,
+            kind: self.kind.unwrap(),
+            expr: self.expr.unwrap(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::ir3::Evaluator;
+
+    use super::*;
+
+    #[test]
+    fn test_boundary() {
+        let parent = Link::new(Owner::Evaluator(Evaluator::default()));
+        let expr = Link::new(Op::default());
+        let boundary = Boundary::builder()
+            .parent(parent.clone())
+            .kind(BoundaryKind::Last)
+            .expr(expr.clone())
+            .build();
+        assert_eq!(
+            boundary,
+            Boundary {
+                parent: parent.into(),
+                kind: BoundaryKind::Last,
+                expr: expr.clone()
+            }
+        );
     }
 }
