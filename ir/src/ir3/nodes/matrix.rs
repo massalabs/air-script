@@ -1,8 +1,8 @@
-use crate::ir3::{BackLink, Child, Link, Op, Parent, Vector};
+use crate::ir3::{BackLink, Child, Link, Op, Owner, Parent, Vector};
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Matrix {
-    parent: BackLink<Op>,
+    parent: BackLink<Owner>,
     size: usize,
     elements: Link<Vec<Link<Vector>>>,
 }
@@ -26,7 +26,7 @@ impl Parent for Matrix {
 }
 
 impl Child for Matrix {
-    type Parent = Op;
+    type Parent = Owner;
     fn get_parent(&self) -> BackLink<Self::Parent> {
         self.parent.clone()
     }

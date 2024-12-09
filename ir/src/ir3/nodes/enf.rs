@@ -1,8 +1,8 @@
-use crate::ir3::{BackLink, Child, Link, Op, Parent};
+use crate::ir3::{BackLink, Child, Link, Op, Owner, Parent};
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Enf {
-    parent: BackLink<Op>,
+    parent: BackLink<Owner>,
     expr: Link<Op>,
 }
 
@@ -23,7 +23,7 @@ impl Parent for Enf {
 }
 
 impl Child for Enf {
-    type Parent = Op;
+    type Parent = Owner;
     fn get_parent(&self) -> BackLink<Self::Parent> {
         self.parent.clone()
     }

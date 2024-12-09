@@ -74,6 +74,25 @@ pub enum Op {
 }
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
+pub enum Owner {
+    Function(Function),
+    Evaluator(Evaluator),
+    Enf(Enf),
+    Boundary(Boundary),
+    Add(Add),
+    Sub(Sub),
+    Mul(Mul),
+    If(If),
+    For(For),
+    Call(Call),
+    Fold(Fold),
+    Vector(Vector),
+    Matrix(Matrix),
+    #[default]
+    None,
+}
+
+#[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub enum Leaf {
     Parameter(Parameter),
     Value(Value),

@@ -1,13 +1,13 @@
 use miden_diagnostics::SourceSpan;
 
 use crate::{
-    ir3::{BackLink, Child, Link, Op},
+    ir3::{BackLink, Child, Link, Op, Owner},
     MirValue, SpannedMirValue,
 };
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Value {
-    parent: BackLink<Op>,
+    parent: BackLink<Owner>,
     value: SpannedMirValue,
 }
 
@@ -30,7 +30,7 @@ impl Value {
 }
 
 impl Child for Value {
-    type Parent = Op;
+    type Parent = Owner;
     fn get_parent(&self) -> BackLink<Self::Parent> {
         self.parent.clone()
     }

@@ -1,8 +1,8 @@
-use crate::ir3::{BackLink, Child, Link, Op, Parent};
+use crate::ir3::{BackLink, Child, Link, Op, Owner, Parent};
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct If {
-    parent: BackLink<Op>,
+    parent: BackLink<Owner>,
     condition: Link<Op>,
     then_branch: Link<Op>,
     else_branch: Link<Op>,
@@ -31,7 +31,7 @@ impl Parent for If {
 }
 
 impl Child for If {
-    type Parent = Op;
+    type Parent = Owner;
     fn get_parent(&self) -> BackLink<Self::Parent> {
         self.parent.clone()
     }

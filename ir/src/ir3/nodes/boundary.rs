@@ -1,12 +1,12 @@
 use std::hash::Hash;
 
-use crate::ir3::{BackLink, Child, Link, Op, Parent};
+use crate::ir3::{BackLink, Child, Link, Op, Owner, Parent};
 
 use air_parser::ast::Boundary as BoundaryKind;
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Boundary {
-    parent: BackLink<Op>,
+    parent: BackLink<Owner>,
     kind: BoundaryKind,
     expr: Link<Op>,
 }
@@ -48,7 +48,7 @@ impl Parent for Boundary {
 }
 
 impl Child for Boundary {
-    type Parent = Op;
+    type Parent = Owner;
     fn get_parent(&self) -> BackLink<Self::Parent> {
         self.parent.clone()
     }

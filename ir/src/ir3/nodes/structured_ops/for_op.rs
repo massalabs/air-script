@@ -1,4 +1,4 @@
-use crate::ir3::{BackLink, Child, Link, Op, Parent, Vector};
+use crate::ir3::{BackLink, Child, Link, Op, Owner, Parent, Vector};
 
 pub enum ForChild {
     Iterators(Link<Vec<Link<Vector>>>),
@@ -8,7 +8,7 @@ pub enum ForChild {
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct For {
-    parent: BackLink<Op>,
+    parent: BackLink<Owner>,
     iterators: Link<Vec<Link<Vector>>>,
     expr: Link<Op>,
     selector: Link<Op>,
@@ -37,7 +37,7 @@ impl Parent for For {
 }
 
 impl Child for For {
-    type Parent = Op;
+    type Parent = Owner;
     fn get_parent(&self) -> BackLink<Self::Parent> {
         self.parent.clone()
     }
