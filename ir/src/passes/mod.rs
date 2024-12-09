@@ -50,6 +50,7 @@ impl Pass for DumpAst {
 // and for unrolling loops (and replacing their parameters with the iterator values) for Unrolling.
 // Inlining: replace_parameter_list = arguments should be the arguments from the Call()
 // Unrolling: replace_parameter_list = self.for_inlining_context.unwrap().iterators
+pub fn duplicate_node_or_replace(
     current_replace_map: &mut HashMap<Link<NodeType>, Link<NodeType>>,
     node: Link<NodeType>,
     replace_parameter_list: Vec<Link<NodeType>>,

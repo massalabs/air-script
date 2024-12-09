@@ -715,7 +715,7 @@ impl<'a> MirBuilder<'a> {
     fn duplicate_node(&mut self, node: Link<NodeType>) -> Link<NodeType> {
 
         match node.borrow().deref() {
-            NodeType::RootNode(root_node) => unreachable!(),
+            NodeType::RootNode(_root_node) => unreachable!(),
             NodeType::LeafNode(leaf_node) => {
                 match leaf_node {
                     LeafNode::Value(value_leaf) => {
@@ -728,7 +728,7 @@ impl<'a> MirBuilder<'a> {
             }
             NodeType::MiddleNode(middle_node) => {
                 match middle_node {
-                    MiddleNode::Call(call) => {
+                    MiddleNode::Call(_call) => {
                         todo!();
                     }
                     MiddleNode::Function(_function) => {
