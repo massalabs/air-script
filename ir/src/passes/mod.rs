@@ -28,7 +28,7 @@ use std::ops::Deref;
 use air_pass::Pass;
 
 use crate::ir2::{
-    Add, Boundary, Fold, If, IsParent, LeafNode, Link, Matrix, MiddleNode, Mul, NodeType, Scope, Sub, Vector
+    Add, Boundary, Call, Enf, Fold, For, If, IsParent, LeafNode, Link, Matrix, MiddleNode, Mul, NodeType, Scope, Sub, Vector
 };
 
 pub struct DumpAst;
@@ -154,12 +154,39 @@ fn duplicate_node_or_replace(
                     let new_node = Matrix::new(new_m).into();
                     current_replace_map.insert(node, new_node);
                 }
-                // These should not exist / be accessible from roots after inlining and in For
-                MiddleNode::For(_for) => todo!(), // needed for inlining
-                MiddleNode::Enf(_enf) => todo!(), // needed for inlining
-                MiddleNode::Call(_call) => todo!(), // needed for inlining ? Unsure
-                MiddleNode::Function(_function) => unreachable!(),
-                MiddleNode::Evaluator(_evaluator) => unreachable!(),
+                MiddleNode::For(for_node) => {
+                    let iterators = for_node.iterators();
+                    let body = for_node.body();
+                    let selector = for_node.selector();
+                    let new_iterators = iterators
+                        .iter()
+                        .map(|node| current_replace_map.get(node).unwrap().clone())
+                        .collect();
+                    let new_body = current_replace_map.get(&body).unwrap().clone();
+                    let new_selector = selector
+                        .map(|node| current_replace_map.get(node).unwrap().clone());
+                    let new_node = For::new(new_iterators, new_body, new_selector).into();
+                    current_replace_map.insert(node, new_node);
+                },
+                MiddleNode::Enf(enf) => {
+                    let expr = enf.expr();
+                    let new_expr = current_replace_map.get(&expr).unwrap().clone();
+                    let new_node = Enf::new(new_expr).into();
+                    current_replace_map.insert(node, new_node);
+                },
+                MiddleNode::Call(call) => {
+                    // Note: the function is not replaced
+                    let function = call.function();
+                    let arguments = call.arguments();
+                    let new_arguments = arguments
+                        .iter()
+                        .map(|node| current_replace_map.get(node).unwrap().clone())
+                        .collect();
+                    let new_node = Call::new(function, new_arguments).into();
+                    current_replace_map.insert(node, new_node);
+                },
+                MiddleNode::Function(_function) => { },
+                MiddleNode::Evaluator(_evaluator) => { },
             }
         }
     }

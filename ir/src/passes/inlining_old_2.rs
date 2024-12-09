@@ -102,9 +102,6 @@ impl Inlining {
         outer_def: &Link<NodeType>,
         index_in_body: usize,
     ) {
-        let v= vec![0];
-        a = v.iter().map(f)
-        a = v.iter().map(f)
         let call_node = ir.node(call).clone();
         if let Operation::Call(def, arg_valuees) = &call_node.op {
             let mut body_map = BTreeMap::new();

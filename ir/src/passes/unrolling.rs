@@ -41,6 +41,7 @@ pub struct Unrolling {
 }
 
 impl VisitContext for Unrolling {
+    #[allow(unused)]
     fn visit(&mut self, graph: &mut Graph, node: Link<NodeType>) {
         if self.during_first_pass {
             self.visit_first_pass(node);
