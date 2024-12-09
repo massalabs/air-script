@@ -5,14 +5,14 @@ pub struct Call {
     parent: BackLink<Owner>,
     function: Link<Root>,
     /// Parent::children only contains the arguments
-    arguments: Vec<Link<Op>>,
+    arguments: Link<Vec<Link<Op>>>,
 }
 
 impl Call {
     pub fn new(function: Link<Root>, arguments: Vec<Link<Op>>) -> Self {
         Self {
             function,
-            arguments,
+            arguments: Link::new(arguments),
             ..Default::default()
         }
     }
