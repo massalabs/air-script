@@ -8,7 +8,7 @@ use air_pass::Pass;
 //use miden_diagnostics::DiagnosticsHandler;
 
 use crate::{
-    ir2::{Graph, Link, MiddleNode, Mir, NodeType},
+    ir3::{Graph, Link, MiddleNode, Mir, NodeType},
     CompileError,
 };
 

@@ -1,20 +1,24 @@
 #![allow(unused)]
+mod constraints;
 mod graph;
 mod leaf;
 mod link;
+mod mir;
 mod nodes;
 mod op;
 mod owner;
 mod root;
+mod trace;
+
 use std::ops::DerefMut;
 
+pub use constraints::ConstraintError;
 pub use graph::Graph;
 pub use leaf::Leaf;
 pub use link::{BackLink, Link};
-pub use nodes::{
-    Accessor, Add, Boundary, Call, Enf, Evaluator, Fold, For, Function, If, Matrix, Mul, Parameter,
-    Sub, Value, Vector,
-};
+pub use mir::Mir;
+pub use nodes::*;
+pub use trace::TraceAccess;
 pub use op::Op;
 pub use owner::Owner;
 pub use root::Root;

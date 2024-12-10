@@ -1,4 +1,4 @@
-use crate::ir2::{IsParent, Link, NodeType};
+use crate::ir3::{IsParent, Link, NodeType};
 
 pub enum VisitOrder {
     Manual,

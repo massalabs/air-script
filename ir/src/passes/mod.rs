@@ -23,11 +23,10 @@ pub use self::unrolling::Unrolling;
 pub use self::visitor::{Visit, VisitContext, VisitOrder};
 
 use std::collections::HashMap;
-use std::ops::Deref;
 
 use air_pass::Pass;
 
-use crate::ir2::{
+use crate::ir3::{
     Add, Boundary, Call, Enf, Fold, For, Graph, If, IsParent, LeafNode, Link, Matrix, MiddleNode,
     Mul, NodeType, RootNode, Scope, Sub, Vector,
 };
