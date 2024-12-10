@@ -1,15 +1,23 @@
 #![allow(unused)]
 mod graph;
+mod leaf;
 mod link;
 mod nodes;
+mod op;
+mod owner;
+mod root;
 use std::ops::DerefMut;
 
 pub use graph::Graph;
+pub use leaf::Leaf;
 pub use link::{BackLink, Link};
 pub use nodes::{
     Accessor, Add, Boundary, Call, Enf, Evaluator, Fold, For, Function, If, Matrix, Mul, Parameter,
     Sub, Value, Vector,
 };
+pub use op::Op;
+pub use owner::Owner;
+pub use root::Root;
 
 /// A trait for nodes that can have children
 /// This is used with the Child trait to allow for easy traversal and manipulation of the graph
@@ -64,66 +72,4 @@ pub trait Builder {
     /// Consumes the current node
     /// and returns a new builder with all fields set to expose all fields
     fn edit(self) -> Self::BuilderFull;
-}
-
-/// The root nodes of the MIR Graph
-/// These represent the top level functions and evaluators
-#[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
-pub enum Root {
-    Function(Function),
-    Evaluator(Evaluator),
-    #[default]
-    None,
-}
-
-/// The combined Operators and Leaves of the MIR Graph
-#[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
-pub enum Op {
-    Enf(Enf),
-    Boundary(Boundary),
-    Add(Add),
-    Sub(Sub),
-    Mul(Mul),
-    If(If),
-    For(For),
-    Call(Call),
-    Fold(Fold),
-    Vector(Vector),
-    Matrix(Matrix),
-    IndexAccess(Accessor),
-    Parameter(Parameter),
-    Value(Value),
-    #[default]
-    None,
-}
-
-/// The nodes that can own Op nodes
-#[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
-pub enum Owner {
-    Function(Function),
-    Evaluator(Evaluator),
-    Enf(Enf),
-    Boundary(Boundary),
-    Add(Add),
-    Sub(Sub),
-    Mul(Mul),
-    If(If),
-    For(For),
-    Call(Call),
-    Fold(Fold),
-    Vector(Vector),
-    Matrix(Matrix),
-    IndexAccess(Accessor),
-    #[default]
-    None,
-}
-
-/// The Final nodes of the MIR Graph.
-/// Currently unused in the structure but will be used in the next visitor pattern implementation.
-#[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
-pub enum Leaf {
-    Parameter(Parameter),
-    Value(Value),
-    #[default]
-    None,
 }
