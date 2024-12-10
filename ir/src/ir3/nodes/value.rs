@@ -88,56 +88,6 @@ impl From<ast::Type> for MirType {
     }
 }
 
-impl MirValue {
-    /*fn ty(&self) -> MirType {
-        match &self {
-            MirValue::Constant(c) => match c {
-                ConstantValue::Felt(_) => MirType::Felt,
-                ConstantValue::Vector(v) => MirType::Vector(v.len()),
-                ConstantValue::Matrix(m) => MirType::Matrix(m.len(), m[0].len()),
-            },
-            MirValue::TraceAccess(_) => MirType::Felt,
-            MirValue::PeriodicColumn(_) => MirType::Felt,
-            MirValue::PublicInput(_) => MirType::Felt,
-            MirValue::RandomValue(_) => MirType::Felt,
-            MirValue::TraceAccessBinding(trace_access_binding) => {
-                let size = trace_access_binding.size;
-                match size {
-                    1 => MirType::Felt,
-                    _ => MirType::Vector(size),
-                }
-            },
-            MirValue::RandomValueBinding(random_value_binding) =>  {
-                let size = random_value_binding.size;
-                match size {
-                    1 => MirType::Felt,
-                    _ => MirType::Vector(size),
-                }
-            },
-            MirValue::Vector(vec) => {
-                let size = vec.len();
-                let inner_ty = vec[0].ty();
-                match inner_ty {
-                    MirType::Felt => MirType::Vector(size),
-                    MirType::Vector(inner_size) => MirType::Matrix(size, inner_size),
-                    MirType::Matrix(_, _) => unreachable!(),
-                }
-            },
-            MirValue::Matrix(vec) => {
-                let size = vec.len();
-                let inner_size = vec[0].len();
-                MirType::Matrix(size, inner_size)
-            },
-        }
-    }*/
-}
-
-impl SpannedMirValue {
-    /*fn ty(&self) -> MirType {
-        self.value.ty()
-    }*/
-}
-
 /// Represents an access of a [PeriodicColumn], similar in nature to [TraceAccess]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct PeriodicColumnAccess {
@@ -173,7 +123,7 @@ pub struct Value {
 impl Default for SpannedMirValue {
     fn default() -> Self {
         Self {
-            value: MirValue::Constant(crate::ConstantValue::Felt(0)),
+            value: MirValue::Constant(ConstantValue::Felt(0)),
             span: Default::default(),
         }
     }
