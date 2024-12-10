@@ -2,6 +2,8 @@ use std::ops::Deref;
 
 use crate::ir3::{Evaluator, Function, Link, Owner};
 
+use super::Node;
+
 /// The root nodes of the MIR Graph
 /// These represent the top level functions and evaluators
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
@@ -32,6 +34,13 @@ impl Root {
             Root::None => Owner::None,
         }
     }
+    pub fn as_node(self) -> Node {
+        match self {
+            Root::Function(f) => Node::Function(f),
+            Root::Evaluator(e) => Node::Evaluator(e),
+            Root::None => Node::None,
+        }
+    }
 }
 
 impl Link<Root> {
@@ -51,5 +60,8 @@ impl Link<Root> {
     }
     pub fn as_owner(self) -> Link<Owner> {
         self.borrow().deref().clone().as_owner().into()
+    }
+    pub fn as_node(self) -> Link<Node> {
+        self.borrow().deref().clone().as_node().into()
     }
 }

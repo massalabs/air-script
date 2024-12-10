@@ -2,7 +2,7 @@ use std::{any::Any, hash::Hash};
 
 use air_parser::ast::{AccessType, RangeBound, Type};
 
-use crate::ir3::{BackLink, Builder, Child, Link, NotSet, Op, Owner, Parent};
+use crate::ir3::{BackLink, Builder, Child, Link, Node, NotSet, Op, Owner, Parent};
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Accessor {
@@ -78,6 +78,9 @@ impl Accessor {
     pub fn as_owner(self) -> Owner {
         Owner::Accessor(self)
     }
+    pub fn as_node(self) -> Node {
+        Node::Accessor(self)
+    }
 }
 
 impl Link<Accessor> {
@@ -86,6 +89,9 @@ impl Link<Accessor> {
     }
     pub fn as_owner(self) -> Link<Owner> {
         Link::new(Owner::Accessor(self.borrow().clone()))
+    }
+    pub fn as_node(self) -> Link<Node> {
+        Link::new(Node::Accessor(self.borrow().clone()))
     }
 }
 

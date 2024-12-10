@@ -1,6 +1,6 @@
 use std::hash::Hash;
 
-use crate::ir3::{BackLink, Builder, Child, Link, NotSet, Op, Owner, Parent};
+use crate::ir3::{BackLink, Builder, Child, Link, Node, NotSet, Op, Owner, Parent};
 
 use air_parser::ast::Boundary as BoundaryKind;
 
@@ -45,6 +45,9 @@ impl Boundary {
     pub fn as_owner(self) -> Owner {
         Owner::Boundary(self)
     }
+    pub fn as_node(self) -> Node {
+        Node::Boundary(self)
+    }
 }
 
 impl Link<Boundary> {
@@ -53,6 +56,9 @@ impl Link<Boundary> {
     }
     pub fn as_owner(self) -> Link<Owner> {
         Link::new(Owner::Boundary(self.borrow().clone()))
+    }
+    pub fn as_node(self) -> Link<Node> {
+        Link::new(Node::Boundary(self.borrow().clone()))
     }
 }
 

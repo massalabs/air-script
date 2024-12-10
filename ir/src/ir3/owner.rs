@@ -3,7 +3,7 @@ use crate::ir3::{
     Vector,
 };
 
-use super::Link;
+use super::{Link, Node};
 
 /// The nodes that can own Op nodes
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
@@ -130,6 +130,25 @@ impl Owner {
             Owner::None => None,
         }
     }
+    pub fn as_node(self) -> Option<Node> {
+        match self {
+            Owner::Function(f) => None,
+            Owner::Evaluator(e) => None,
+            Owner::Enf(e) => Some(Node::Enf(e)),
+            Owner::Boundary(b) => Some(Node::Boundary(b)),
+            Owner::Add(a) => Some(Node::Add(a)),
+            Owner::Sub(s) => Some(Node::Sub(s)),
+            Owner::Mul(m) => Some(Node::Mul(m)),
+            Owner::If(i) => Some(Node::If(i)),
+            Owner::For(f) => Some(Node::For(f)),
+            Owner::Call(c) => Some(Node::Call(c)),
+            Owner::Fold(f) => Some(Node::Fold(f)),
+            Owner::Vector(v) => Some(Node::Vector(v)),
+            Owner::Matrix(m) => Some(Node::Matrix(m)),
+            Owner::Accessor(a) => Some(Node::Accessor(a)),
+            Owner::None => None,
+        }
+    }
 }
 
 impl Link<Owner> {
@@ -174,5 +193,8 @@ impl Link<Owner> {
     }
     pub fn as_op(self) -> Option<Link<Op>> {
         self.borrow().clone().as_op().map(|o| o.into())
+    }
+    pub fn as_node(self) -> Option<Link<Node>> {
+        self.borrow().clone().as_node().map(|n| n.into())
     }
 }

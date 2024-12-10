@@ -2,6 +2,8 @@ use std::ops::Deref;
 
 use crate::ir3::{Link, Op, Parameter, Value};
 
+use super::Node;
+
 /// The Final nodes of the MIR Graph.
 /// Currently unused in the structure but will be used in the next visitor pattern implementation.
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
@@ -32,6 +34,13 @@ impl Leaf {
             Leaf::None => Op::None,
         }
     }
+    pub fn as_node(self) -> Node {
+        match self {
+            Leaf::Parameter(p) => Node::Parameter(p),
+            Leaf::Value(v) => Node::Value(v),
+            Leaf::None => Node::None,
+        }
+    }
 }
 
 impl Link<Leaf> {
@@ -47,5 +56,8 @@ impl Link<Leaf> {
     }
     pub fn as_op(self) -> Link<Op> {
         self.borrow().deref().clone().as_op().into()
+    }
+    pub fn as_node(self) -> Link<Node> {
+        self.borrow().deref().clone().as_node().into()
     }
 }

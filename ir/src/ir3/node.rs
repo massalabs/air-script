@@ -1,15 +1,15 @@
-use std::ops::Deref;
-
 use crate::ir3::{
-    Accessor, Add, Boundary, Call, Enf, Fold, For, If, Link, Matrix, Mul, Owner, Parameter, Sub,
-    Value, Vector,
+    Accessor, Add, Boundary, Call, Enf, Evaluator, Fold, For, Function, If, Matrix, Mul, Op,
+    Parameter, Sub, Value, Vector,
 };
 
-use super::Node;
+use super::{Leaf, Link, Owner};
 
-/// The combined Operators and Leaves of the MIR Graph
+/// All the nodes that can be in the MIR Graph
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
-pub enum Op {
+pub enum Node {
+    Function(Function),
+    Evaluator(Evaluator),
     Enf(Enf),
     Boundary(Boundary),
     Add(Add),
@@ -28,132 +28,158 @@ pub enum Op {
     None,
 }
 
-impl Op {
+impl Node {
+    pub fn as_function(self) -> Option<Function> {
+        match self {
+            Node::Function(f) => Some(f),
+            _ => None,
+        }
+    }
+    pub fn as_evaluator(self) -> Option<Evaluator> {
+        match self {
+            Node::Evaluator(e) => Some(e),
+            _ => None,
+        }
+    }
     pub fn as_enf(self) -> Option<Enf> {
         match self {
-            Op::Enf(e) => Some(e),
+            Node::Enf(e) => Some(e),
             _ => None,
         }
     }
     pub fn as_boundary(self) -> Option<Boundary> {
         match self {
-            Op::Boundary(b) => Some(b),
+            Node::Boundary(b) => Some(b),
             _ => None,
         }
     }
     pub fn as_add(self) -> Option<Add> {
         match self {
-            Op::Add(a) => Some(a),
+            Node::Add(a) => Some(a),
             _ => None,
         }
     }
     pub fn as_sub(self) -> Option<Sub> {
         match self {
-            Op::Sub(s) => Some(s),
+            Node::Sub(s) => Some(s),
             _ => None,
         }
     }
     pub fn as_mul(self) -> Option<Mul> {
         match self {
-            Op::Mul(m) => Some(m),
+            Node::Mul(m) => Some(m),
             _ => None,
         }
     }
     pub fn as_if(self) -> Option<If> {
         match self {
-            Op::If(i) => Some(i),
+            Node::If(i) => Some(i),
             _ => None,
         }
     }
     pub fn as_for(self) -> Option<For> {
         match self {
-            Op::For(f) => Some(f),
+            Node::For(f) => Some(f),
             _ => None,
         }
     }
     pub fn as_call(self) -> Option<Call> {
         match self {
-            Op::Call(c) => Some(c),
+            Node::Call(c) => Some(c),
             _ => None,
         }
     }
     pub fn as_fold(self) -> Option<Fold> {
         match self {
-            Op::Fold(f) => Some(f),
+            Node::Fold(f) => Some(f),
             _ => None,
         }
     }
     pub fn as_vector(self) -> Option<Vector> {
         match self {
-            Op::Vector(v) => Some(v),
+            Node::Vector(v) => Some(v),
             _ => None,
         }
     }
     pub fn as_matrix(self) -> Option<Matrix> {
         match self {
-            Op::Matrix(m) => Some(m),
+            Node::Matrix(m) => Some(m),
             _ => None,
         }
     }
     pub fn as_index_access(self) -> Option<Accessor> {
         match self {
-            Op::Accessor(a) => Some(a),
+            Node::Accessor(a) => Some(a),
             _ => None,
         }
     }
     pub fn as_parameter(self) -> Option<Parameter> {
         match self {
-            Op::Parameter(p) => Some(p),
+            Node::Parameter(p) => Some(p),
             _ => None,
         }
     }
     pub fn as_value(self) -> Option<Value> {
         match self {
-            Op::Value(v) => Some(v),
+            Node::Value(v) => Some(v),
             _ => None,
+        }
+    }
+    pub fn as_op(self) -> Option<Op> {
+        match self {
+            Node::Function(f) => None,
+            Node::Evaluator(e) => None,
+            Node::Enf(e) => Some(Op::Enf(e)),
+            Node::Boundary(b) => Some(Op::Boundary(b)),
+            Node::Add(a) => Some(Op::Add(a)),
+            Node::Sub(s) => Some(Op::Sub(s)),
+            Node::Mul(m) => Some(Op::Mul(m)),
+            Node::If(i) => Some(Op::If(i)),
+            Node::For(f) => Some(Op::For(f)),
+            Node::Call(c) => Some(Op::Call(c)),
+            Node::Fold(f) => Some(Op::Fold(f)),
+            Node::Vector(v) => Some(Op::Vector(v)),
+            Node::Matrix(m) => Some(Op::Matrix(m)),
+            Node::Accessor(a) => Some(Op::Accessor(a)),
+            Node::Parameter(p) => Some(Op::Parameter(p)),
+            Node::Value(v) => Some(Op::Value(v)),
+            Node::None => None,
         }
     }
     pub fn as_owner(self) -> Option<Owner> {
         match self {
-            Op::Enf(e) => Some(Owner::Enf(e)),
-            Op::Boundary(b) => Some(Owner::Boundary(b)),
-            Op::Add(a) => Some(Owner::Add(a)),
-            Op::Sub(s) => Some(Owner::Sub(s)),
-            Op::Mul(m) => Some(Owner::Mul(m)),
-            Op::If(i) => Some(Owner::If(i)),
-            Op::For(f) => Some(Owner::For(f)),
-            Op::Call(c) => Some(Owner::Call(c)),
-            Op::Fold(f) => Some(Owner::Fold(f)),
-            Op::Vector(v) => Some(Owner::Vector(v)),
-            Op::Matrix(m) => Some(Owner::Matrix(m)),
-            Op::Accessor(a) => Some(Owner::Accessor(a)),
-            Op::Parameter(p) => None,
-            Op::Value(v) => None,
-            Op::None => None,
+            Node::Function(f) => Some(Owner::Function(f)),
+            Node::Evaluator(e) => Some(Owner::Evaluator(e)),
+            Node::Enf(e) => Some(Owner::Enf(e)),
+            Node::Boundary(b) => Some(Owner::Boundary(b)),
+            Node::Add(a) => Some(Owner::Add(a)),
+            Node::Sub(s) => Some(Owner::Sub(s)),
+            Node::Mul(m) => Some(Owner::Mul(m)),
+            Node::If(i) => Some(Owner::If(i)),
+            Node::For(f) => Some(Owner::For(f)),
+            Node::Call(c) => Some(Owner::Call(c)),
+            Node::Fold(f) => Some(Owner::Fold(f)),
+            Node::Vector(v) => Some(Owner::Vector(v)),
+            Node::Matrix(m) => Some(Owner::Matrix(m)),
+            Node::Accessor(a) => Some(Owner::Accessor(a)),
+            Node::Parameter(p) => None,
+            Node::Value(v) => None,
+            Node::None => None,
         }
     }
-    pub fn as_node(self) -> Option<Node> {
+    fn as_leaf(self) -> Option<Leaf> {
         match self {
-            Op::Enf(e) => Some(Node::Enf(e)),
-            Op::Boundary(b) => Some(Node::Boundary(b)),
-            Op::Add(a) => Some(Node::Add(a)),
-            Op::Sub(s) => Some(Node::Sub(s)),
-            Op::Mul(m) => Some(Node::Mul(m)),
-            Op::If(i) => Some(Node::If(i)),
-            Op::For(f) => Some(Node::For(f)),
-            Op::Call(c) => Some(Node::Call(c)),
-            Op::Fold(f) => Some(Node::Fold(f)),
-            Op::Vector(v) => Some(Node::Vector(v)),
-            Op::Matrix(m) => Some(Node::Matrix(m)),
-            Op::Accessor(a) => Some(Node::Accessor(a)),
-            Op::Parameter(p) => Some(Node::Parameter(p)),
-            Op::Value(v) => Some(Node::Value(v)),
-            Op::None => Some(Node::None),
+            Node::Value(v) => Some(Leaf::Value(v)),
+            Node::Parameter(p) => Some(Leaf::Parameter(p)),
+            _ => None,
         }
     }
 }
 
-impl Link<Op> {
+impl Link<Node> {
+    pub fn as_function(self) -> Option<Link<Function>> {
+        self.borrow().clone().as_function().map(|f| f.into())
+    }
     pub fn as_enf(self) -> Option<Link<Enf>> {
         self.borrow().clone().as_enf().map(|e| e.into())
     }
@@ -196,10 +222,10 @@ impl Link<Op> {
     pub fn as_value(self) -> Option<Link<Value>> {
         self.borrow().clone().as_value().map(|v| v.into())
     }
+    pub fn as_op(self) -> Option<Link<Op>> {
+        self.borrow().clone().as_op().map(|o| o.into())
+    }
     pub fn as_owner(self) -> Option<Link<Owner>> {
         self.borrow().clone().as_owner().map(|o| o.into())
-    }
-    pub fn as_node(self) -> Option<Link<Node>> {
-        self.borrow().clone().as_node().map(|n| n.into())
     }
 }

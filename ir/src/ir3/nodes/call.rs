@@ -1,6 +1,6 @@
 use std::ops::Deref;
 
-use crate::ir3::{BackLink, Builder, Child, Link, NotSet, Op, Owner, Parent, Root};
+use crate::ir3::{BackLink, Builder, Child, Link, Node, NotSet, Op, Owner, Parent, Root};
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Call {
@@ -24,6 +24,9 @@ impl Call {
     pub fn as_owner(self) -> Owner {
         Owner::Call(self)
     }
+    pub fn as_node(self) -> Node {
+        Node::Call(self)
+    }
 }
 
 impl Link<Call> {
@@ -32,6 +35,9 @@ impl Link<Call> {
     }
     pub fn as_owner(self) -> Link<Owner> {
         Link::new(Owner::Call(self.borrow().clone()))
+    }
+    pub fn as_node(self) -> Link<Node> {
+        Link::new(Node::Call(self.borrow().clone()))
     }
 }
 

@@ -4,6 +4,7 @@ mod graph;
 mod leaf;
 mod link;
 mod mir;
+mod node;
 mod nodes;
 mod op;
 mod owner;
@@ -17,11 +18,12 @@ pub use graph::Graph;
 pub use leaf::Leaf;
 pub use link::{BackLink, Link};
 pub use mir::Mir;
+pub use node::Node;
 pub use nodes::*;
-pub use trace::TraceAccess;
 pub use op::Op;
 pub use owner::Owner;
 pub use root::Root;
+pub use trace::TraceAccess;
 
 /// A trait for nodes that can have children
 /// This is used with the Child trait to allow for easy traversal and manipulation of the graph

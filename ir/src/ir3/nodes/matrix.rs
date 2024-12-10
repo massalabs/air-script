@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::ir3::{BackLink, Builder, Child, Link, NotSet, Op, Owner, Parent, Vector};
+use crate::ir3::{BackLink, Builder, Child, Link, Node, NotSet, Op, Owner, Parent, Vector};
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Matrix {
@@ -24,6 +24,9 @@ impl Matrix {
     pub fn as_owner(self) -> Owner {
         Owner::Matrix(self)
     }
+    pub fn as_node(self) -> Node {
+        Node::Matrix(self)
+    }
 }
 
 impl Link<Matrix> {
@@ -32,6 +35,9 @@ impl Link<Matrix> {
     }
     pub fn as_owner(self) -> Link<Owner> {
         Link::new(Owner::Matrix(self.borrow().clone()))
+    }
+    pub fn as_node(self) -> Link<Node> {
+        Link::new(Node::Matrix(self.borrow().clone()))
     }
 }
 

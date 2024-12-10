@@ -1,4 +1,4 @@
-use crate::ir3::{Builder, Link, NotSet, Op, Owner, Parameter, Parent, Root};
+use crate::ir3::{Builder, Link, Node, NotSet, Op, Owner, Parameter, Parent, Root};
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Function {
@@ -25,6 +25,9 @@ impl Function {
     pub fn as_owner(self) -> Owner {
         Owner::Function(self)
     }
+    pub fn as_node(self) -> Node {
+        Node::Function(self)
+    }
 }
 
 impl Link<Function> {
@@ -33,6 +36,9 @@ impl Link<Function> {
     }
     pub fn as_owner(self) -> Link<Owner> {
         Link::new(Owner::Function(self.borrow().clone()))
+    }
+    pub fn as_node(self) -> Link<Node> {
+        Link::new(Node::Function(self.borrow().clone()))
     }
 }
 

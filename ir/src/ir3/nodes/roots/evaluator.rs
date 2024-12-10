@@ -1,4 +1,4 @@
-use crate::ir3::{Builder, Link, NotSet, Op, Owner, Parameter, Parent, Root};
+use crate::ir3::{Builder, Link, Node, NotSet, Op, Owner, Parameter, Parent, Root};
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Evaluator {
@@ -19,6 +19,9 @@ impl Evaluator {
     pub fn as_owner(self) -> Owner {
         Owner::Evaluator(self)
     }
+    pub fn as_node(self) -> Node {
+        Node::Evaluator(self)
+    }
 }
 
 impl Link<Evaluator> {
@@ -27,6 +30,9 @@ impl Link<Evaluator> {
     }
     pub fn as_owner(self) -> Link<Owner> {
         Link::new(Owner::Evaluator(self.borrow().clone()))
+    }
+    pub fn as_node(self) -> Link<Node> {
+        Link::new(Node::Evaluator(self.borrow().clone()))
     }
 }
 

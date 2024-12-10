@@ -1,4 +1,4 @@
-use crate::ir3::{BackLink, Builder, Child, Link, NotSet, Op, Owner, Parent};
+use crate::ir3::{BackLink, Builder, Child, Link, Node, NotSet, Op, Owner, Parent};
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Fold {
@@ -31,6 +31,9 @@ impl Fold {
     pub fn as_owner(self) -> Owner {
         Owner::Fold(self)
     }
+    pub fn as_node(self) -> Node {
+        Node::Fold(self)
+    }
 }
 
 impl Link<Fold> {
@@ -39,6 +42,9 @@ impl Link<Fold> {
     }
     pub fn as_owner(self) -> Link<Owner> {
         Link::new(Owner::Fold(self.borrow().clone()))
+    }
+    pub fn as_node(self) -> Link<Node> {
+        Link::new(Node::Fold(self.borrow().clone()))
     }
 }
 

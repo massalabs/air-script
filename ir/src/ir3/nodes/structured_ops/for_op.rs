@@ -1,4 +1,4 @@
-use crate::ir3::{BackLink, Builder, Child, Link, NotSet, Op, Owner, Parent, Vector};
+use crate::ir3::{BackLink, Builder, Child, Link, Node, NotSet, Op, Owner, Parent, Vector};
 
 pub enum ForChild {
     Iterators(Link<Vec<Link<Vector>>>),
@@ -28,6 +28,9 @@ impl For {
     }
     pub fn as_owner(self) -> Owner {
         Owner::For(self)
+    }
+    pub fn as_node(self) -> Node {
+        Node::For(self)
     }
 }
 

@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use air_parser::ast::{self, Identifier, QualifiedIdentifier, TraceSegmentId};
 use miden_diagnostics::SourceSpan;
 
-use crate::ir3::{BackLink, Builder, Child, Leaf, Link, NotSet, Op, Owner, TraceAccess};
+use crate::ir3::{BackLink, Builder, Child, Leaf, Link, Node, NotSet, Op, Owner, TraceAccess};
 
 use super::*;
 
@@ -142,6 +142,9 @@ impl Value {
     pub fn as_op(self) -> Op {
         Op::Value(self)
     }
+    pub fn as_node(self) -> Node {
+        Node::Value(self)
+    }
 }
 
 impl Link<Value> {
@@ -150,6 +153,9 @@ impl Link<Value> {
     }
     pub fn as_op(self) -> Link<Op> {
         Link::new(Op::Value(self.borrow().clone()))
+    }
+    pub fn as_node(self) -> Link<Node> {
+        Link::new(Node::Value(self.borrow().clone()))
     }
 }
 

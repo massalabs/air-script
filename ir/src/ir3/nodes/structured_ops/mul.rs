@@ -1,4 +1,4 @@
-use crate::ir3::{BackLink, Builder, Child, Link, NotSet, Op, Owner, Parent};
+use crate::ir3::{BackLink, Builder, Child, Link, Node, NotSet, Op, Owner, Parent};
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Mul {
@@ -21,6 +21,9 @@ impl Mul {
     pub fn as_owner(self) -> Owner {
         Owner::Mul(self)
     }
+    pub fn as_node(self) -> Node {
+        Node::Mul(self)
+    }
 }
 
 impl Link<Mul> {
@@ -29,6 +32,9 @@ impl Link<Mul> {
     }
     pub fn as_owner(self) -> Link<Owner> {
         Link::new(Owner::Mul(self.borrow().clone()))
+    }
+    pub fn as_node(self) -> Link<Node> {
+        Link::new(Node::Mul(self.borrow().clone()))
     }
 }
 

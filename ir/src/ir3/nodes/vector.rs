@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::ir3::{BackLink, Builder, Child, Link, NotSet, Op, Owner, Parent};
+use crate::ir3::{BackLink, Builder, Child, Link, Node, NotSet, Op, Owner, Parent};
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Vector {
@@ -24,6 +24,9 @@ impl Vector {
     pub fn as_owner(self) -> Owner {
         Owner::Vector(self)
     }
+    pub fn as_node(self) -> Node {
+        Node::Vector(self)
+    }
 }
 
 impl Link<Vector> {
@@ -32,6 +35,9 @@ impl Link<Vector> {
     }
     pub fn as_owner(self) -> Link<Owner> {
         Link::new(Owner::Vector(self.borrow().clone()))
+    }
+    pub fn as_node(self) -> Link<Node> {
+        Link::new(Node::Vector(self.borrow().clone()))
     }
 }
 
