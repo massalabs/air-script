@@ -279,9 +279,14 @@ impl Inlining {
                 );
 
                 if node == self.call_inlining_context.unwrap().body {
-                    // We have finished inlining the body, we can now replace the Call node with the last expression of the body 
+                    // We have finished inlining the body, we can now replace the Call node with the last expression of the body
                     let new_node_body = self.nodes_to_replace.get(&node).unwrap().clone();
-                    let new_node = new_node_body.get_children().borrow().last().unwrap().clone();
+                    let new_node = new_node_body
+                        .get_children()
+                        .borrow()
+                        .last()
+                        .unwrap()
+                        .clone();
                     *self
                         .call_inlining_context
                         .unwrap()

@@ -241,7 +241,9 @@ impl<'a> MirBuilder<'a> {
             ast::Statement::Enforce(scalar_expr) => {
                 let scalar_expr_node: Link<NodeType> = self.insert_scalar_expr(scalar_expr)?;
 
-                let node_to_add = if let NodeType::MiddleNode(MiddleNode::Enf(_enf)) = scalar_expr_node.clone().borrow().deref() {
+                let node_to_add = if let NodeType::MiddleNode(MiddleNode::Enf(_enf)) =
+                    scalar_expr_node.clone().borrow().deref()
+                {
                     scalar_expr_node
                 } else {
                     Enf::new(scalar_expr_node).into()
@@ -254,9 +256,15 @@ impl<'a> MirBuilder<'a> {
                         .insert_boundary_constraints_root(node_to_add),
                     false => {
                         match parent.borrow_mut().deref_mut() {
-                            NodeType::RootNode(root_node) => root_node.add_child(node_to_add.clone().into()),
-                            NodeType::MiddleNode(middle_node) => middle_node.add_child(node_to_add.clone().into()),
-                            NodeType::LeafNode(leaf_node) => leaf_node.add_child(node_to_add.clone().into()),
+                            NodeType::RootNode(root_node) => {
+                                root_node.add_child(node_to_add.clone().into())
+                            }
+                            NodeType::MiddleNode(middle_node) => {
+                                middle_node.add_child(node_to_add.clone().into())
+                            }
+                            NodeType::LeafNode(leaf_node) => {
+                                leaf_node.add_child(node_to_add.clone().into())
+                            }
                         };
                         if parent == self.mir.constraint_graph().clone().into() {
                             self.mir
@@ -718,7 +726,7 @@ impl<'a> MirBuilder<'a> {
     fn expand_exp(&mut self, lhs: Link<NodeType>, rhs: u64, span: SourceSpan) -> Link<NodeType> {
         // 0 -> 1
         // 1 -> lhs
-        // n (n pair) -> 
+        // n (n pair) ->
         match rhs {
             0 => self.insert_typed_constant(Some(span), ast::ConstantExpr::Scalar(1)),
             1 => duplicate_node(lhs.clone()),
@@ -777,7 +785,7 @@ impl<'a> MirBuilder<'a> {
     // Assumed inlining was done, to update
     fn insert_symbol_access(&mut self, access: &ast::SymbolAccess) -> Link<NodeType> {
         use air_parser::ast::ResolvableIdentifier;
-        
+
         match access.name {
             // At this point during compilation, fully-qualified identifiers can only possibly refer
             // to a periodic column, as all functions have been inlined, and constants propagated.

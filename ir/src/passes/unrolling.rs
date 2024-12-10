@@ -434,7 +434,7 @@ impl Unrolling {
             _ => {}
         }
     }
-    
+
     fn visit_index_access(
         &mut self,
         node: Link<NodeType>,
@@ -442,15 +442,15 @@ impl Unrolling {
         child_node: Link<NodeType>,
     ) {
         match access_type {
-            AccessType::default() => { 
+            AccessType::default() => {
                 // Check that the child node is a scalar, raise diag otherwise
                 match child_node.borrow().deref() {
                     NodeType::MiddleNode(MiddleNode::Vector(child_vec)) => {
                         unreachable!(); // raise diag
-                    },
+                    }
                     NodeType::MiddleNode(MiddleNode::Matrix(child_mat)) => {
                         unreachable!(); // raise diag
-                    },
+                    }
                     _ => {}
                 };
             }
@@ -458,7 +458,9 @@ impl Unrolling {
                 // Check that the child node is a vector, raise diag otherwise
                 // Replace the current node by the index-th element of the vector
                 // Raise diag if index is out of bounds
-                let NodeType::MiddleNode(MiddleNode::Vector(child_vec)) = child_node.borrow().deref() else {
+                let NodeType::MiddleNode(MiddleNode::Vector(child_vec)) =
+                    child_node.borrow().deref()
+                else {
                     unreachable!(); // raise diag
                 };
 
@@ -468,23 +470,27 @@ impl Unrolling {
                 };
                 *node.borrow_mut().deref_mut() = child_index.into();
             }
-            AccessType::Matrix(row, col) => { 
+            AccessType::Matrix(row, col) => {
                 // Check that the child node is a matrix, raise diag otherwise
                 // Replace the current node by the index-th element of the vector
                 // Raise diag if index is out of bounds
-                let NodeType::MiddleNode(MiddleNode::Matrix(child_mat)) = child_node.borrow().deref() else {
+                let NodeType::MiddleNode(MiddleNode::Matrix(child_mat)) =
+                    child_node.borrow().deref()
+                else {
                     unreachable!(); // raise diag
                 };
-                
+
                 let child_row = match child_mat.get_children().borrow().deref().get(row) {
                     Some(child_row) => child_row,
                     None => unreachable!(), // raise diag
                 };
-                
-                let NodeType::MiddleNode(MiddleNode::Matrix(child_row)) = child_row.borrow().deref() else {
+
+                let NodeType::MiddleNode(MiddleNode::Matrix(child_row)) =
+                    child_row.borrow().deref()
+                else {
                     unreachable!(); // raise diag
                 };
-                
+
                 let child_index = match child_row.get_children().borrow().deref().get(col) {
                     Some(child_index) => child_index,
                     None => unreachable!(), // raise diag
@@ -492,8 +498,8 @@ impl Unrolling {
 
                 *node.borrow_mut().deref_mut() = child_index.into();
             }
-            
-            AccessType::Slice(range_expr) => { 
+
+            AccessType::Slice(range_expr) => {
                 unreachable!(); // Slices are not scalar, raise diag
             }
         }
