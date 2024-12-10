@@ -41,19 +41,28 @@ pub struct MulBuilder<State> {
     rhs: Option<Link<Op>>,
 }
 
-type MulBuilderStart = MulBuilder<(BackLink<Owner>, NotSet, NotSet)>;
+type MulBuilderEmpty = MulBuilder<(BackLink<Owner>, NotSet, NotSet)>;
 type MulBuilderA = MulBuilder<(BackLink<Owner>, Link<Op>, NotSet)>;
 type MulBuilderB = MulBuilder<(BackLink<Owner>, NotSet, Link<Op>)>;
-type MulBuilderFinish = MulBuilder<(BackLink<Owner>, Link<Op>, Link<Op>)>;
+type MulBuilderFull = MulBuilder<(BackLink<Owner>, Link<Op>, Link<Op>)>;
 
 impl Builder for Mul {
-    type BuilderType = MulBuilderStart;
-    fn builder() -> Self::BuilderType {
+    type BuilderEmpty = MulBuilderEmpty;
+    type BuilderFull = MulBuilderFull;
+    fn builder() -> Self::BuilderEmpty {
         MulBuilder::default()
+    }
+    fn edit(self) -> Self::BuilderFull {
+        Self::BuilderFull {
+            _state: std::marker::PhantomData,
+            parent: self.parent,
+            lhs: Some(self.lhs),
+            rhs: Some(self.rhs),
+        }
     }
 }
 
-impl Default for MulBuilderStart {
+impl Default for MulBuilderEmpty {
     fn default() -> Self {
         Self {
             _state: std::marker::PhantomData,
@@ -64,7 +73,7 @@ impl Default for MulBuilderStart {
     }
 }
 
-impl MulBuilderStart {
+impl MulBuilderEmpty {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
         self.parent = parent.into();
         self
@@ -88,7 +97,7 @@ impl MulBuilderA {
         self.lhs = Some(lhs);
         self
     }
-    pub fn rhs(mut self, rhs: Link<Op>) -> MulBuilderFinish {
+    pub fn rhs(mut self, rhs: Link<Op>) -> MulBuilderFull {
         self.rhs = Some(rhs);
         unsafe { std::mem::transmute(self) }
     }
@@ -99,7 +108,7 @@ impl MulBuilderB {
         self.parent = parent.into();
         self
     }
-    pub fn lhs(mut self, lhs: Link<Op>) -> MulBuilderFinish {
+    pub fn lhs(mut self, lhs: Link<Op>) -> MulBuilderFull {
         self.lhs = Some(lhs);
         unsafe { std::mem::transmute(self) }
     }
@@ -109,7 +118,7 @@ impl MulBuilderB {
     }
 }
 
-impl MulBuilderFinish {
+impl MulBuilderFull {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
         self.parent = parent.into();
         self

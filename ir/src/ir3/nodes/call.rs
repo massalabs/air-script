@@ -44,17 +44,26 @@ pub struct CallBuilder<State> {
     arguments: Vec<Link<Op>>,
 }
 
-type CallBuilderStart = CallBuilder<(BackLink<Owner>, NotSet, Vec<Link<Op>>)>;
-type CallBuilderFinish = CallBuilder<(BackLink<Owner>, Link<Root>, Vec<Link<Op>>)>;
+type CallBuilderEmpty = CallBuilder<(BackLink<Owner>, NotSet, Vec<Link<Op>>)>;
+type CallBuilderFull = CallBuilder<(BackLink<Owner>, Link<Root>, Vec<Link<Op>>)>;
 
 impl Builder for Call {
-    type BuilderType = CallBuilderStart;
-    fn builder() -> Self::BuilderType {
+    type BuilderEmpty = CallBuilderEmpty;
+    type BuilderFull = CallBuilderFull;
+    fn builder() -> Self::BuilderEmpty {
         CallBuilder::default()
+    }
+    fn edit(self) -> Self::BuilderFull {
+        Self::BuilderFull {
+            _state: std::marker::PhantomData,
+            parent: self.parent,
+            function: Some(self.function),
+            arguments: self.arguments.borrow().clone(),
+        }
     }
 }
 
-impl Default for CallBuilderStart {
+impl Default for CallBuilderEmpty {
     fn default() -> Self {
         Self {
             _state: std::marker::PhantomData,
@@ -65,12 +74,12 @@ impl Default for CallBuilderStart {
     }
 }
 
-impl CallBuilderStart {
+impl CallBuilderEmpty {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
         self.parent = parent.into();
         self
     }
-    pub fn function(mut self, function: Link<Root>) -> CallBuilderFinish {
+    pub fn function(mut self, function: Link<Root>) -> CallBuilderFull {
         self.function = Some(function);
         unsafe { std::mem::transmute(self) }
     }
@@ -80,7 +89,7 @@ impl CallBuilderStart {
     }
 }
 
-impl CallBuilderFinish {
+impl CallBuilderFull {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
         self.parent = parent.into();
         self

@@ -54,19 +54,29 @@ pub struct ForBuilder<State> {
     selector: Option<Link<Op>>,
 }
 
-type ForBuilderStart = ForBuilder<(BackLink<Owner>, Vec<Link<Vector>>, NotSet, NotSet)>;
+type ForBuilderEmpty = ForBuilder<(BackLink<Owner>, Vec<Link<Vector>>, NotSet, NotSet)>;
 type ForBuilderA = ForBuilder<(BackLink<Owner>, Vec<Link<Vector>>, Link<Op>, NotSet)>;
 type ForBuilderB = ForBuilder<(BackLink<Owner>, Vec<Link<Vector>>, NotSet, Link<Op>)>;
-type ForBuilderFinish = ForBuilder<(BackLink<Owner>, Vec<Link<Vector>>, Link<Op>, Link<Op>)>;
+type ForBuilderFull = ForBuilder<(BackLink<Owner>, Vec<Link<Vector>>, Link<Op>, Link<Op>)>;
 
 impl Builder for For {
-    type BuilderType = ForBuilderStart;
-    fn builder() -> Self::BuilderType {
+    type BuilderEmpty = ForBuilderEmpty;
+    type BuilderFull = ForBuilderFull;
+    fn builder() -> Self::BuilderEmpty {
         ForBuilder::default()
+    }
+    fn edit(self) -> Self::BuilderFull {
+        Self::BuilderFull {
+            _state: std::marker::PhantomData,
+            parent: self.parent,
+            iterators: self.iterators.borrow().clone(),
+            expr: Some(self.expr),
+            selector: Some(self.selector),
+        }
     }
 }
 
-impl Default for ForBuilderStart {
+impl Default for ForBuilderEmpty {
     fn default() -> Self {
         Self {
             _state: std::marker::PhantomData,
@@ -78,7 +88,7 @@ impl Default for ForBuilderStart {
     }
 }
 
-impl ForBuilderStart {
+impl ForBuilderEmpty {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
         self.parent = parent.into();
         self
@@ -110,7 +120,7 @@ impl ForBuilderA {
         self.expr = Some(expr);
         self
     }
-    pub fn selector(mut self, selector: Link<Op>) -> ForBuilderFinish {
+    pub fn selector(mut self, selector: Link<Op>) -> ForBuilderFull {
         self.selector = Some(selector);
         unsafe { std::mem::transmute(self) }
     }
@@ -125,7 +135,7 @@ impl ForBuilderB {
         self.iterators.push(iterator);
         self
     }
-    pub fn expr(mut self, expr: Link<Op>) -> ForBuilderFinish {
+    pub fn expr(mut self, expr: Link<Op>) -> ForBuilderFull {
         self.expr = Some(expr);
         unsafe { std::mem::transmute(self) }
     }
@@ -135,7 +145,7 @@ impl ForBuilderB {
     }
 }
 
-impl ForBuilderFinish {
+impl ForBuilderFull {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
         self.parent = parent.into();
         self

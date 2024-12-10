@@ -64,19 +64,28 @@ pub struct BoundaryBuilder<State> {
     expr: Option<Link<Op>>,
 }
 
-type BoundaryBuilderStart = BoundaryBuilder<(BackLink<Owner>, NotSet, NotSet)>;
+type BoundaryBuilderEmpty = BoundaryBuilder<(BackLink<Owner>, NotSet, NotSet)>;
 type BoundaryBuilderA = BoundaryBuilder<(BackLink<Owner>, BoundaryKind, NotSet)>;
 type BoundaryBuilderB = BoundaryBuilder<(BackLink<Owner>, NotSet, Link<Op>)>;
-type BoundaryBuilderFinish = BoundaryBuilder<(BackLink<Owner>, BoundaryKind, Link<Op>)>;
+type BoundaryBuilderFull = BoundaryBuilder<(BackLink<Owner>, BoundaryKind, Link<Op>)>;
 
 impl Builder for Boundary {
-    type BuilderType = BoundaryBuilderStart;
-    fn builder() -> Self::BuilderType {
+    type BuilderEmpty = BoundaryBuilderEmpty;
+    type BuilderFull = BoundaryBuilderFull;
+    fn builder() -> Self::BuilderEmpty {
         BoundaryBuilder::default()
+    }
+    fn edit(self) -> Self::BuilderFull {
+        Self::BuilderFull {
+            _state: std::marker::PhantomData,
+            parent: self.parent,
+            kind: Some(self.kind),
+            expr: Some(self.expr),
+        }
     }
 }
 
-impl Default for BoundaryBuilderStart {
+impl Default for BoundaryBuilderEmpty {
     fn default() -> Self {
         Self {
             _state: std::marker::PhantomData,
@@ -87,7 +96,7 @@ impl Default for BoundaryBuilderStart {
     }
 }
 
-impl BoundaryBuilderStart {
+impl BoundaryBuilderEmpty {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
         self.parent = parent.into();
         self
@@ -111,7 +120,7 @@ impl BoundaryBuilderA {
         self.kind = Some(kind);
         self
     }
-    pub fn expr(mut self, expr: Link<Op>) -> BoundaryBuilderFinish {
+    pub fn expr(mut self, expr: Link<Op>) -> BoundaryBuilderFull {
         self.expr = Some(expr);
         unsafe { std::mem::transmute(self) }
     }
@@ -122,7 +131,7 @@ impl BoundaryBuilderB {
         self.parent = parent.into();
         self
     }
-    pub fn kind(mut self, kind: BoundaryKind) -> BoundaryBuilderFinish {
+    pub fn kind(mut self, kind: BoundaryKind) -> BoundaryBuilderFull {
         self.kind = Some(kind);
         unsafe { std::mem::transmute(self) }
     }
@@ -132,7 +141,7 @@ impl BoundaryBuilderB {
     }
 }
 
-impl BoundaryBuilderFinish {
+impl BoundaryBuilderFull {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
         self.parent = parent.into();
         self

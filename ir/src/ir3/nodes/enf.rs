@@ -38,17 +38,25 @@ pub struct EnfBuilder<State> {
     expr: Option<Link<Op>>,
 }
 
-type EnfBuilderStart = EnfBuilder<(BackLink<Owner>, NotSet)>;
-type EnfBuilderFinish = EnfBuilder<(BackLink<Owner>, Link<Op>)>;
+type EnfBuilderEmpty = EnfBuilder<(BackLink<Owner>, NotSet)>;
+type EnfBuilderFull = EnfBuilder<(BackLink<Owner>, Link<Op>)>;
 
 impl Builder for Enf {
-    type BuilderType = EnfBuilderStart;
-    fn builder() -> Self::BuilderType {
+    type BuilderEmpty = EnfBuilderEmpty;
+    type BuilderFull = EnfBuilderFull;
+    fn builder() -> Self::BuilderEmpty {
         EnfBuilder::default()
+    }
+    fn edit(self) -> Self::BuilderFull {
+        Self::BuilderFull {
+            _state: std::marker::PhantomData,
+            parent: self.parent,
+            expr: Some(self.expr),
+        }
     }
 }
 
-impl Default for EnfBuilderStart {
+impl Default for EnfBuilderEmpty {
     fn default() -> Self {
         Self {
             _state: std::marker::PhantomData,
@@ -58,18 +66,18 @@ impl Default for EnfBuilderStart {
     }
 }
 
-impl EnfBuilderStart {
+impl EnfBuilderEmpty {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
         self.parent = parent.into();
         self
     }
-    pub fn expr(mut self, expr: Op) -> EnfBuilderFinish {
+    pub fn expr(mut self, expr: Op) -> EnfBuilderFull {
         self.expr = Some(Link::new(expr));
         unsafe { std::mem::transmute(self) }
     }
 }
 
-impl EnfBuilderFinish {
+impl EnfBuilderFull {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
         self.parent = parent.into();
         self

@@ -45,9 +45,18 @@ pub struct VectorBuilder<State> {
 }
 
 impl Builder for VectorBuilder<(BackLink<Owner>, NotSet, Vec<Link<Op>>)> {
-    type BuilderType = VectorBuilder<(BackLink<Owner>, NotSet, Vec<Link<Op>>)>;
-    fn builder() -> Self::BuilderType {
+    type BuilderEmpty = VectorBuilder<(BackLink<Owner>, NotSet, Vec<Link<Op>>)>;
+    type BuilderFull = VectorBuilder<(BackLink<Owner>, NotSet, Vec<Link<Op>>)>;
+    fn builder() -> Self::BuilderEmpty {
         VectorBuilder::default()
+    }
+    fn edit(self) -> Self::BuilderFull {
+        Self::BuilderFull {
+            _state: PhantomData,
+            parent: self.parent,
+            size: self.size,
+            elements: self.elements,
+        }
     }
 }
 

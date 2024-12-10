@@ -45,9 +45,18 @@ pub struct MatrixBuilder<State> {
 }
 
 impl Builder for MatrixBuilder<(BackLink<Owner>, NotSet, Vec<Link<Vector>>)> {
-    type BuilderType = MatrixBuilder<(BackLink<Owner>, NotSet, Vec<Link<Vector>>)>;
-    fn builder() -> Self::BuilderType {
+    type BuilderEmpty = MatrixBuilder<(BackLink<Owner>, NotSet, Vec<Link<Vector>>)>;
+    type BuilderFull = MatrixBuilder<(BackLink<Owner>, NotSet, Vec<Link<Vector>>)>;
+    fn builder() -> Self::BuilderEmpty {
         MatrixBuilder::default()
+    }
+    fn edit(self) -> Self::BuilderFull {
+        Self::BuilderFull {
+            _state: PhantomData,
+            parent: self.parent,
+            size: self.size,
+            elements: self.elements,
+        }
     }
 }
 

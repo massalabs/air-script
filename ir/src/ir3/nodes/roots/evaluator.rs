@@ -31,9 +31,17 @@ pub struct EvaluatorBuilder<State> {
 type EvaluatorBuilderState = EvaluatorBuilder<(Vec<Link<Parameter>>, Vec<Link<Op>>)>;
 
 impl Builder for Evaluator {
-    type BuilderType = EvaluatorBuilderState;
-    fn builder() -> Self::BuilderType {
+    type BuilderEmpty = EvaluatorBuilderState;
+    type BuilderFull = EvaluatorBuilderState;
+    fn builder() -> Self::BuilderEmpty {
         EvaluatorBuilder::default()
+    }
+    fn edit(self) -> Self::BuilderFull {
+        Self::BuilderFull {
+            _state: std::marker::PhantomData,
+            parameters: self.parameters,
+            body: self.body.borrow().clone(),
+        }
     }
 }
 

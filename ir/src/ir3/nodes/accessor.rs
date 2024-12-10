@@ -98,19 +98,28 @@ pub struct AccessorBuilder<State> {
     access_type: Option<AccessType>,
 }
 
-type AccessorBuilderStart = AccessorBuilder<(BackLink<Owner>, NotSet, NotSet)>;
+type AccessorBuilderEmpty = AccessorBuilder<(BackLink<Owner>, NotSet, NotSet)>;
 type AccessorBuilderA = AccessorBuilder<(BackLink<Owner>, Link<Op>, NotSet)>;
 type AccessorBuilderB = AccessorBuilder<(BackLink<Owner>, NotSet, AccessType)>;
-type AccessorBuilderFinish = AccessorBuilder<(BackLink<Owner>, Link<Op>, AccessType)>;
+type AccessorBuilderFull = AccessorBuilder<(BackLink<Owner>, Link<Op>, AccessType)>;
 
 impl Builder for Accessor {
-    type BuilderType = AccessorBuilderStart;
-    fn builder() -> Self::BuilderType {
+    type BuilderEmpty = AccessorBuilderEmpty;
+    type BuilderFull = AccessorBuilderFull;
+    fn builder() -> Self::BuilderEmpty {
         AccessorBuilder::default()
+    }
+    fn edit(self) -> Self::BuilderFull {
+        Self::BuilderFull {
+            _state: std::marker::PhantomData,
+            parent: self.parent,
+            indexable: Some(self.indexable),
+            access_type: Some(self.access_type),
+        }
     }
 }
 
-impl Default for AccessorBuilderStart {
+impl Default for AccessorBuilderEmpty {
     fn default() -> Self {
         Self {
             _state: std::marker::PhantomData,
@@ -121,7 +130,7 @@ impl Default for AccessorBuilderStart {
     }
 }
 
-impl AccessorBuilderStart {
+impl AccessorBuilderEmpty {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
         self.parent = parent.into();
         self
@@ -145,7 +154,7 @@ impl AccessorBuilderA {
         self.indexable = Some(indexable);
         self
     }
-    pub fn access_type(mut self, access_type: AccessType) -> AccessorBuilderFinish {
+    pub fn access_type(mut self, access_type: AccessType) -> AccessorBuilderFull {
         self.access_type = Some(access_type);
         unsafe { std::mem::transmute(self) }
     }
@@ -156,7 +165,7 @@ impl AccessorBuilderB {
         self.parent = parent.into();
         self
     }
-    pub fn indexable(mut self, indexable: Link<Op>) -> AccessorBuilderFinish {
+    pub fn indexable(mut self, indexable: Link<Op>) -> AccessorBuilderFull {
         self.indexable = Some(indexable);
         unsafe { std::mem::transmute(self) }
     }
@@ -166,7 +175,7 @@ impl AccessorBuilderB {
     }
 }
 
-impl AccessorBuilderFinish {
+impl AccessorBuilderFull {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
         self.parent = parent.into();
         self

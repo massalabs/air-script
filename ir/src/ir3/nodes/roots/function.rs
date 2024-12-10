@@ -35,18 +35,26 @@ pub struct FunctionBuilder<State> {
     body: Vec<Link<Op>>,
 }
 
-type FunctionBuilderStart = FunctionBuilder<(Vec<Link<Parameter>>, NotSet, Vec<Link<Op>>)>;
-type FunctionBuilderFinish =
-    FunctionBuilder<(Vec<Link<Parameter>>, Link<Parameter>, Vec<Link<Op>>)>;
+type FunctionBuilderEmpty = FunctionBuilder<(Vec<Link<Parameter>>, NotSet, Vec<Link<Op>>)>;
+type FunctionBuilderFull = FunctionBuilder<(Vec<Link<Parameter>>, Link<Parameter>, Vec<Link<Op>>)>;
 
 impl Builder for Function {
-    type BuilderType = FunctionBuilderStart;
-    fn builder() -> Self::BuilderType {
+    type BuilderEmpty = FunctionBuilderEmpty;
+    type BuilderFull = FunctionBuilderFull;
+    fn builder() -> Self::BuilderEmpty {
         FunctionBuilder::default()
+    }
+    fn edit(self) -> Self::BuilderFull {
+        Self::BuilderFull {
+            _state: std::marker::PhantomData,
+            parameters: self.parameters,
+            return_type: Some(self.return_type),
+            body: self.body.borrow().clone(),
+        }
     }
 }
 
-impl Default for FunctionBuilderStart {
+impl Default for FunctionBuilderEmpty {
     fn default() -> Self {
         Self {
             _state: std::marker::PhantomData,
@@ -57,12 +65,12 @@ impl Default for FunctionBuilderStart {
     }
 }
 
-impl FunctionBuilderStart {
+impl FunctionBuilderEmpty {
     pub fn parameters(mut self, parameter: Parameter) -> Self {
         self.parameters.push(Link::from(parameter));
         self
     }
-    pub fn return_type(mut self, return_type: Parameter) -> FunctionBuilderFinish {
+    pub fn return_type(mut self, return_type: Parameter) -> FunctionBuilderFull {
         self.return_type = Some(Link::from(return_type));
         unsafe { std::mem::transmute(self) }
     }
@@ -72,7 +80,7 @@ impl FunctionBuilderStart {
     }
 }
 
-impl FunctionBuilderFinish {
+impl FunctionBuilderFull {
     pub fn parameters(mut self, parameter: Parameter) -> Self {
         self.parameters.push(Link::from(parameter));
         self

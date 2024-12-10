@@ -48,23 +48,33 @@ pub struct IfBuilder<State> {
     else_branch: Option<Link<Op>>,
 }
 
-type IfBuilderStart = IfBuilder<(BackLink<Owner>, NotSet, NotSet, NotSet)>;
+type IfBuilderEmpty = IfBuilder<(BackLink<Owner>, NotSet, NotSet, NotSet)>;
 type IfBuilderA = IfBuilder<(BackLink<Owner>, Link<Op>, NotSet, NotSet)>;
 type IfBuilderB = IfBuilder<(BackLink<Owner>, NotSet, Link<Op>, NotSet)>;
 type IfBuilderC = IfBuilder<(BackLink<Owner>, NotSet, NotSet, Link<Op>)>;
 type IfBuilderAB = IfBuilder<(BackLink<Owner>, Link<Op>, Link<Op>, NotSet)>;
 type IfBuilderAC = IfBuilder<(BackLink<Owner>, Link<Op>, NotSet, Link<Op>)>;
 type IfBuilderBC = IfBuilder<(BackLink<Owner>, NotSet, Link<Op>, Link<Op>)>;
-type IfBuilderFinish = IfBuilder<(BackLink<Owner>, Link<Op>, Link<Op>, Link<Op>)>;
+type IfBuilderFull = IfBuilder<(BackLink<Owner>, Link<Op>, Link<Op>, Link<Op>)>;
 
 impl Builder for If {
-    type BuilderType = IfBuilderStart;
-    fn builder() -> Self::BuilderType {
+    type BuilderEmpty = IfBuilderEmpty;
+    type BuilderFull = IfBuilderFull;
+    fn builder() -> Self::BuilderEmpty {
         IfBuilder::default()
+    }
+    fn edit(self) -> Self::BuilderFull {
+        Self::BuilderFull {
+            _state: std::marker::PhantomData,
+            parent: self.parent,
+            condition: Some(self.condition),
+            then_branch: Some(self.then_branch),
+            else_branch: Some(self.else_branch),
+        }
     }
 }
 
-impl Default for IfBuilderStart {
+impl Default for IfBuilderEmpty {
     fn default() -> Self {
         Self {
             _state: std::marker::PhantomData,
@@ -76,7 +86,7 @@ impl Default for IfBuilderStart {
     }
 }
 
-impl IfBuilderStart {
+impl IfBuilderEmpty {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
         self.parent = parent.into();
         self
@@ -165,7 +175,7 @@ impl IfBuilderAB {
         self.then_branch = Some(then_branch);
         self
     }
-    pub fn else_branch(mut self, else_branch: Link<Op>) -> IfBuilderFinish {
+    pub fn else_branch(mut self, else_branch: Link<Op>) -> IfBuilderFull {
         self.else_branch = Some(else_branch);
         unsafe { std::mem::transmute(self) }
     }
@@ -180,7 +190,7 @@ impl IfBuilderAC {
         self.condition = Some(condition);
         self
     }
-    pub fn then_branch(mut self, then_branch: Link<Op>) -> IfBuilderFinish {
+    pub fn then_branch(mut self, then_branch: Link<Op>) -> IfBuilderFull {
         self.then_branch = Some(then_branch);
         unsafe { std::mem::transmute(self) }
     }
@@ -195,7 +205,7 @@ impl IfBuilderBC {
         self.parent = parent.into();
         self
     }
-    pub fn condition(mut self, condition: Link<Op>) -> IfBuilderFinish {
+    pub fn condition(mut self, condition: Link<Op>) -> IfBuilderFull {
         self.condition = Some(condition);
         unsafe { std::mem::transmute(self) }
     }
@@ -209,7 +219,7 @@ impl IfBuilderBC {
     }
 }
 
-impl IfBuilderFinish {
+impl IfBuilderFull {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
         self.parent = parent.into();
         self

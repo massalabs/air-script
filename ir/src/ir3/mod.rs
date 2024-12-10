@@ -49,8 +49,10 @@ pub trait Child: Clone + Into<Link<Self>> + PartialEq {
 pub struct NotSet;
 
 pub trait Builder {
-    type BuilderType;
-    fn builder() -> Self::BuilderType;
+    type BuilderEmpty;
+    type BuilderFull;
+    fn builder() -> Self::BuilderEmpty;
+    fn edit(self) -> Self::BuilderFull;
 }
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]

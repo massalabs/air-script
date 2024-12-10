@@ -46,9 +46,17 @@ pub struct ValueBuilder<State> {
 }
 
 impl Builder for Value {
-    type BuilderType = ValueBuilder<(BackLink<Owner>, NotSet)>;
-    fn builder() -> Self::BuilderType {
+    type BuilderEmpty = ValueBuilder<(BackLink<Owner>, NotSet)>;
+    type BuilderFull = ValueBuilder<(BackLink<Owner>, NotSet)>;
+    fn builder() -> Self::BuilderEmpty {
         ValueBuilder::default()
+    }
+    fn edit(self) -> Self::BuilderFull {
+        Self::BuilderFull {
+            _state: PhantomData,
+            parent: self.parent,
+            value: Some(self.value),
+        }
     }
 }
 

@@ -52,23 +52,33 @@ pub struct FoldBuilder<State> {
     initial_value: Option<Link<Op>>,
 }
 
-type FoldBuilderStart = FoldBuilder<(BackLink<Owner>, NotSet, NotSet, NotSet)>;
+type FoldBuilderEmpty = FoldBuilder<(BackLink<Owner>, NotSet, NotSet, NotSet)>;
 type FoldBuilderA = FoldBuilder<(BackLink<Owner>, Link<Op>, NotSet, NotSet)>;
 type FoldBuilderB = FoldBuilder<(BackLink<Owner>, NotSet, Link<FoldOperator>, NotSet)>;
 type FoldBuilderC = FoldBuilder<(BackLink<Owner>, NotSet, NotSet, Link<Op>)>;
 type FoldBuilderAB = FoldBuilder<(BackLink<Owner>, Link<Op>, Link<FoldOperator>, NotSet)>;
 type FoldBuilderAC = FoldBuilder<(BackLink<Owner>, Link<Op>, NotSet, Link<Op>)>;
 type FoldBuilderBC = FoldBuilder<(BackLink<Owner>, NotSet, Link<FoldOperator>, Link<Op>)>;
-type FoldBuilderFinish = FoldBuilder<(BackLink<Owner>, Link<Op>, Link<FoldOperator>, Link<Op>)>;
+type FoldBuilderFull = FoldBuilder<(BackLink<Owner>, Link<Op>, Link<FoldOperator>, Link<Op>)>;
 
 impl Builder for Fold {
-    type BuilderType = FoldBuilderStart;
-    fn builder() -> Self::BuilderType {
+    type BuilderEmpty = FoldBuilderEmpty;
+    type BuilderFull = FoldBuilderFull;
+    fn builder() -> Self::BuilderEmpty {
         FoldBuilder::default()
+    }
+    fn edit(self) -> Self::BuilderFull {
+        Self::BuilderFull {
+            _state: std::marker::PhantomData,
+            parent: self.parent,
+            iterator: Some(self.iterator),
+            operator: Some(self.operator),
+            initial_value: Some(self.initial_value),
+        }
     }
 }
 
-impl Default for FoldBuilderStart {
+impl Default for FoldBuilderEmpty {
     fn default() -> Self {
         Self {
             _state: std::marker::PhantomData,
@@ -80,7 +90,7 @@ impl Default for FoldBuilderStart {
     }
 }
 
-impl FoldBuilderStart {
+impl FoldBuilderEmpty {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
         self.parent = parent.into();
         self
@@ -169,7 +179,7 @@ impl FoldBuilderAB {
         self.operator = Some(operator);
         self
     }
-    pub fn initial_value(mut self, initial_value: Link<Op>) -> FoldBuilderFinish {
+    pub fn initial_value(mut self, initial_value: Link<Op>) -> FoldBuilderFull {
         self.initial_value = Some(initial_value);
         unsafe { std::mem::transmute(self) }
     }
@@ -184,7 +194,7 @@ impl FoldBuilderAC {
         self.iterator = Some(iterator);
         self
     }
-    pub fn operator(mut self, operator: Link<FoldOperator>) -> FoldBuilderFinish {
+    pub fn operator(mut self, operator: Link<FoldOperator>) -> FoldBuilderFull {
         self.operator = Some(operator);
         unsafe { std::mem::transmute(self) }
     }
@@ -199,7 +209,7 @@ impl FoldBuilderBC {
         self.parent = parent.into();
         self
     }
-    pub fn iterator(mut self, iterator: Link<Op>) -> FoldBuilderFinish {
+    pub fn iterator(mut self, iterator: Link<Op>) -> FoldBuilderFull {
         self.iterator = Some(iterator);
         unsafe { std::mem::transmute(self) }
     }
@@ -213,7 +223,7 @@ impl FoldBuilderBC {
     }
 }
 
-impl FoldBuilderFinish {
+impl FoldBuilderFull {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
         self.parent = parent.into();
         self

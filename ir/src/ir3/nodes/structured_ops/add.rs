@@ -41,19 +41,28 @@ pub struct AddBuilder<State> {
     rhs: Option<Link<Op>>,
 }
 
-type AddBuilderStart = AddBuilder<(BackLink<Owner>, NotSet, NotSet)>;
+type AddBuilderEmpty = AddBuilder<(BackLink<Owner>, NotSet, NotSet)>;
 type AddBuilderA = AddBuilder<(BackLink<Owner>, Link<Op>, NotSet)>;
 type AddBuilderB = AddBuilder<(BackLink<Owner>, NotSet, Link<Op>)>;
-type AddBuilderFinish = AddBuilder<(BackLink<Owner>, Link<Op>, Link<Op>)>;
+type AddBuilderFull = AddBuilder<(BackLink<Owner>, Link<Op>, Link<Op>)>;
 
 impl Builder for Add {
-    type BuilderType = AddBuilderStart;
-    fn builder() -> Self::BuilderType {
+    type BuilderEmpty = AddBuilderEmpty;
+    type BuilderFull = AddBuilderFull;
+    fn builder() -> Self::BuilderEmpty {
         AddBuilder::default()
+    }
+    fn edit(self) -> Self::BuilderFull {
+        Self::BuilderFull {
+            _state: std::marker::PhantomData,
+            parent: self.parent,
+            lhs: Some(self.lhs),
+            rhs: Some(self.rhs),
+        }
     }
 }
 
-impl Default for AddBuilderStart {
+impl Default for AddBuilderEmpty {
     fn default() -> Self {
         Self {
             _state: std::marker::PhantomData,
@@ -64,7 +73,7 @@ impl Default for AddBuilderStart {
     }
 }
 
-impl AddBuilderStart {
+impl AddBuilderEmpty {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
         self.parent = parent.into();
         self
@@ -88,7 +97,7 @@ impl AddBuilderA {
         self.lhs = Some(lhs);
         self
     }
-    pub fn rhs(mut self, rhs: Link<Op>) -> AddBuilderFinish {
+    pub fn rhs(mut self, rhs: Link<Op>) -> AddBuilderFull {
         self.rhs = Some(rhs);
         unsafe { std::mem::transmute(self) }
     }
@@ -99,7 +108,7 @@ impl AddBuilderB {
         self.parent = parent.into();
         self
     }
-    pub fn lhs(mut self, lhs: Link<Op>) -> AddBuilderFinish {
+    pub fn lhs(mut self, lhs: Link<Op>) -> AddBuilderFull {
         self.lhs = Some(lhs);
         unsafe { std::mem::transmute(self) }
     }
@@ -109,7 +118,7 @@ impl AddBuilderB {
     }
 }
 
-impl AddBuilderFinish {
+impl AddBuilderFull {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
         self.parent = parent.into();
         self
