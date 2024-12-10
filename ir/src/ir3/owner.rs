@@ -130,23 +130,23 @@ impl Owner {
             Owner::None => None,
         }
     }
-    pub fn as_node(self) -> Option<Node> {
+    pub fn as_node(self) -> Node {
         match self {
-            Owner::Function(f) => None,
-            Owner::Evaluator(e) => None,
-            Owner::Enf(e) => Some(Node::Enf(e)),
-            Owner::Boundary(b) => Some(Node::Boundary(b)),
-            Owner::Add(a) => Some(Node::Add(a)),
-            Owner::Sub(s) => Some(Node::Sub(s)),
-            Owner::Mul(m) => Some(Node::Mul(m)),
-            Owner::If(i) => Some(Node::If(i)),
-            Owner::For(f) => Some(Node::For(f)),
-            Owner::Call(c) => Some(Node::Call(c)),
-            Owner::Fold(f) => Some(Node::Fold(f)),
-            Owner::Vector(v) => Some(Node::Vector(v)),
-            Owner::Matrix(m) => Some(Node::Matrix(m)),
-            Owner::Accessor(a) => Some(Node::Accessor(a)),
-            Owner::None => None,
+            Owner::Function(f) => Node::Function(f),
+            Owner::Evaluator(e) => Node::Evaluator(e),
+            Owner::Enf(e) => Node::Enf(e),
+            Owner::Boundary(b) => Node::Boundary(b),
+            Owner::Add(a) => Node::Add(a),
+            Owner::Sub(s) => Node::Sub(s),
+            Owner::Mul(m) => Node::Mul(m),
+            Owner::If(i) => Node::If(i),
+            Owner::For(f) => Node::For(f),
+            Owner::Call(c) => Node::Call(c),
+            Owner::Fold(f) => Node::Fold(f),
+            Owner::Vector(v) => Node::Vector(v),
+            Owner::Matrix(m) => Node::Matrix(m),
+            Owner::Accessor(a) => Node::Accessor(a),
+            Owner::None => Node::None,
         }
     }
 }
@@ -194,7 +194,7 @@ impl Link<Owner> {
     pub fn as_op(self) -> Option<Link<Op>> {
         self.borrow().clone().as_op().map(|o| o.into())
     }
-    pub fn as_node(self) -> Option<Link<Node>> {
-        self.borrow().clone().as_node().map(|n| n.into())
+    pub fn as_node(self) -> Link<Node> {
+        self.borrow().clone().as_node().into()
     }
 }

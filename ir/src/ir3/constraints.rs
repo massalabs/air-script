@@ -102,7 +102,7 @@ impl Constraints {
     pub fn insert_constraint(
         &mut self,
         trace_segment: TraceSegmentId,
-        root: Link<NodeType>,
+        root: Link<Op>,
         domain: ConstraintDomain,
     ) {
         let root = ConstraintRoot::new(root, domain);
@@ -137,17 +137,17 @@ impl Constraints {
 /// the domain against which the constraint should be applied.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConstraintRoot {
-    link: Link<NodeType>,
+    link: Link<Op>,
     domain: ConstraintDomain,
 }
 impl ConstraintRoot {
     /// Creates a new [ConstraintRoot] with the specified entry index and row offset.
-    pub const fn new(link: Link<NodeType>, domain: ConstraintDomain) -> Self {
+    pub const fn new(link: Link<Op>, domain: ConstraintDomain) -> Self {
         Self { link, domain }
     }
 
     /// Returns the index of the entry node of the subgraph representing the constraint.
-    pub const fn node(&self) -> &Link<NodeType> {
+    pub const fn node(&self) -> &Link<Op> {
         &self.link
     }
 

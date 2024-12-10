@@ -28,7 +28,8 @@ use std::ops::Deref;
 use air_pass::Pass;
 
 use crate::ir3::{
-    Accessor, Add, Boundary, Call, Enf, Fold, For, If, Link, Matrix, Mul, Op, Parent, Sub, Value, Vector
+    Accessor, Add, Boundary, Call, Enf, Fold, For, If, Link, Matrix, Mul, Op, Parent, Sub, Value,
+    Vector,
 };
 
 pub struct DumpAst;
@@ -84,8 +85,9 @@ pub fn duplicate_node(node: Link<Op>) -> Link<Op> {
             let new_cond = duplicate_node(cond);
             let new_then_branch = duplicate_node(then_branch);
             let new_else_branch = duplicate_node(else_branch);
-            return If::new(new_cond, new_then_branch, new_else_branch).as_op().into();
-
+            return If::new(new_cond, new_then_branch, new_else_branch)
+                .as_op()
+                .into();
         }
         Op::For(for_node) => {
             let iterators = for_node.iterators.clone();
@@ -95,13 +97,19 @@ pub fn duplicate_node(node: Link<Op>) -> Link<Op> {
                 .borrow()
                 .iter()
                 .cloned()
-                .map(|iterator| duplicate_node(iterator.as_op().into()).as_vector().unwrap().into())
+                .map(|iterator| {
+                    duplicate_node(iterator.as_op().into())
+                        .as_vector()
+                        .unwrap()
+                        .into()
+                })
                 .collect::<Vec<_>>()
                 .into();
             let new_body = duplicate_node(body);
             let new_selector = duplicate_node(selector);
-            return For::new(new_iterators, new_body, new_selector).as_op().into();
-        
+            return For::new(new_iterators, new_body, new_selector)
+                .as_op()
+                .into();
         }
         Op::Call(call) => {
             let arguments = call.arguments.clone();
@@ -121,8 +129,9 @@ pub fn duplicate_node(node: Link<Op>) -> Link<Op> {
             let initial_value = fold.initial_value.clone();
             let new_iterator = duplicate_node(iterator);
             let new_initial_value = duplicate_node(initial_value);
-            return Fold::new(new_iterator, operator, new_initial_value).as_op().into();
-        
+            return Fold::new(new_iterator, operator, new_initial_value)
+                .as_op()
+                .into();
         }
         Op::Vector(vector) => {
             let children_link = vector.children().clone();
@@ -163,10 +172,10 @@ pub fn duplicate_node(node: Link<Op>) -> Link<Op> {
         }
         Op::Parameter(parameter) => {
             return parameter.clone().as_op().into();
-        },
+        }
         Op::Value(value) => {
             return Value::new(value.value.clone()).as_op().into();
-        },
+        }
         Op::None => Op::None.into(),
     }
 }
@@ -200,7 +209,7 @@ pub fn duplicate_node_or_replace(
             let lhs = add.lhs.clone();
             let rhs = add.rhs.clone();
             let new_lhs_node = current_replace_map.get(&lhs).unwrap().clone();
-            let new_rhs_node =  current_replace_map.get(&rhs).unwrap().clone();
+            let new_rhs_node = current_replace_map.get(&rhs).unwrap().clone();
             let new_node = Add::new(new_lhs_node, new_rhs_node).as_op().into();
             current_replace_map.insert(node.clone(), new_node);
         }
@@ -208,7 +217,7 @@ pub fn duplicate_node_or_replace(
             let lhs = sub.lhs.clone();
             let rhs = sub.rhs.clone();
             let new_lhs_node = current_replace_map.get(&lhs).unwrap().clone();
-            let new_rhs_node =  current_replace_map.get(&rhs).unwrap().clone();
+            let new_rhs_node = current_replace_map.get(&rhs).unwrap().clone();
             let new_node = Sub::new(new_lhs_node, new_rhs_node).as_op().into();
             current_replace_map.insert(node.clone(), new_node);
         }
@@ -216,7 +225,7 @@ pub fn duplicate_node_or_replace(
             let lhs = mul.lhs.clone();
             let rhs = mul.rhs.clone();
             let new_lhs_node = current_replace_map.get(&lhs).unwrap().clone();
-            let new_rhs_node =  current_replace_map.get(&rhs).unwrap().clone();
+            let new_rhs_node = current_replace_map.get(&rhs).unwrap().clone();
             let new_node = Mul::new(new_lhs_node, new_rhs_node).as_op().into();
             current_replace_map.insert(node.clone(), new_node);
         }
@@ -225,9 +234,11 @@ pub fn duplicate_node_or_replace(
             let then_branch = if_node.then_branch.clone();
             let else_branch = if_node.else_branch.clone();
             let new_cond = current_replace_map.get(&cond).unwrap().clone();
-            let new_then_branch =  current_replace_map.get(&then_branch).unwrap().clone();
+            let new_then_branch = current_replace_map.get(&then_branch).unwrap().clone();
             let new_else_branch = current_replace_map.get(&else_branch).unwrap().clone();
-            let new_node = If::new(new_cond, new_then_branch, new_else_branch).as_op().into();
+            let new_node = If::new(new_cond, new_then_branch, new_else_branch)
+                .as_op()
+                .into();
             current_replace_map.insert(node.clone(), new_node);
         }
         Op::For(for_node) => {
@@ -238,12 +249,25 @@ pub fn duplicate_node_or_replace(
                 .borrow()
                 .iter()
                 .cloned()
-                .map(|iterator| current_replace_map.get(&iterator.as_op()).unwrap().clone().as_vector().unwrap().into())
+                .map(|iterator| {
+                    current_replace_map
+                        .get(&iterator.as_op())
+                        .unwrap()
+                        .clone()
+                        .as_vector()
+                        .unwrap()
+                        .into()
+                })
                 .collect::<Vec<_>>()
                 .into();
             let new_body = current_replace_map.get(&body).unwrap().clone();
-            let new_selector = current_replace_map.get(&selector).unwrap_or(&Link::new(Op::None)).clone();
-            let new_node = For::new(new_iterators, new_body, new_selector).as_op().into();
+            let new_selector = current_replace_map
+                .get(&selector)
+                .unwrap_or(&Link::new(Op::None))
+                .clone();
+            let new_node = For::new(new_iterators, new_body, new_selector)
+                .as_op()
+                .into();
             current_replace_map.insert(node.clone(), new_node);
         }
         Op::Call(call) => {
@@ -265,7 +289,9 @@ pub fn duplicate_node_or_replace(
             let initial_value = fold.initial_value.clone();
             let new_iterator = current_replace_map.get(&iterator).unwrap().clone();
             let new_initial_value = current_replace_map.get(&initial_value).unwrap().clone();
-            let new_node = Fold::new(new_iterator, operator, new_initial_value).as_op().into();
+            let new_node = Fold::new(new_iterator, operator, new_initial_value)
+                .as_op()
+                .into();
             current_replace_map.insert(node.clone(), new_node);
         }
         Op::Vector(vector) => {
@@ -311,11 +337,11 @@ pub fn duplicate_node_or_replace(
         Op::Parameter(parameter) => {
             let new_node = replace_parameter_list[parameter.position.clone()].clone();
             current_replace_map.insert(node.clone(), new_node);
-        },
+        }
         Op::Value(value) => {
             let new_node = Value::new(value.value.clone()).as_op().into();
             current_replace_map.insert(node.clone(), new_node);
-        },
-        Op::None => { },
+        }
+        Op::None => {}
     }
 }

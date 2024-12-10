@@ -1,4 +1,4 @@
-use crate::ir3::{IsParent, Link, NodeType};
+use crate::ir3::{Link, Node};
 
 pub enum VisitOrder {
     Manual,
@@ -8,10 +8,10 @@ pub enum VisitOrder {
 pub trait VisitDefault {}
 pub trait VisitContext {
     type Graph;
-    fn visit(&mut self, graph: &mut Self::Graph, link: Link<NodeType>);
-    fn as_stack_mut(&mut self) -> &mut Vec<Link<NodeType>>;
-    fn boundary_roots(&self, graph: &Self::Graph) -> Link<Vec<Link<NodeType>>>;
-    fn integrity_roots(&self, graph: &Self::Graph) -> Link<Vec<Link<NodeType>>>;
+    fn visit(&mut self, graph: &mut Self::Graph, link: Link<Node>);
+    fn as_stack_mut(&mut self) -> &mut Vec<Link<Node>>;
+    fn boundary_roots(&self, graph: &Self::Graph) -> Link<Vec<Link<Node>>>;
+    fn integrity_roots(&self, graph: &Self::Graph) -> Link<Vec<Link<Node>>>;
     fn visit_order(&self) -> VisitOrder;
 }
 pub trait Visit: VisitContext {
@@ -43,7 +43,7 @@ pub trait Visit: VisitContext {
             .chain(self.integrity_roots(graph).borrow().iter())
         {
             self.visit_later(root_index.clone());
-            let mut last: Option<Link<NodeType>> = None;
+            let mut last: Option<Link<Node>> = None;
             while let Some(link) = self.peek() {
                 let children = link.get_children();
                 if children.borrow().is_empty()
@@ -77,13 +77,13 @@ pub trait Visit: VisitContext {
             }
         }
     }
-    fn peek(&mut self) -> Option<Link<NodeType>> {
+    fn peek(&mut self) -> Option<Link<Node>> {
         self.as_stack_mut().last().cloned()
     }
-    fn next_node(&mut self) -> Option<Link<NodeType>> {
+    fn next_node(&mut self) -> Option<Link<Node>> {
         self.as_stack_mut().pop()
     }
-    fn visit_later(&mut self, link: Link<NodeType>) {
+    fn visit_later(&mut self, link: Link<Node>) {
         self.as_stack_mut().push(link);
     }
 }

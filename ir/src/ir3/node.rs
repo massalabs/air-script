@@ -3,7 +3,7 @@ use crate::ir3::{
     Parameter, Sub, Value, Vector,
 };
 
-use super::{Leaf, Link, Owner};
+use super::{Leaf, Link, Owner, Root};
 
 /// All the nodes that can be in the MIR Graph
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
@@ -174,6 +174,13 @@ impl Node {
             _ => None,
         }
     }
+    fn as_root(self) -> Option<Root> {
+        match self {
+            Node::Function(f) => Some(Root::Function(f)),
+            Node::Evaluator(e) => Some(Root::Evaluator(e)),
+            _ => None,
+        }
+    }
 }
 
 impl Link<Node> {
@@ -227,5 +234,8 @@ impl Link<Node> {
     }
     pub fn as_owner(self) -> Option<Link<Owner>> {
         self.borrow().clone().as_owner().map(|o| o.into())
+    }
+    pub fn as_root(self) -> Option<Link<Root>> {
+        self.borrow().clone().as_root().map(|r| r.into())
     }
 }

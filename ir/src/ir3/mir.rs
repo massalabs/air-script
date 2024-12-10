@@ -108,7 +108,6 @@ impl Mir {
         self.constraints.boundary_constraints(trace_segment)
     }
 
-
     /* /// Return the set of [IntegrityConstraintDegree] corresponding to each integrity constraint
     pub fn integrity_constraint_degrees(
         &self,

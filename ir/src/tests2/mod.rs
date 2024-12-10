@@ -18,7 +18,7 @@ pub use crate::CompileError;
 
 use std::sync::Arc;
 
-use crate::ir2::Mir;
+use crate::ir3::Mir;
 use air_pass::Pass;
 use miden_diagnostics::{CodeMap, DiagnosticsConfig, DiagnosticsHandler, Verbosity};
 

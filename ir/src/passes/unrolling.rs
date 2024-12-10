@@ -18,31 +18,31 @@ use super::{duplicate_node_or_replace, Visit, VisitContext, VisitOrder};
 
 #[derive(Clone)]
 pub struct ForInliningContext {
-    body: Link<NodeType>,
-    iterators: Vec<Link<NodeType>>,
-    selector: Option<Link<NodeType>>,
+    body: Link<Op>,
+    iterators: Vec<Link<Op>>,
+    selector: Option<Link<Op>>,
     index: usize,
-    parent_for: Link<NodeType>,
+    parent_for: Link<Op>,
 }
 
 impl ForInliningContext {}
 
 pub struct Unrolling {
     // general context
-    work_stack: Vec<Link<NodeType>>,
+    work_stack: Vec<Link<Op>>,
     during_first_pass: bool,
 
     // context for both passes
-    bodies_to_inline: Vec<(Link<NodeType>, ForInliningContext)>,
+    bodies_to_inline: Vec<(Link<Op>, ForInliningContext)>,
 
     // context for second pass
     for_inlining_context: Option<ForInliningContext>,
-    nodes_to_replace: HashMap<Link<NodeType>, Link<NodeType>>,
+    nodes_to_replace: HashMap<Link<Op>, Link<Op>>,
 }
 
 impl VisitContext for Unrolling {
     #[allow(unused)]
-    fn visit(&mut self, graph: &mut Graph, node: Link<NodeType>) {
+    fn visit(&mut self, graph: &mut Graph, node: Link<Op>) {
         if self.during_first_pass {
             self.visit_first_pass(node);
         } else {
@@ -50,13 +50,13 @@ impl VisitContext for Unrolling {
         }
     }
 
-    fn as_stack_mut(&mut self) -> &mut Vec<Link<NodeType>> {
+    fn as_stack_mut(&mut self) -> &mut Vec<Link<Op>> {
         &mut self.work_stack
     }
 
     type Graph = Graph;
 
-    fn boundary_roots(&self, graph: &Self::Graph) -> Link<Vec<Link<NodeType>>> {
+    fn boundary_roots(&self, graph: &Self::Graph) -> Link<Vec<Link<Op>>> {
         if self.during_first_pass {
             return graph.boundary_constraints_roots.clone();
         } else {
@@ -70,7 +70,7 @@ impl VisitContext for Unrolling {
         }
     }
 
-    fn integrity_roots(&self, graph: &Self::Graph) -> Link<Vec<Link<NodeType>>> {
+    fn integrity_roots(&self, graph: &Self::Graph) -> Link<Vec<Link<Op>>> {
         if self.during_first_pass {
             return graph.integrity_constraints_roots.clone();
         } else {
@@ -160,9 +160,14 @@ enum BinaryOp {
 }
 
 impl Unrolling {
-    fn visit_value(&mut self, node: Link<NodeType>) {
+    fn visit_value(&mut self, node: Link<Op>) {
+        let Some(value) = node.as_value() else {
+            unreachable!();
+        };
+        let value = value.borrow().deref();
+
         match node.borrow().deref() {
-            NodeType::LeafNode(LeafNode::Value(leaf)) => {
+            Op::LeafNode(LeafNode::Value(leaf)) => {
                 match &leaf.data {
                     SpannedMirValue {
                         span: span,
@@ -183,7 +188,7 @@ impl Unrolling {
                                     }
                                     let new_node = Vector::new(vec);
                                     *node.borrow_mut().deref_mut() =
-                                        NodeType::MiddleNode(MiddleNode::Vector(new_node));
+                                        Op::MiddleNode(MiddleNode::Vector(new_node));
                                 }
                                 ConstantValue::Matrix(m) => {
                                     let mut res_m = vec![];
@@ -203,7 +208,7 @@ impl Unrolling {
                                     }
                                     let new_node = Matrix::new(res_m);
                                     *node.borrow_mut().deref_mut() =
-                                        NodeType::MiddleNode(MiddleNode::Matrix(new_node));
+                                        Op::MiddleNode(MiddleNode::Matrix(new_node));
                                 }
                             },
                             MirValue::TraceAccess(_) => {}
@@ -227,7 +232,7 @@ impl Unrolling {
                                 }
                                 let new_node = Vector::new(vec);
                                 *node.borrow_mut().deref_mut() =
-                                    NodeType::MiddleNode(MiddleNode::Vector(new_node));
+                                    Op::MiddleNode(MiddleNode::Vector(new_node));
                             }
                             MirValue::RandomValueBinding(random_value_binding) => {
                                 let mut vec = vec![];
@@ -243,7 +248,7 @@ impl Unrolling {
                                 }
                                 let new_node = Vector::new(vec);
                                 *node.borrow_mut().deref_mut() =
-                                    NodeType::MiddleNode(MiddleNode::Vector(new_node));
+                                    Op::MiddleNode(MiddleNode::Vector(new_node));
                             }
                         }
                     }
@@ -255,15 +260,15 @@ impl Unrolling {
 
     fn visit_binary_op(
         &mut self,
-        node: Link<NodeType>,
-        lhs: Link<NodeType>,
-        rhs: Link<NodeType>,
+        node: Link<Op>,
+        lhs: Link<Op>,
+        rhs: Link<Op>,
         binary_op: BinaryOp,
     ) {
         match (lhs.borrow().deref(), rhs.borrow().deref()) {
             (
-                NodeType::MiddleNode(MiddleNode::Vector(lhs_vec)),
-                NodeType::MiddleNode(MiddleNode::Vector(rhs_vec)),
+                Op::MiddleNode(MiddleNode::Vector(lhs_vec)),
+                Op::MiddleNode(MiddleNode::Vector(rhs_vec)),
             ) => {
                 let lhs_vec = lhs_vec.get_children().borrow().deref().clone();
                 let rhs_vec = rhs_vec.get_children().borrow().deref().clone();
@@ -280,16 +285,16 @@ impl Unrolling {
                         new_vec.push(new_node);
                     }
                     *node.borrow_mut().deref_mut() =
-                        NodeType::MiddleNode(MiddleNode::Vector(Vector::new(new_vec)));
+                        Op::MiddleNode(MiddleNode::Vector(Vector::new(new_vec)));
                 }
             }
             _ => {}
         }
     }
 
-    fn visit_enf(&mut self, node: Link<NodeType>, child_node: Link<NodeType>) {
+    fn visit_enf(&mut self, node: Link<Op>, child_node: Link<Op>) {
         match child_node.borrow().deref() {
-            NodeType::MiddleNode(MiddleNode::Vector(child_vec)) => {
+            Op::MiddleNode(MiddleNode::Vector(child_vec)) => {
                 let child_vec = child_vec.get_children().borrow().deref().clone();
                 let mut new_vec = vec![];
                 for child in child_vec.iter() {
@@ -297,15 +302,15 @@ impl Unrolling {
                     new_vec.push(new_node);
                 }
                 *node.borrow_mut().deref_mut() =
-                    NodeType::MiddleNode(MiddleNode::Vector(Vector::new(new_vec)));
+                    Op::MiddleNode(MiddleNode::Vector(Vector::new(new_vec)));
             }
             _ => {}
         }
     }
 
-    fn visit_scope(&mut self, node: Link<NodeType>) {
+    fn visit_scope(&mut self, node: Link<Op>) {
         match node.borrow().deref() {
-            NodeType::MiddleNode(MiddleNode::Scope(_scope)) => {
+            Op::MiddleNode(MiddleNode::Scope(_scope)) => {
                 todo!();
                 /*let child_vec = child_vec.get_children().borrow().deref().clone();
                 let mut new_vec = vec![];
@@ -313,7 +318,7 @@ impl Unrolling {
                     let new_node = Enf::new(child.clone()).into();
                     new_vec.push(new_node);
                 }
-                *node.borrow_mut().deref_mut() = NodeType::MiddleNode(MiddleNode::Vector(Vector::new(new_vec)));*/
+                *node.borrow_mut().deref_mut() = Op::MiddleNode(MiddleNode::Vector(Vector::new(new_vec)));*/
             }
             _ => {}
         }
@@ -321,16 +326,14 @@ impl Unrolling {
 
     fn visit_fold(
         &mut self,
-        node: Link<NodeType>,
-        iterator: Link<NodeType>,
+        node: Link<Op>,
+        iterator: Link<Op>,
         fold_operator: FoldOperator,
-        accumulator: Link<NodeType>,
+        accumulator: Link<Op>,
     ) {
         // We need to expand this Fold into a nested sequence of binary expressions (add or mul depending on fold_operator)
         let iterator_nodes = match iterator.borrow().deref() {
-            NodeType::MiddleNode(MiddleNode::Vector(vec)) => {
-                vec.get_children().borrow().deref().clone()
-            }
+            Op::MiddleNode(MiddleNode::Vector(vec)) => vec.get_children().borrow().deref().clone(),
             _ => unreachable!(),
         };
 
@@ -354,12 +357,12 @@ impl Unrolling {
         *node.borrow_mut().deref_mut() = acc_node.borrow().deref().clone();
     }
 
-    fn visit_parameter(&mut self, node: Link<NodeType>) {
+    fn visit_parameter(&mut self, node: Link<Op>) {
         // Just check that the variable is a scalar, raise diag otherwise
         // List comprehension bodies should only be scalar expressions
 
         match node.borrow().deref() {
-            NodeType::LeafNode(LeafNode::Parameter(parameter)) => match &parameter.data.ty {
+            Op::LeafNode(LeafNode::Parameter(parameter)) => match &parameter.data.ty {
                 MirType::Felt => {}
                 MirType::Vector(_size) => unreachable!(),
                 MirType::Matrix(_rows, _cols) => unreachable!(),
@@ -371,10 +374,10 @@ impl Unrolling {
 
     fn visit_if(
         &mut self,
-        node: Link<NodeType>,
-        cond_node: Link<NodeType>,
-        then_node: Link<NodeType>,
-        else_node: Link<NodeType>,
+        node: Link<Op>,
+        cond_node: Link<Op>,
+        then_node: Link<Op>,
+        else_node: Link<Op>,
     ) {
         match (
             cond_node.borrow().deref(),
@@ -382,16 +385,16 @@ impl Unrolling {
             else_node.borrow().deref(),
         ) {
             (
-                NodeType::LeafNode(LeafNode::Value(_cond_leaf)),
-                NodeType::LeafNode(LeafNode::Value(_then_leaf)),
-                NodeType::LeafNode(LeafNode::Value(_else_leaf)),
+                Op::LeafNode(LeafNode::Value(_cond_leaf)),
+                Op::LeafNode(LeafNode::Value(_then_leaf)),
+                Op::LeafNode(LeafNode::Value(_else_leaf)),
             ) => {
                 // Check value types to ensure scalar, raise diag otherwise
             }
             (
-                NodeType::MiddleNode(MiddleNode::Vector(cond_vec)),
-                NodeType::MiddleNode(MiddleNode::Vector(then_vec)),
-                NodeType::MiddleNode(MiddleNode::Vector(else_vec)),
+                Op::MiddleNode(MiddleNode::Vector(cond_vec)),
+                Op::MiddleNode(MiddleNode::Vector(then_vec)),
+                Op::MiddleNode(MiddleNode::Vector(else_vec)),
             ) => {
                 let cond_vec = cond_vec.get_children().borrow().deref().clone();
                 let then_vec = then_vec.get_children().borrow().deref().clone();
@@ -407,21 +410,16 @@ impl Unrolling {
                         new_vec.push(new_node);
                     }
                     *node.borrow_mut().deref_mut() =
-                        NodeType::MiddleNode(MiddleNode::Vector(Vector::new(new_vec)));
+                        Op::MiddleNode(MiddleNode::Vector(Vector::new(new_vec)));
                 }
             }
             _ => unreachable!(),
         }
     }
 
-    fn visit_boundary(
-        &mut self,
-        node: Link<NodeType>,
-        boundary: BoundaryKind,
-        child_node: Link<NodeType>,
-    ) {
+    fn visit_boundary(&mut self, node: Link<Op>, boundary: BoundaryKind, child_node: Link<Op>) {
         match child_node.borrow().deref() {
-            NodeType::MiddleNode(MiddleNode::Vector(child_vec)) => {
+            Op::MiddleNode(MiddleNode::Vector(child_vec)) => {
                 let child_vec = child_vec.get_children().borrow().deref().clone();
                 let mut new_vec = vec![];
                 for child in child_vec.iter() {
@@ -429,7 +427,7 @@ impl Unrolling {
                     new_vec.push(new_node);
                 }
                 *node.borrow_mut().deref_mut() =
-                    NodeType::MiddleNode(MiddleNode::Vector(Vector::new(new_vec)));
+                    Op::MiddleNode(MiddleNode::Vector(Vector::new(new_vec)));
             }
             _ => {}
         }
@@ -437,18 +435,18 @@ impl Unrolling {
 
     fn visit_index_access(
         &mut self,
-        node: Link<NodeType>,
+        node: Link<Op>,
         access_type: AccessType,
-        child_node: Link<NodeType>,
+        child_node: Link<Op>,
     ) {
         match access_type {
             AccessType::Default() => {
                 // Check that the child node is a scalar, raise diag otherwise
                 match child_node.borrow().deref() {
-                    NodeType::MiddleNode(MiddleNode::Vector(child_vec)) => {
+                    Op::MiddleNode(MiddleNode::Vector(child_vec)) => {
                         unreachable!(); // raise diag
                     }
-                    NodeType::MiddleNode(MiddleNode::Matrix(child_mat)) => {
+                    Op::MiddleNode(MiddleNode::Matrix(child_mat)) => {
                         unreachable!(); // raise diag
                     }
                     _ => {}
@@ -458,8 +456,7 @@ impl Unrolling {
                 // Check that the child node is a vector, raise diag otherwise
                 // Replace the current node by the index-th element of the vector
                 // Raise diag if index is out of bounds
-                let NodeType::MiddleNode(MiddleNode::Vector(child_vec)) =
-                    child_node.borrow().deref()
+                let Op::MiddleNode(MiddleNode::Vector(child_vec)) = child_node.borrow().deref()
                 else {
                     unreachable!(); // raise diag
                 };
@@ -474,8 +471,7 @@ impl Unrolling {
                 // Check that the child node is a matrix, raise diag otherwise
                 // Replace the current node by the index-th element of the vector
                 // Raise diag if index is out of bounds
-                let NodeType::MiddleNode(MiddleNode::Matrix(child_mat)) =
-                    child_node.borrow().deref()
+                let Op::MiddleNode(MiddleNode::Matrix(child_mat)) = child_node.borrow().deref()
                 else {
                     unreachable!(); // raise diag
                 };
@@ -485,8 +481,7 @@ impl Unrolling {
                     None => unreachable!(), // raise diag
                 };
 
-                let NodeType::MiddleNode(MiddleNode::Matrix(child_row)) =
-                    child_row.borrow().deref()
+                let Op::MiddleNode(MiddleNode::Matrix(child_row)) = child_row.borrow().deref()
                 else {
                     unreachable!(); // raise diag
                 };
@@ -507,10 +502,10 @@ impl Unrolling {
 
     fn visit_for(
         &mut self,
-        node: Link<NodeType>,
-        iterators: Vec<Link<NodeType>>,
-        body: Link<NodeType>,
-        selector: Option<Link<NodeType>>,
+        node: Link<Op>,
+        iterators: Vec<Link<Op>>,
+        body: Link<Op>,
+        selector: Option<Link<Op>>,
     ) {
         // For each value produced by the iterators, we need to:
         // - Duplicate the body
@@ -522,15 +517,13 @@ impl Unrolling {
             unreachable!(); // Raise diag
         }
         let iterator_expected_len = match iterators[0].borrow().deref() {
-            NodeType::MiddleNode(MiddleNode::Vector(vec)) => {
-                vec.get_children().borrow().deref().len()
-            }
+            Op::MiddleNode(MiddleNode::Vector(vec)) => vec.get_children().borrow().deref().len(),
             _ => unreachable!(),
         };
 
         for iterator in iterators.iter().skip(1) {
             match iterator.borrow().deref() {
-                NodeType::MiddleNode(MiddleNode::Vector(vec)) => {
+                Op::MiddleNode(MiddleNode::Vector(vec)) => {
                     if vec.get_children().borrow().deref().len() != iterator_expected_len {
                         unreachable!(); // Raise diag
                     }
@@ -542,14 +535,14 @@ impl Unrolling {
         let iterator_nodes = iterators
             .iter()
             .map(|iterator| match iterator.borrow().deref() {
-                NodeType::MiddleNode(MiddleNode::Vector(vec)) => *vec,
+                Op::MiddleNode(MiddleNode::Vector(vec)) => *vec,
                 _ => unreachable!(),
             })
             .collect::<Vec<_>>();
 
         let mut new_vec = vec![];
         for i in 0..iterator_expected_len {
-            let new_node = Link::new(NodeType::None);
+            let new_node = Link::new(Op::None);
             new_vec.push(new_node);
 
             let iterators_i = iterator_nodes
@@ -568,17 +561,16 @@ impl Unrolling {
                 },
             ));
         }
-        *node.borrow_mut().deref_mut() =
-            NodeType::MiddleNode(MiddleNode::Vector(Vector::new(new_vec)));
+        *node.borrow_mut().deref_mut() = Op::MiddleNode(MiddleNode::Vector(Vector::new(new_vec)));
     }
 
-    fn visit_first_pass(&mut self, node: Link<NodeType>) {
+    fn visit_first_pass(&mut self, node: Link<Op>) {
         match node.clone().borrow().deref() {
-            NodeType::RootNode(_root_node) => {
+            Op::RootNode(_root_node) => {
                 // FIXME: Either unreachable or we should do nothing?
                 unreachable!();
             }
-            NodeType::LeafNode(leaf_node) => {
+            Op::LeafNode(leaf_node) => {
                 match leaf_node {
                     LeafNode::Value(_leaf) => {
                         // Transform values to scalar nodes (in the case of a vector or matrix, transform into Operation::Vector or Operation::Matrix)
@@ -589,7 +581,7 @@ impl Unrolling {
                     }
                 }
             }
-            NodeType::MiddleNode(middle_node) => {
+            Op::MiddleNode(middle_node) => {
                 match middle_node {
                     MiddleNode::Add(add) => {
                         let lhs = add.lhs();
@@ -661,7 +653,7 @@ impl Unrolling {
         }
     }
 
-    fn visit_second_pass(&mut self, node: Link<NodeType>) {
+    fn visit_second_pass(&mut self, node: Link<Op>) {
         let node_index = self.bodies_to_inline.iter().position(|(n, _)| n == &node);
         match node_index {
             Some(index) => {
@@ -685,7 +677,7 @@ impl Unrolling {
 
                     let parent_for = self.for_inlining_context.unwrap().parent_for;
                     match parent_for.borrow_mut().deref_mut() {
-                        NodeType::MiddleNode(MiddleNode::Vector(vec)) => {
+                        Op::MiddleNode(MiddleNode::Vector(vec)) => {
                             let new_node_to_update_at = if let Some(selector) =
                                 self.for_inlining_context.unwrap().selector
                             {

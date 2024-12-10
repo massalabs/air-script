@@ -132,23 +132,23 @@ impl Op {
             Op::None => None,
         }
     }
-    pub fn as_node(self) -> Option<Node> {
+    pub fn as_node(self) -> Node {
         match self {
-            Op::Enf(e) => Some(Node::Enf(e)),
-            Op::Boundary(b) => Some(Node::Boundary(b)),
-            Op::Add(a) => Some(Node::Add(a)),
-            Op::Sub(s) => Some(Node::Sub(s)),
-            Op::Mul(m) => Some(Node::Mul(m)),
-            Op::If(i) => Some(Node::If(i)),
-            Op::For(f) => Some(Node::For(f)),
-            Op::Call(c) => Some(Node::Call(c)),
-            Op::Fold(f) => Some(Node::Fold(f)),
-            Op::Vector(v) => Some(Node::Vector(v)),
-            Op::Matrix(m) => Some(Node::Matrix(m)),
-            Op::Accessor(a) => Some(Node::Accessor(a)),
-            Op::Parameter(p) => Some(Node::Parameter(p)),
-            Op::Value(v) => Some(Node::Value(v)),
-            Op::None => Some(Node::None),
+            Op::Enf(e) => Node::Enf(e),
+            Op::Boundary(b) => Node::Boundary(b),
+            Op::Add(a) => Node::Add(a),
+            Op::Sub(s) => Node::Sub(s),
+            Op::Mul(m) => Node::Mul(m),
+            Op::If(i) => Node::If(i),
+            Op::For(f) => Node::For(f),
+            Op::Call(c) => Node::Call(c),
+            Op::Fold(f) => Node::Fold(f),
+            Op::Vector(v) => Node::Vector(v),
+            Op::Matrix(m) => Node::Matrix(m),
+            Op::Accessor(a) => Node::Accessor(a),
+            Op::Parameter(p) => Node::Parameter(p),
+            Op::Value(v) => Node::Value(v),
+            Op::None => Node::None,
         }
     }
 }
@@ -199,7 +199,7 @@ impl Link<Op> {
     pub fn as_owner(self) -> Option<Link<Owner>> {
         self.borrow().clone().as_owner().map(|o| o.into())
     }
-    pub fn as_node(self) -> Option<Link<Node>> {
-        self.borrow().clone().as_node().map(|n| n.into())
+    pub fn as_node(self) -> Link<Node> {
+        self.borrow().clone().as_node().into()
     }
 }
