@@ -1,3 +1,4 @@
+#![allow(unused)]
 mod graph;
 mod link;
 mod nodes;
@@ -10,6 +11,8 @@ pub use nodes::{
     Sub, Value, Vector,
 };
 
+/// A trait for nodes that can have children
+/// This is used with the Child trait to allow for easy traversal and manipulation of the graph
 pub trait Parent {
     type Child;
     fn children(&self) -> Link<Vec<Link<Self::Child>>>;
@@ -22,6 +25,8 @@ pub trait Parent {
     }
 }
 
+/// A trait for nodes that can have a parent
+/// This is used with the Parent trait to allow for easy traversal and manipulation of the graph
 pub trait Child: Clone + Into<Link<Self>> + PartialEq {
     type Parent;
     fn get_parent(&self) -> BackLink<Self::Parent>;
@@ -46,15 +51,23 @@ pub trait Child: Clone + Into<Link<Self>> + PartialEq {
     }
 }
 
+/// A helper struct used with the Builder trait to indicate that a field has not been set
 pub struct NotSet;
 
+/// A trait implemented by all nodes.
+/// Will be derivable later. The implementation and type-safe builder is currently manual while we tweak the design
 pub trait Builder {
     type BuilderEmpty;
     type BuilderFull;
+    /// Create a new empty builder that exposes all fields
     fn builder() -> Self::BuilderEmpty;
+    /// Consumes the current node
+    /// and returns a new builder with all fields set to expose all fields
     fn edit(self) -> Self::BuilderFull;
 }
 
+/// The root nodes of the MIR Graph
+/// These represent the top level functions and evaluators
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub enum Root {
     Function(Function),
@@ -63,6 +76,7 @@ pub enum Root {
     None,
 }
 
+/// The combined Operators and Leaves of the MIR Graph
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub enum Op {
     Enf(Enf),
@@ -83,6 +97,7 @@ pub enum Op {
     None,
 }
 
+/// The nodes that can own Op nodes
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub enum Owner {
     Function(Function),
@@ -103,6 +118,8 @@ pub enum Owner {
     None,
 }
 
+/// The Final nodes of the MIR Graph.
+/// Currently unused in the structure but will be used in the next visitor pattern implementation.
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub enum Leaf {
     Parameter(Parameter),
