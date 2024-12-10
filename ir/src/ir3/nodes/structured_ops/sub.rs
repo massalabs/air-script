@@ -1,4 +1,4 @@
-use crate::ir3::{BackLink, Child, Link, Op, Owner, Parent};
+use crate::ir3::{BackLink, Builder, Child, Link, NotSet, Op, Owner, Parent};
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Sub {
@@ -31,5 +31,128 @@ impl Child for Sub {
     }
     fn set_parent(&mut self, parent: Link<Self::Parent>) {
         self.parent = parent.into();
+    }
+}
+
+pub struct SubBuilder<State> {
+    _state: std::marker::PhantomData<State>,
+    parent: BackLink<Owner>,
+    lhs: Option<Link<Op>>,
+    rhs: Option<Link<Op>>,
+}
+
+type SubBuilderStart = SubBuilder<(BackLink<Owner>, NotSet, NotSet)>;
+type SubBuilderA = SubBuilder<(BackLink<Owner>, Link<Op>, NotSet)>;
+type SubBuilderB = SubBuilder<(BackLink<Owner>, NotSet, Link<Op>)>;
+type SubBuilderFinish = SubBuilder<(BackLink<Owner>, Link<Op>, Link<Op>)>;
+
+impl Builder for Sub {
+    type BuilderType = SubBuilderStart;
+    fn builder() -> Self::BuilderType {
+        SubBuilder::default()
+    }
+}
+
+impl Default for SubBuilderStart {
+    fn default() -> Self {
+        Self {
+            _state: std::marker::PhantomData,
+            parent: BackLink::default(),
+            lhs: None,
+            rhs: None,
+        }
+    }
+}
+
+impl SubBuilderStart {
+    pub fn parent(mut self, parent: Link<Owner>) -> Self {
+        self.parent = parent.into();
+        self
+    }
+    pub fn lhs(mut self, lhs: Link<Op>) -> SubBuilderA {
+        self.lhs = Some(lhs);
+        unsafe { std::mem::transmute(self) }
+    }
+    pub fn rhs(mut self, rhs: Link<Op>) -> SubBuilderB {
+        self.rhs = Some(rhs);
+        unsafe { std::mem::transmute(self) }
+    }
+}
+
+impl SubBuilderA {
+    pub fn parent(mut self, parent: Link<Owner>) -> Self {
+        self.parent = parent.into();
+        self
+    }
+    pub fn lhs(mut self, lhs: Link<Op>) -> Self {
+        self.lhs = Some(lhs);
+        self
+    }
+    pub fn rhs(mut self, rhs: Link<Op>) -> SubBuilderFinish {
+        self.rhs = Some(rhs);
+        unsafe { std::mem::transmute(self) }
+    }
+}
+
+impl SubBuilderB {
+    pub fn parent(mut self, parent: Link<Owner>) -> Self {
+        self.parent = parent.into();
+        self
+    }
+    pub fn lhs(mut self, lhs: Link<Op>) -> SubBuilderFinish {
+        self.lhs = Some(lhs);
+        unsafe { std::mem::transmute(self) }
+    }
+    pub fn rhs(mut self, rhs: Link<Op>) -> Self {
+        self.rhs = Some(rhs);
+        self
+    }
+}
+
+impl SubBuilderFinish {
+    pub fn parent(mut self, parent: Link<Owner>) -> Self {
+        self.parent = parent.into();
+        self
+    }
+    pub fn lhs(mut self, lhs: Link<Op>) -> Self {
+        self.lhs = Some(lhs);
+        self
+    }
+    pub fn rhs(mut self, rhs: Link<Op>) -> Self {
+        self.rhs = Some(rhs);
+        self
+    }
+    pub fn build(self) -> Sub {
+        Sub {
+            parent: self.parent,
+            lhs: self.lhs.unwrap(),
+            rhs: self.rhs.unwrap(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ir3::{Evaluator, Owner};
+
+    #[test]
+    fn test_sub_builder() {
+        let parent = Link::new(Owner::Evaluator(Evaluator::default()));
+        let lhs = Link::new(Op::default());
+        let rhs = Link::new(Op::default());
+        let sub = Sub::builder()
+            .parent(parent.clone())
+            .lhs(lhs.clone())
+            .rhs(rhs.clone())
+            .build();
+        assert_eq!(
+            sub,
+            Sub {
+                parent: parent.into(),
+                lhs,
+                rhs,
+            }
+        );
     }
 }
