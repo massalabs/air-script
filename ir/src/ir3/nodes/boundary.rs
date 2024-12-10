@@ -6,9 +6,9 @@ use air_parser::ast::Boundary as BoundaryKind;
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Boundary {
-    parent: BackLink<Owner>,
-    kind: BoundaryKind,
-    expr: Link<Op>,
+    pub parent: BackLink<Owner>,
+    pub kind: BoundaryKind,
+    pub expr: Link<Op>,
 }
 
 impl Default for Boundary {
@@ -32,9 +32,10 @@ impl Hash for Boundary {
 }
 
 impl Boundary {
-    pub fn new(expr: Link<Op>) -> Self {
+    pub fn new(expr: Link<Op>, kind: BoundaryKind) -> Self {
         Self {
             expr,
+            kind,
             ..Default::default()
         }
     }

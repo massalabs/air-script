@@ -2,10 +2,10 @@ use crate::ir3::{BackLink, Builder, Child, Link, NotSet, Op, Owner, Parent};
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Fold {
-    parent: BackLink<Owner>,
-    iterator: Link<Op>,
-    operator: Link<FoldOperator>,
-    initial_value: Link<Op>,
+    pub parent: BackLink<Owner>,
+    pub iterator: Link<Op>,
+    pub operator: Link<FoldOperator>,
+    pub initial_value: Link<Op>,
 }
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]

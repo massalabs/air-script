@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use air_parser::ast::{self, Identifier, QualifiedIdentifier, TraceSegmentId};
 use miden_diagnostics::SourceSpan;
 
-use crate::ir3::{BackLink, Builder, Child, Link, NotSet, Op, Owner, TraceAccess};
+use crate::ir3::{BackLink, Builder, Child, Leaf, Link, NotSet, Op, Owner, TraceAccess};
 
 use super::*;
 
@@ -117,7 +117,7 @@ impl PublicInputAccess {
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Value {
     parent: BackLink<Owner>,
-    value: SpannedMirValue,
+    pub value: SpannedMirValue,
 }
 
 impl Default for SpannedMirValue {

@@ -2,10 +2,10 @@ use crate::ir3::{BackLink, Builder, Child, Link, NotSet, Op, Owner, Parent};
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct If {
-    parent: BackLink<Owner>,
-    condition: Link<Op>,
-    then_branch: Link<Op>,
-    else_branch: Link<Op>,
+    pub parent: BackLink<Owner>,
+    pub condition: Link<Op>,
+    pub then_branch: Link<Op>,
+    pub else_branch: Link<Op>,
 }
 
 impl If {

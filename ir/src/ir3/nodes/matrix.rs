@@ -4,9 +4,9 @@ use crate::ir3::{BackLink, Builder, Child, Link, NotSet, Op, Owner, Parent, Vect
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Matrix {
-    parent: BackLink<Owner>,
-    size: usize,
-    elements: Link<Vec<Link<Vector>>>,
+    pub parent: BackLink<Owner>,
+    pub size: usize,
+    pub elements: Link<Vec<Link<Vector>>>,
 }
 
 impl Matrix {

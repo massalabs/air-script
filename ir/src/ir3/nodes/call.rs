@@ -4,10 +4,10 @@ use crate::ir3::{BackLink, Builder, Child, Link, NotSet, Op, Owner, Parent, Root
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Call {
-    parent: BackLink<Owner>,
-    function: Link<Root>,
+    pub parent: BackLink<Owner>,
+    pub function: Link<Root>,
     /// Parent::children only contains the arguments
-    arguments: Link<Vec<Link<Op>>>,
+    pub arguments: Link<Vec<Link<Op>>>,
 }
 
 impl Call {

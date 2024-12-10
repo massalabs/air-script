@@ -8,10 +8,10 @@ pub enum ForChild {
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct For {
-    parent: BackLink<Owner>,
-    iterators: Link<Vec<Link<Vector>>>,
-    expr: Link<Op>,
-    selector: Link<Op>,
+    pub parent: BackLink<Owner>,
+    pub iterators: Link<Vec<Link<Vector>>>,
+    pub expr: Link<Op>,
+    pub selector: Link<Op>,
 }
 
 impl For {

@@ -2,9 +2,9 @@ use crate::ir3::{BackLink, Builder, Child, Link, NotSet, Op, Owner, Parent};
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Mul {
-    parent: BackLink<Owner>,
-    lhs: Link<Op>,
-    rhs: Link<Op>,
+    pub parent: BackLink<Owner>,
+    pub lhs: Link<Op>,
+    pub rhs: Link<Op>,
 }
 
 impl Mul {

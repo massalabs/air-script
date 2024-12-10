@@ -8,7 +8,7 @@ use crate::ir3::{Leaf, Link, Op};
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Parameter {
-    position: usize,
+    pub position: usize,
 }
 
 impl Parameter {

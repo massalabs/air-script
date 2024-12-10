@@ -6,9 +6,9 @@ use crate::ir3::{BackLink, Builder, Child, Link, NotSet, Op, Owner, Parent};
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Accessor {
-    parent: BackLink<Owner>,
-    indexable: Link<Op>,
-    access_type: AccessType,
+    pub parent: BackLink<Owner>,
+    pub indexable: Link<Op>,
+    pub access_type: AccessType,
 }
 
 impl Default for Accessor {

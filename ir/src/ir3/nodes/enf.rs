@@ -2,8 +2,8 @@ use crate::ir3::{BackLink, Builder, Child, Link, NotSet, Op, Owner, Parent};
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Enf {
-    parent: BackLink<Owner>,
-    expr: Link<Op>,
+    pub parent: BackLink<Owner>,
+    pub expr: Link<Op>,
 }
 
 impl Enf {
