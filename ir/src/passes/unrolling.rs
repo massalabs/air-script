@@ -442,7 +442,7 @@ impl Unrolling {
         child_node: Link<NodeType>,
     ) {
         match access_type {
-            AccessType::default() => {
+            AccessType::Default() => {
                 // Check that the child node is a scalar, raise diag otherwise
                 match child_node.borrow().deref() {
                     NodeType::MiddleNode(MiddleNode::Vector(child_vec)) => {
@@ -468,7 +468,7 @@ impl Unrolling {
                     Some(child_index) => child_index,
                     None => unreachable!(), // raise diag
                 };
-                *node.borrow_mut().deref_mut() = child_index.into();
+                *node.borrow_mut().deref_mut() = child_index.borrow().deref().clone().into();
             }
             AccessType::Matrix(row, col) => {
                 // Check that the child node is a matrix, raise diag otherwise
@@ -496,7 +496,7 @@ impl Unrolling {
                     None => unreachable!(), // raise diag
                 };
 
-                *node.borrow_mut().deref_mut() = child_index.into();
+                *node.borrow_mut().deref_mut() = child_index.borrow().deref().clone().into();
             }
 
             AccessType::Slice(range_expr) => {
