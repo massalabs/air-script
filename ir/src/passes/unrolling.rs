@@ -466,7 +466,7 @@ impl Unrolling {
                     Some(child_index) => child_index,
                     None => unreachable!(), // raise diag
                 };
-                node.borrow_mut().deref_mut() = child_index.clone();
+                *node.borrow_mut().deref_mut() = child_index.into();
             }
             AccessType::Matrix(row, col) => { 
                 // Check that the child node is a matrix, raise diag otherwise
@@ -490,7 +490,7 @@ impl Unrolling {
                     None => unreachable!(), // raise diag
                 };
 
-                node.borrow_mut().deref_mut() = child_index.clone();
+                *node.borrow_mut().deref_mut() = child_index.into();
             }
             
             AccessType::Slice(range_expr) => { 
