@@ -77,6 +77,8 @@ pub enum Op {
     Vector(Vector),
     Matrix(Matrix),
     IndexAccess(Accessor),
+    Parameter(Parameter),
+    Value(Value),
     #[default]
     None,
 }
