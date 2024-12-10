@@ -27,8 +27,8 @@ use std::collections::HashMap;
 use air_pass::Pass;
 
 use crate::ir3::{
-    Add, Boundary, Call, Enf, Fold, For, Graph, If, IsParent, LeafNode, Link, Matrix, MiddleNode,
-    Mul, NodeType, RootNode, Scope, Sub, Vector,
+    Add, Boundary, Call, Enf, Fold, For, Graph, If, Parent, Leaf, Link, Matrix, Op,
+    Mul, Root, Sub, Vector,
 };
 
 pub struct DumpAst;
