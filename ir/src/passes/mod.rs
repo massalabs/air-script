@@ -140,11 +140,11 @@ pub fn duplicate_node(node: Link<NodeType>) -> Link<NodeType> {
                     let new_expr = duplicate_node(expr);
                     return Boundary::new(new_expr, kind).into();
                 },
-                MiddleNode::Access(access) => {
+                MiddleNode::Accessor(access) => {
                     let indexable = access.indexable();
                     let access_type = access.access_type;
                     let new_indexable = duplicate_node(indexable);
-                    return Access::new(new_indexable, access_type).into();
+                    return Accessor::new(new_indexable, access_type).into();
                 },
                 MiddleNode::Enf(enf) => {
                     let expr = enf.expr();
@@ -260,10 +260,10 @@ pub fn duplicate_node_or_replace(
                     let new_node = Boundary::new(new_expr_node, boundary.kind).into();
                     current_replace_map.insert(node, new_node);
                 }
-                MiddleNode::Access(access) => {
+                MiddleNode::Accessor(access) => {
                     let expr_node = access.indexable();
                     let new_expr_node = current_replace_map.get(&expr_node).unwrap().clone();
-                    let new_node = Access::new(new_expr_node, access.access_type).into();
+                    let new_node = Accessor::new(new_expr_node, access.access_type).into();
                     current_replace_map.insert(node, new_node);
                 }
                 MiddleNode::Vector(_vector) => {

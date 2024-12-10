@@ -878,7 +878,7 @@ impl<'a> MirBuilder<'a> {
                     .expect("undefined variable")
                     .clone();
                 let let_bound_access_expr_duplicated = duplicate_node(let_bound_access_expr);
-                return Access::new(let_bound_access_expr_duplicated, access.access_type);
+                return Accessor::new(let_bound_access_expr_duplicated, access.access_type);
             }
             // These should have been eliminated by previous compiler passes
             ResolvableIdentifier::Unresolved(_) => {

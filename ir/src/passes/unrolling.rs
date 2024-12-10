@@ -620,7 +620,7 @@ impl Unrolling {
                         let selector = for_node.selector();
                         self.visit_for(node, iterators, body, selector);
                     }
-                    MiddleNode::Access(access) => {
+                    MiddleNode::Accessor(access) => {
                         let access_type = access.access_type;
                         let child = access.indexable();
                         self.visit_index_access(node, access_type, child);
