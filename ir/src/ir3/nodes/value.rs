@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use crate::{
-    ir3::{BackLink, Builder, Child, Link, NotSet, Op, Owner},
+    ir3::{BackLink, Builder, Child, Leaf, Link, NotSet, Op, Owner},
     MirValue, SpannedMirValue,
 };
 
@@ -26,6 +26,21 @@ impl Value {
             value,
             ..Default::default()
         }
+    }
+    pub fn as_leaf(self) -> Leaf {
+        Leaf::Value(self)
+    }
+    pub fn as_op(self) -> Op {
+        Op::Value(self)
+    }
+}
+
+impl Link<Value> {
+    pub fn as_leaf(self) -> Link<Leaf> {
+        Link::new(Leaf::Value(self.borrow().clone()))
+    }
+    pub fn as_op(self) -> Link<Op> {
+        Link::new(Op::Value(self.borrow().clone()))
     }
 }
 

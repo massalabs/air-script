@@ -23,6 +23,21 @@ impl For {
             ..Default::default()
         }
     }
+    pub fn as_op(self) -> Op {
+        Op::For(self)
+    }
+    pub fn as_owner(self) -> Owner {
+        Owner::For(self)
+    }
+}
+
+impl Link<For> {
+    pub fn as_op(self) -> Link<Op> {
+        Link::new(Op::For(self.borrow().clone()))
+    }
+    pub fn as_owner(self) -> Link<Owner> {
+        Link::new(Owner::For(self.borrow().clone()))
+    }
 }
 
 impl Parent for For {

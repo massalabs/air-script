@@ -18,6 +18,21 @@ impl Vector {
             ..Default::default()
         }
     }
+    pub fn as_op(self) -> Op {
+        Op::Vector(self)
+    }
+    pub fn as_owner(self) -> Owner {
+        Owner::Vector(self)
+    }
+}
+
+impl Link<Vector> {
+    pub fn as_op(self) -> Link<Op> {
+        Link::new(Op::Vector(self.borrow().clone()))
+    }
+    pub fn as_owner(self) -> Link<Owner> {
+        Link::new(Owner::Vector(self.borrow().clone()))
+    }
 }
 
 impl Parent for Vector {

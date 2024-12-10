@@ -21,7 +21,7 @@ pub enum Owner {
     Fold(Fold),
     Vector(Vector),
     Matrix(Matrix),
-    IndexAccess(Accessor),
+    Accessor(Accessor),
     #[default]
     None,
 }
@@ -107,7 +107,7 @@ impl Owner {
     }
     pub fn as_index_access(self) -> Option<Accessor> {
         match self {
-            Owner::IndexAccess(a) => Some(a),
+            Owner::Accessor(a) => Some(a),
             _ => None,
         }
     }
@@ -126,7 +126,7 @@ impl Owner {
             Owner::Fold(f) => Some(Op::Fold(f)),
             Owner::Vector(v) => Some(Op::Vector(v)),
             Owner::Matrix(m) => Some(Op::Matrix(m)),
-            Owner::IndexAccess(a) => Some(Op::IndexAccess(a)),
+            Owner::Accessor(a) => Some(Op::Accessor(a)),
             Owner::None => None,
         }
     }

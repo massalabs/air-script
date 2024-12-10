@@ -15,6 +15,21 @@ impl Add {
             ..Default::default()
         }
     }
+    pub fn as_op(self) -> Op {
+        Op::Add(self)
+    }
+    pub fn as_owner(self) -> Owner {
+        Owner::Add(self)
+    }
+}
+
+impl Link<Add> {
+    pub fn as_op(self) -> Link<Op> {
+        Link::new(Op::Add(self.borrow().clone()))
+    }
+    pub fn as_owner(self) -> Link<Owner> {
+        Link::new(Owner::Add(self.borrow().clone()))
+    }
 }
 
 impl Parent for Add {

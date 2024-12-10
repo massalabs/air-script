@@ -19,7 +19,7 @@ pub enum Op {
     Fold(Fold),
     Vector(Vector),
     Matrix(Matrix),
-    IndexAccess(Accessor),
+    Accessor(Accessor),
     Parameter(Parameter),
     Value(Value),
     #[default]
@@ -95,7 +95,7 @@ impl Op {
     }
     pub fn as_index_access(self) -> Option<Accessor> {
         match self {
-            Op::IndexAccess(a) => Some(a),
+            Op::Accessor(a) => Some(a),
             _ => None,
         }
     }
@@ -124,7 +124,7 @@ impl Op {
             Op::Fold(f) => Some(Owner::Fold(f)),
             Op::Vector(v) => Some(Owner::Vector(v)),
             Op::Matrix(m) => Some(Owner::Matrix(m)),
-            Op::IndexAccess(a) => Some(Owner::IndexAccess(a)),
+            Op::Accessor(a) => Some(Owner::Accessor(a)),
             Op::Parameter(p) => None,
             Op::Value(v) => None,
             Op::None => None,

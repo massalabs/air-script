@@ -72,6 +72,21 @@ impl Accessor {
             ..Default::default()
         }
     }
+    pub fn as_op(self) -> Op {
+        Op::Accessor(self)
+    }
+    pub fn as_owner(self) -> Owner {
+        Owner::Accessor(self)
+    }
+}
+
+impl Link<Accessor> {
+    pub fn as_op(self) -> Link<Op> {
+        Link::new(Op::Accessor(self.borrow().clone()))
+    }
+    pub fn as_owner(self) -> Link<Owner> {
+        Link::new(Owner::Accessor(self.borrow().clone()))
+    }
 }
 
 impl Parent for Accessor {

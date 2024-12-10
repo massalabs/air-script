@@ -15,6 +15,21 @@ impl Sub {
             ..Default::default()
         }
     }
+    pub fn as_op(self) -> Op {
+        Op::Sub(self)
+    }
+    pub fn as_owner(self) -> Owner {
+        Owner::Sub(self)
+    }
+}
+
+impl Link<Sub> {
+    pub fn as_op(self) -> Link<Op> {
+        Link::new(Op::Sub(self.borrow().clone()))
+    }
+    pub fn as_owner(self) -> Link<Owner> {
+        Link::new(Owner::Sub(self.borrow().clone()))
+    }
 }
 
 impl Parent for Sub {

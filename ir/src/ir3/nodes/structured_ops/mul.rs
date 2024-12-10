@@ -15,6 +15,21 @@ impl Mul {
             ..Default::default()
         }
     }
+    pub fn as_op(self) -> Op {
+        Op::Mul(self)
+    }
+    pub fn as_owner(self) -> Owner {
+        Owner::Mul(self)
+    }
+}
+
+impl Link<Mul> {
+    pub fn as_op(self) -> Link<Op> {
+        Link::new(Op::Mul(self.borrow().clone()))
+    }
+    pub fn as_owner(self) -> Link<Owner> {
+        Link::new(Owner::Mul(self.borrow().clone()))
+    }
 }
 
 impl Parent for Mul {

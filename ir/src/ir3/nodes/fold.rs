@@ -25,6 +25,21 @@ impl Fold {
             ..Default::default()
         }
     }
+    pub fn as_op(self) -> Op {
+        Op::Fold(self)
+    }
+    pub fn as_owner(self) -> Owner {
+        Owner::Fold(self)
+    }
+}
+
+impl Link<Fold> {
+    pub fn as_op(self) -> Link<Op> {
+        Link::new(Op::Fold(self.borrow().clone()))
+    }
+    pub fn as_owner(self) -> Link<Owner> {
+        Link::new(Owner::Fold(self.borrow().clone()))
+    }
 }
 
 impl Parent for Fold {

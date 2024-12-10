@@ -38,6 +38,21 @@ impl Boundary {
             ..Default::default()
         }
     }
+    pub fn as_op(self) -> Op {
+        Op::Boundary(self)
+    }
+    pub fn as_owner(self) -> Owner {
+        Owner::Boundary(self)
+    }
+}
+
+impl Link<Boundary> {
+    pub fn as_op(self) -> Link<Op> {
+        Link::new(Op::Boundary(self.borrow().clone()))
+    }
+    pub fn as_owner(self) -> Link<Owner> {
+        Link::new(Owner::Boundary(self.borrow().clone()))
+    }
 }
 
 impl Parent for Boundary {

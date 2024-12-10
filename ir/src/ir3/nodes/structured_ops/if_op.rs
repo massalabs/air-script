@@ -17,6 +17,21 @@ impl If {
             ..Default::default()
         }
     }
+    pub fn as_op(self) -> Op {
+        Op::If(self)
+    }
+    pub fn as_owner(self) -> Owner {
+        Owner::If(self)
+    }
+}
+
+impl Link<If> {
+    pub fn as_op(self) -> Link<Op> {
+        Link::new(Op::If(self.borrow().clone()))
+    }
+    pub fn as_owner(self) -> Link<Owner> {
+        Link::new(Owner::If(self.borrow().clone()))
+    }
 }
 
 impl Parent for If {

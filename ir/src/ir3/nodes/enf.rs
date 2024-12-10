@@ -13,6 +13,21 @@ impl Enf {
             ..Default::default()
         }
     }
+    pub fn as_op(self) -> Op {
+        Op::Enf(self)
+    }
+    pub fn as_owner(self) -> Owner {
+        Owner::Enf(self)
+    }
+}
+
+impl Link<Enf> {
+    pub fn as_op(self) -> Link<Op> {
+        Link::new(Op::Enf(self.borrow().clone()))
+    }
+    pub fn as_owner(self) -> Link<Owner> {
+        Link::new(Owner::Enf(self.borrow().clone()))
+    }
 }
 
 impl Parent for Enf {

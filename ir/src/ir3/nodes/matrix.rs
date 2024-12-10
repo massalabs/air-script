@@ -18,6 +18,21 @@ impl Matrix {
             ..Default::default()
         }
     }
+    pub fn as_op(self) -> Op {
+        Op::Matrix(self)
+    }
+    pub fn as_owner(self) -> Owner {
+        Owner::Matrix(self)
+    }
+}
+
+impl Link<Matrix> {
+    pub fn as_op(self) -> Link<Op> {
+        Link::new(Op::Matrix(self.borrow().clone()))
+    }
+    pub fn as_owner(self) -> Link<Owner> {
+        Link::new(Owner::Matrix(self.borrow().clone()))
+    }
 }
 
 impl Parent for Matrix {

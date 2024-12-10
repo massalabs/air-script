@@ -18,6 +18,21 @@ impl Call {
             ..Default::default()
         }
     }
+    pub fn as_op(self) -> Op {
+        Op::Call(self)
+    }
+    pub fn as_owner(self) -> Owner {
+        Owner::Call(self)
+    }
+}
+
+impl Link<Call> {
+    pub fn as_op(self) -> Link<Op> {
+        Link::new(Op::Call(self.borrow().clone()))
+    }
+    pub fn as_owner(self) -> Link<Owner> {
+        Link::new(Owner::Call(self.borrow().clone()))
+    }
 }
 
 impl Parent for Call {
