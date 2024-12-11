@@ -4,7 +4,7 @@ use crate::ir3::{BackLink, Builder, Child, Link, Node, NotSet, Op, Owner, Parent
 pub struct Fold {
     pub parent: BackLink<Owner>,
     pub iterator: Link<Op>,
-    pub operator: Link<FoldOperator>,
+    pub operator: FoldOperator,
     pub initial_value: Link<Op>,
 }
 
@@ -17,7 +17,7 @@ pub enum FoldOperator {
 }
 
 impl Fold {
-    pub fn new(iterator: Link<Op>, operator: Link<FoldOperator>, initial_value: Link<Op>) -> Self {
+    pub fn new(iterator: Link<Op>, operator: FoldOperator, initial_value: Link<Op>) -> Self {
         Self {
             iterator,
             operator,
@@ -69,18 +69,18 @@ pub struct FoldBuilder<State> {
     _state: std::marker::PhantomData<State>,
     parent: BackLink<Owner>,
     iterator: Option<Link<Op>>,
-    operator: Option<Link<FoldOperator>>,
+    operator: Option<FoldOperator>,
     initial_value: Option<Link<Op>>,
 }
 
 type FoldBuilderEmpty = FoldBuilder<(BackLink<Owner>, NotSet, NotSet, NotSet)>;
 type FoldBuilderA = FoldBuilder<(BackLink<Owner>, Link<Op>, NotSet, NotSet)>;
-type FoldBuilderB = FoldBuilder<(BackLink<Owner>, NotSet, Link<FoldOperator>, NotSet)>;
+type FoldBuilderB = FoldBuilder<(BackLink<Owner>, NotSet, FoldOperator, NotSet)>;
 type FoldBuilderC = FoldBuilder<(BackLink<Owner>, NotSet, NotSet, Link<Op>)>;
-type FoldBuilderAB = FoldBuilder<(BackLink<Owner>, Link<Op>, Link<FoldOperator>, NotSet)>;
+type FoldBuilderAB = FoldBuilder<(BackLink<Owner>, Link<Op>, FoldOperator, NotSet)>;
 type FoldBuilderAC = FoldBuilder<(BackLink<Owner>, Link<Op>, NotSet, Link<Op>)>;
-type FoldBuilderBC = FoldBuilder<(BackLink<Owner>, NotSet, Link<FoldOperator>, Link<Op>)>;
-type FoldBuilderFull = FoldBuilder<(BackLink<Owner>, Link<Op>, Link<FoldOperator>, Link<Op>)>;
+type FoldBuilderBC = FoldBuilder<(BackLink<Owner>, NotSet, FoldOperator, Link<Op>)>;
+type FoldBuilderFull = FoldBuilder<(BackLink<Owner>, Link<Op>, FoldOperator, Link<Op>)>;
 
 impl Builder for Fold {
     type BuilderEmpty = FoldBuilderEmpty;
@@ -120,7 +120,7 @@ impl FoldBuilderEmpty {
         self.iterator = Some(iterator);
         unsafe { std::mem::transmute(self) }
     }
-    pub fn operator(mut self, operator: Link<FoldOperator>) -> FoldBuilderB {
+    pub fn operator(mut self, operator: FoldOperator) -> FoldBuilderB {
         self.operator = Some(operator);
         unsafe { std::mem::transmute(self) }
     }
@@ -139,7 +139,7 @@ impl FoldBuilderA {
         self.iterator = Some(iterator);
         self
     }
-    pub fn operator(mut self, operator: Link<FoldOperator>) -> FoldBuilderAB {
+    pub fn operator(mut self, operator: FoldOperator) -> FoldBuilderAB {
         self.operator = Some(operator);
         unsafe { std::mem::transmute(self) }
     }
@@ -158,7 +158,7 @@ impl FoldBuilderB {
         self.iterator = Some(iterator);
         unsafe { std::mem::transmute(self) }
     }
-    pub fn operator(mut self, operator: Link<FoldOperator>) -> Self {
+    pub fn operator(mut self, operator: FoldOperator) -> Self {
         self.operator = Some(operator);
         self
     }
@@ -177,7 +177,7 @@ impl FoldBuilderC {
         self.iterator = Some(iterator);
         unsafe { std::mem::transmute(self) }
     }
-    pub fn operator(mut self, operator: Link<FoldOperator>) -> FoldBuilderBC {
+    pub fn operator(mut self, operator: FoldOperator) -> FoldBuilderBC {
         self.operator = Some(operator);
         unsafe { std::mem::transmute(self) }
     }
@@ -196,7 +196,7 @@ impl FoldBuilderAB {
         self.iterator = Some(iterator);
         self
     }
-    pub fn operator(mut self, operator: Link<FoldOperator>) -> Self {
+    pub fn operator(mut self, operator: FoldOperator) -> Self {
         self.operator = Some(operator);
         self
     }
@@ -215,7 +215,7 @@ impl FoldBuilderAC {
         self.iterator = Some(iterator);
         self
     }
-    pub fn operator(mut self, operator: Link<FoldOperator>) -> FoldBuilderFull {
+    pub fn operator(mut self, operator: FoldOperator) -> FoldBuilderFull {
         self.operator = Some(operator);
         unsafe { std::mem::transmute(self) }
     }
@@ -234,7 +234,7 @@ impl FoldBuilderBC {
         self.iterator = Some(iterator);
         unsafe { std::mem::transmute(self) }
     }
-    pub fn operator(mut self, operator: Link<FoldOperator>) -> Self {
+    pub fn operator(mut self, operator: FoldOperator) -> Self {
         self.operator = Some(operator);
         self
     }
@@ -253,7 +253,7 @@ impl FoldBuilderFull {
         self.iterator = Some(iterator);
         self
     }
-    pub fn operator(mut self, operator: Link<FoldOperator>) -> Self {
+    pub fn operator(mut self, operator: FoldOperator) -> Self {
         self.operator = Some(operator);
         self
     }
@@ -283,7 +283,7 @@ mod tests {
         let fold = Fold::builder()
             .parent(parent.clone())
             .iterator(Link::new(Op::Add(Add::default())))
-            .operator(Link::new(FoldOperator::Add))
+            .operator(FoldOperator::Add)
             .initial_value(Link::new(Op::Mul(Mul::default())))
             .build();
         assert_eq!(
@@ -291,7 +291,7 @@ mod tests {
             Fold {
                 parent: parent.clone().into(),
                 iterator: Link::new(Op::Add(Add::default())),
-                operator: Link::new(FoldOperator::Add),
+                operator: FoldOperator::Add,
                 initial_value: Link::new(Op::Mul(Mul::default())),
             }
         );
