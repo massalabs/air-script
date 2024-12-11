@@ -79,13 +79,13 @@ pub fn duplicate_node(node: Link<Op>) -> Link<Op> {
             return Mul::new(new_lhs_node, new_rhs_node).as_op().into();
         }
         Op::If(if_node) => {
-            let cond = if_node.condition.clone();
+            let condition = if_node.condition.clone();
             let then_branch = if_node.then_branch.clone();
             let else_branch = if_node.else_branch.clone();
-            let new_cond = duplicate_node(cond);
+            let new_condition = duplicate_node(condition);
             let new_then_branch = duplicate_node(then_branch);
             let new_else_branch = duplicate_node(else_branch);
-            return If::new(new_cond, new_then_branch, new_else_branch)
+            return If::new(new_condition, new_then_branch, new_else_branch)
                 .as_op()
                 .into();
         }

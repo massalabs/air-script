@@ -18,5 +18,5 @@ pub use matrix::Matrix;
 pub use roots::Evaluator;
 pub use roots::{Function, Parameter};
 pub use structured_ops::{Add, For, If, Mul, Sub};
-pub use value::{Value, MirValue, ConstantValue, SpannedMirValue};
+pub use value::{ConstantValue, MirValue, SpannedMirValue, Value};
 pub use vector::Vector;
