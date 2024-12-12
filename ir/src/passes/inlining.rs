@@ -8,7 +8,7 @@ use air_pass::Pass;
 //use miden_diagnostics::DiagnosticsHandler;
 
 use crate::{
-    ir2::{Graph, Link, MiddleNode, Mir, NodeType},
+    ir3::{Graph, Link, Mir, Node, Op, Root, Vector},
     CompileError,
 };
 
@@ -21,57 +21,73 @@ use super::{duplicate_node_or_replace, Visit, VisitContext, VisitOrder};
 
 #[derive(Clone)]
 pub struct CallInliningContext {
-    body: Link<NodeType>,
-    arguments: Vec<Link<NodeType>>,
-    call_node: Link<NodeType>,
+    body: Vec<Link<Op>>,
+    arguments: Vec<Link<Op>>,
+    call_node: Link<Op>,
+    pure_function: bool,
 }
 
 impl CallInliningContext {}
 
 pub struct Inlining {
     // general context
-    work_stack: Vec<Link<NodeType>>,
+    work_stack: Vec<Link<Node>>,
     during_first_pass: bool,
 
     // context for first pass
-    currently_in_body_of: Option<Link<NodeType>>,
+    currently_in_body_of: Option<Link<Root>>,
     // HashMap<Definition, Functions_where_called>
-    func_eval_dependency_graph: HashMap<Link<NodeType>, Vec<Link<NodeType>>>,
+    func_eval_dependency_graph: HashMap<Link<Root>, Vec<Link<Root>>>,
 
     // context for both passes
-    func_eval_inlining_order: Vec<Link<NodeType>>,
+    func_eval_inlining_order: Vec<Link<Root>>,
     // HashMap<Definition, Call nodes where called, along with context>
-    func_eval_nodes_where_called: HashMap<Link<NodeType>, Vec<CallInliningContext>>,
+    func_eval_nodes_where_called: HashMap<Link<Root>, Vec<CallInliningContext>>,
 
     // context for second pass
     call_inlining_context: Option<CallInliningContext>,
-    nodes_to_replace: HashMap<Link<NodeType>, Link<NodeType>>,
+    nodes_to_replace: HashMap<Link<Op>, Link<Op>>,
 }
 
 impl VisitContext for Inlining {
     type Graph = Graph;
-    fn visit(&mut self, graph: &mut Graph, node: Link<NodeType>) {
+    fn visit(&mut self, graph: &mut Graph, node: Link<Node>) {
         if self.during_first_pass {
             self.visit_first_pass(graph, node);
         } else {
-            self.visit_second_pass(graph, node);
+            self.visit_second_pass(node);
         }
     }
-    fn as_stack_mut(&mut self) -> &mut Vec<Link<NodeType>> {
+    fn as_stack_mut(&mut self) -> &mut Vec<Link<Node>> {
         &mut self.work_stack
     }
 
     // FIXME: Clean this up
     // Maybe go for an approach for "root_nodes_to_visit", to keep a consistent context
-    fn boundary_roots(&self, graph: &Graph) -> Link<Vec<Link<NodeType>>> {
+    fn boundary_roots(&self, graph: &Graph) -> Link<Vec<Link<Node>>> {
         if self.during_first_pass {
             return Link::new(
                 graph
                     .get_function_nodes()
                     .iter()
-                    .chain(graph.get_evaluator_nodes().iter())
-                    .chain(graph.boundary_constraints_roots.borrow().deref().iter())
                     .cloned()
+                    .map(|f| f.as_node())
+                    .chain(
+                        graph
+                            .get_evaluator_nodes()
+                            .iter()
+                            .cloned()
+                            .map(|ev| ev.as_node()),
+                    )
+                    .chain(
+                        graph
+                            .boundary_constraints_roots
+                            .borrow()
+                            .deref()
+                            .iter()
+                            .cloned()
+                            .map(|bc| bc.as_node()),
+                    )
                     .collect(),
             );
         } else {
@@ -81,16 +97,24 @@ impl VisitContext for Inlining {
                     callee_nodes_to_inline_in_order.extend(
                         nodes_with_context
                             .iter()
-                            .map(|context| context.call_node.clone()),
+                            .map(|context| context.call_node.clone().as_node()),
                     );
                 }
             }
             return Link::new(callee_nodes_to_inline_in_order);
         }
     }
-    fn integrity_roots(&self, graph: &Graph) -> Link<Vec<Link<NodeType>>> {
+    fn integrity_roots(&self, graph: &Graph) -> Link<Vec<Link<Node>>> {
         if self.during_first_pass {
-            return graph.integrity_constraints_roots.clone();
+            return graph
+                .boundary_constraints_roots
+                .borrow()
+                .deref()
+                .iter()
+                .cloned()
+                .map(|ic| ic.as_node())
+                .collect::<Vec<_>>()
+                .into();
         } else {
             return Link::new(vec![]);
         }
@@ -136,6 +160,7 @@ impl Visit for Inlining {
         while !func_eval_dependancy_graph_clone.is_empty() {
             // Find a function without dependency
             match func_eval_dependancy_graph_clone
+                .clone()
                 .iter()
                 .find(|(_k, v)| v.is_empty())
             {
@@ -198,64 +223,99 @@ impl Inlining {
         ControlFlow::Continue(())
     }
 
-    fn visit_first_pass(&mut self, graph: &Graph, node: Link<NodeType>) {
+    fn visit_first_pass(&mut self, graph: &Graph, node: Link<Node>) {
         let funcs_and_evaluators: Vec<_> = graph
             .get_function_nodes()
             .iter()
-            .chain(graph.get_evaluator_nodes().iter())
             .cloned()
+            .map(|f| f.as_node())
+            .chain(
+                graph
+                    .get_evaluator_nodes()
+                    .iter()
+                    .cloned()
+                    .map(|ev| ev.as_node()),
+            )
             .collect();
         let boundary_and_integrity_roots: Vec<_> = graph
             .boundary_constraints_roots
             .borrow()
             .deref()
             .iter()
-            .chain(graph.integrity_constraints_roots.borrow().deref().iter())
             .cloned()
+            .map(|bc| bc.as_node())
+            .chain(
+                graph
+                    .integrity_constraints_roots
+                    .borrow()
+                    .deref()
+                    .iter()
+                    .cloned()
+                    .map(|ic| ic.as_node()),
+            )
             .collect();
         if funcs_and_evaluators.contains(&node) {
-            self.currently_in_body_of = Some(node);
+            self.currently_in_body_of = Some(node.clone().as_root().unwrap());
         }
         if boundary_and_integrity_roots.contains(&node) {
             self.currently_in_body_of = None;
         }
 
-        if let NodeType::MiddleNode(MiddleNode::Call(call)) = node.borrow().deref() {
-            // /!\ callee should not be in children to avoid loops IMO
-            let callee = call.function();
-            let args = call.arguments();
+        if let Some(call) = node.clone().as_call() {
+            let call_ref = call.borrow();
+            let call = call_ref.deref();
 
-            if let Some(body_of) = self.currently_in_body_of {
+            // /!\ callee should not be in children to avoid loops IMO
+            let callee = call.function.clone();
+            let args = call.arguments.clone();
+
+            if let Some(body_of) = self.currently_in_body_of.clone() {
                 // The current function's body has a call to callee
                 self.func_eval_dependency_graph
                     .entry(body_of)
-                    .and_modify(|v| v.push(callee))
-                    .or_insert(vec![callee]);
+                    .and_modify(|v| v.push(callee.clone()))
+                    .or_insert(vec![callee.clone()]);
             }
 
-            let NodeType::MiddleNode(MiddleNode::Function(func)) = callee.borrow().deref() else {
-                unreachable!();
-            };
+            let callee_ref = callee.borrow();
 
-            let context = CallInliningContext {
-                body: func.body(),
-                arguments: args.clone(),
-                call_node: node.clone(),
-            };
-            self.func_eval_nodes_where_called
-                .entry(callee)
-                .and_modify(|v| v.push(context))
-                .or_insert(vec![context]);
+            match callee_ref.deref() {
+                Root::Evaluator(ev) => {
+                    let context = CallInliningContext {
+                        body: ev.body.borrow().deref().clone(),
+                        arguments: args.borrow().deref().clone(),
+                        call_node: node.as_op().unwrap(),
+                        pure_function: false,
+                    };
+                    self.func_eval_nodes_where_called
+                        .entry(callee.clone())
+                        .and_modify(|v| v.push(context.clone()))
+                        .or_insert(vec![context]);
+                }
+                Root::Function(func) => {
+                    let context = CallInliningContext {
+                        body: func.body.borrow().deref().clone(),
+                        arguments: args.borrow().deref().clone(),
+                        call_node: node.as_op().unwrap(),
+                        pure_function: true,
+                    };
+                    self.func_eval_nodes_where_called
+                        .entry(callee.clone())
+                        .and_modify(|v| v.push(context.clone()))
+                        .or_insert(vec![context]);
+                }
+                _ => unreachable!(),
+            }
         }
     }
 
-    fn visit_second_pass(&mut self, graph: &Graph, node: Link<NodeType>) {
+    fn visit_second_pass(&mut self, node: Link<Node>) {
         // First, check if it's a known Call to inline,
         // if so, set the context and visit the body
         let mut new_call_inlining_context = None;
-        for (callee, calls) in self.func_eval_nodes_where_called.iter_mut() {
+        for (_callee, calls) in self.func_eval_nodes_where_called.iter_mut() {
             calls.retain_mut(|context| {
-                if context.call_node == node {
+                if context.call_node == node.clone().as_op().unwrap() {
                     new_call_inlining_context = Some(context.clone());
                     false
                 } else {
@@ -266,33 +326,74 @@ impl Inlining {
 
         match new_call_inlining_context {
             Some(context) => {
-                self.call_inlining_context = Some(context);
+                self.call_inlining_context = Some(context.clone());
                 self.nodes_to_replace.clear();
-                self.visit_later(context.body);
+                if context.pure_function {
+                    // Instead of visiting all the body, we only visit the last node,
+                    // which represents the return value of the function
+                    self.visit_later(context.body.last().unwrap().clone().as_node());
+                } else {
+                    // We visit all the nodes related to the body
+                    for body_node in context.body.iter() {
+                        self.visit_later(body_node.clone().as_node());
+                    }
+                }
             }
             None => {
                 // Normal visit, insert in the graph the same instruction
                 duplicate_node_or_replace(
                     &mut self.nodes_to_replace,
-                    node,
-                    self.call_inlining_context.unwrap().arguments,
+                    node.clone().as_op().unwrap(),
+                    self.call_inlining_context.clone().unwrap().arguments,
                 );
 
-                if node == self.call_inlining_context.unwrap().body {
-                    // We have finished inlining the body, we can now replace the Call node with the last expression of the body
-                    let new_node_body = self.nodes_to_replace.get(&node).unwrap().clone();
-                    let new_node = new_node_body
-                        .get_children()
-                        .borrow()
-                        .last()
-                        .unwrap()
-                        .clone();
-                    *self
+                if let Some(op) = node.clone().as_op() {
+                    // If we are at the last node of the body, we have visited all the body
+                    // (for pure functions, we only visit the last node, and for evaluators, we visit all the nodes)
+                    if self
                         .call_inlining_context
+                        .clone()
                         .unwrap()
-                        .call_node
-                        .borrow_mut()
-                        .deref_mut() = new_node;
+                        .body
+                        .last().unwrap()
+                        == &op
+                    {
+                        if self.call_inlining_context.clone().unwrap().pure_function {
+                            // We have finished inlining the body, we can now replace the Call node with the last expression of the body
+                            let new_node = self
+                                .nodes_to_replace
+                                .get(&op)
+                                .unwrap()
+                                .borrow()
+                                .deref()
+                                .clone();
+                            *self
+                                .call_inlining_context
+                                .as_mut()
+                                .unwrap()
+                                .call_node
+                                .borrow_mut()
+                                .deref_mut() = new_node;
+                        } else {
+                            // We have finished inlining the body, we can now replace the Call node with all the body
+                            let mut new_nodes = Vec::new();
+                            for body_node in self.call_inlining_context.clone().unwrap().body.iter() {
+                                // FIXME: Maybe we should only push nodes that are Enf()?
+                                // Depends if additional nodes change things (e.g. the Vector size..)
+                                // For now I think we can keep all nodes, and just ignore the non-Enf nodes
+                                // When building the constraints during lowering Mir -> Air
+                                new_nodes.push(self.nodes_to_replace.get(&body_node).unwrap().clone());
+                            }
+                            let new_nodes_vector = Vector::new(new_nodes).as_op();
+                            *self
+                                .call_inlining_context
+                                .as_mut()
+                                .unwrap()
+                                .call_node
+                                .borrow_mut()
+                                .deref_mut() = new_nodes_vector;
+                        }
+                    }
                 }
             }
         }

@@ -1,8 +1,7 @@
 mod codegen;
-//mod graph;
-//pub use self::graph::{MirGraph, Node, NodeIndex};
-//mod ir;
-pub mod ir2;
+
+//pub mod ir2;
+pub mod ir3;
 pub mod passes;
 #[cfg(test)]
 mod tests2;
@@ -11,7 +10,7 @@ pub use self::codegen::CodeGenerator;
 //pub use self::ir::*;
 //pub use self::ir2::{Mir, Link, NodeType, LeafNode, MiddleNode, Graph, MirValue};
 
-use ir2::ConstraintError;
+use ir3::ConstraintError;
 use miden_diagnostics::{Diagnostic, ToDiagnostic};
 
 #[derive(Debug, thiserror::Error)]

@@ -1,4 +1,7 @@
-use std::ops::{Deref, DerefMut};
+use std::{
+    borrow::BorrowMut,
+    ops::{Deref, DerefMut},
+};
 
 use air_parser::{
     ast::{self, AccessType, Identifier, QualifiedIdentifier},
@@ -8,7 +11,7 @@ use air_pass::Pass;
 
 use miden_diagnostics::{DiagnosticsHandler, SourceSpan, Spanned};
 
-use crate::{ir2::*, CompileError};
+use crate::{ir3::*, CompileError};
 
 use super::duplicate_node;
 
@@ -96,7 +99,7 @@ struct MirBuilder<'a> {
     mir: &'a mut Mir,
     random_values: Option<ast::RandomValues>,
     trace_columns: Vec<ast::TraceSegment>,
-    bindings: LexicalScope<Identifier, Link<NodeType>>,
+    bindings: LexicalScope<Identifier, Link<Op>>,
 }
 impl<'a> MirBuilder<'a> {
     fn insert_evaluator_function_body(
@@ -104,7 +107,7 @@ impl<'a> MirBuilder<'a> {
         ident: &QualifiedIdentifier,
         func: &ast::EvaluatorFunction,
     ) -> Result<(), CompileError> {
-        let mut evaluator = Evaluator::default();
+        let mut raw_evaluator = Evaluator::builder().build();
 
         let body = &func.body;
         let params = &func.params;
@@ -126,28 +129,28 @@ impl<'a> MirBuilder<'a> {
                         size: binding.size,
                     }),
                 };
-                let spanned_mir_value_node: Link<NodeType> = spanned_mir_value.into();
+                let spanned_mir_value_node: Link<Op> = Value::builder()
+                    .value(spanned_mir_value)
+                    .build()
+                    .as_op()
+                    .into();
                 self.bindings
                     .insert(binding.name.unwrap(), spanned_mir_value_node.clone());
-                evaluator.add_arg(spanned_mir_value_node);
+                raw_evaluator = raw_evaluator
+                    .edit()
+                    .body(spanned_mir_value_node.clone())
+                    .build();
             }
         }
-
+        let evaluator: Link<Evaluator> = raw_evaluator.into();
         // Insert the function body
         for stmt in body.iter() {
-            self.build_function_body_statement(evaluator.clone().into(), stmt)?;
+            self.build_function_body_statement(evaluator.clone().as_owner(), stmt)?;
         }
 
         self.mir
             .constraint_graph_mut()
-            .add_child(evaluator.clone().into());
-
-        *self
-            .constraint_graph_mut()
-            .get_evaluator_mut(ident)
-            .unwrap()
-            .borrow_mut()
-            .deref_mut() = NodeType::MiddleNode(MiddleNode::Evaluator(evaluator));
+            .insert_evaluator(*ident, evaluator.clone());
 
         self.bindings.exit();
 
@@ -159,37 +162,31 @@ impl<'a> MirBuilder<'a> {
         ident: &QualifiedIdentifier,
         func: &ast::Function,
     ) -> Result<(), CompileError> {
-        let mut function = Function::default();
+        let mut function = Function::builder();
 
         let body = &func.body;
         let params = &func.params;
 
         self.bindings.enter();
         for (index, (ident, ty)) in params.iter().enumerate() {
-            let param_node: Link<NodeType> =
-                Parameter::new(ident.span(), (*ty).into(), index).into();
-            self.bindings.insert(*ident, param_node.clone());
-            function.add_arg(param_node);
+            let param_node: Link<Parameter> =
+                Parameter::new(/*ident.span(),*/ index, (*ty).into()).into();
+            self.bindings.insert(*ident, param_node.clone().as_op());
+            function = function.parameters(param_node);
         }
 
-        let return_variable_node = Parameter::new(ident.span(), func.return_type.into(), 0);
-        function.add_ret(return_variable_node.into());
+        let return_variable_node: Link<Parameter> =
+            Parameter::new(/*ident.span(), */ 0, func.return_type.into()).into();
+        let function: Link<Function> = function.return_type(return_variable_node).build().into();
 
         // Insert the function body
         for stmt in body.iter() {
-            self.build_function_body_statement(function.clone().into(), stmt)?;
+            self.build_function_body_statement(function.clone().as_owner(), stmt)?;
         }
 
         self.mir
             .constraint_graph_mut()
-            .add_child(function.clone().into());
-
-        *self
-            .constraint_graph_mut()
-            .get_function_mut(ident)
-            .unwrap()
-            .borrow_mut()
-            .deref_mut() = NodeType::MiddleNode(MiddleNode::Function(function));
+            .insert_function(*ident, function.clone());
 
         self.bindings.exit();
 
@@ -197,18 +194,18 @@ impl<'a> MirBuilder<'a> {
     }
 
     fn build_boundary_constraint(&mut self, bc: &ast::Statement) -> Result<(), CompileError> {
-        let parent = self.mir.constraint_graph().clone();
-        self.build_statement(parent.into(), bc, true)
+        let parent: Link<Owner> = Owner::default().into();
+        self.build_statement(parent, bc, true)
     }
 
     fn build_integrity_constraint(&mut self, ic: &ast::Statement) -> Result<(), CompileError> {
-        let parent = self.mir.constraint_graph().clone();
-        self.build_statement(parent.into(), ic, false)
+        let parent: Link<Owner> = Owner::default().into();
+        self.build_statement(parent, ic, false)
     }
 
     fn build_function_body_statement(
         &mut self,
-        parent: Link<NodeType>,
+        parent: Link<Owner>,
         s: &ast::Statement,
     ) -> Result<(), CompileError> {
         self.build_statement(parent, s, false)
@@ -216,7 +213,7 @@ impl<'a> MirBuilder<'a> {
 
     fn build_statement(
         &mut self,
-        parent: Link<NodeType>,
+        parent: Link<Owner>,
         c: &ast::Statement,
         in_boundary: bool,
     ) -> Result<(), CompileError> {
@@ -231,22 +228,30 @@ impl<'a> MirBuilder<'a> {
             ast::Statement::Expr(expr) => {
                 let expr_node = self.insert_expr(expr)?;
                 match parent.borrow_mut().deref_mut() {
-                    NodeType::RootNode(root_node) => root_node.add_child(expr_node.into()),
-                    NodeType::MiddleNode(middle_node) => middle_node.add_child(expr_node.into()),
-                    NodeType::LeafNode(leaf_node) => leaf_node.add_child(expr_node.into()),
+                    Owner::Function(ref mut func) => {
+                        *func = func.clone().edit().body(expr_node.clone()).build();
+                    }
+                    Owner::Evaluator(ref mut evaluator) => {
+                        unreachable!("Unexpected Statement::Expr in evaluator");
+                        //*evaluator = evaluator.clone().edit().body(expr_node.clone()).build();
+                    }
+                    Owner::None => {
+                        // Insert in integrity or boundary
+
+                    }
+                    // I'm not what to do with the other types of operations
+                    _ => unreachable!(),
                 };
                 Ok(())
             }
             // Enforce statements can be translated to Enf operations in the MIR on scalar expressions
             ast::Statement::Enforce(scalar_expr) => {
-                let scalar_expr_node: Link<NodeType> = self.insert_scalar_expr(scalar_expr)?;
+                let scalar_expr_node: Link<Op> = self.insert_scalar_expr(scalar_expr)?;
 
-                let node_to_add = if let NodeType::MiddleNode(MiddleNode::Enf(_enf)) =
-                    scalar_expr_node.clone().borrow().deref()
-                {
+                let node_to_add = if let Op::Enf(_enf) = scalar_expr_node.clone().borrow().deref() {
                     scalar_expr_node
                 } else {
-                    Enf::new(scalar_expr_node).into()
+                    Enf::new(scalar_expr_node).as_op().into()
                 };
 
                 match in_boundary {
@@ -256,21 +261,27 @@ impl<'a> MirBuilder<'a> {
                         .insert_boundary_constraints_root(node_to_add),
                     false => {
                         match parent.borrow_mut().deref_mut() {
-                            NodeType::RootNode(root_node) => {
-                                root_node.add_child(node_to_add.clone().into())
+                            Owner::Function(ref mut func) => {
+                                *func = func.clone().edit().body(node_to_add.clone()).build();
                             }
-                            NodeType::MiddleNode(middle_node) => {
-                                middle_node.add_child(node_to_add.clone().into())
+                            Owner::Evaluator(ref mut evaluator) => {
+                                *evaluator =
+                                    evaluator.clone().edit().body(node_to_add.clone()).build();
                             }
-                            NodeType::LeafNode(leaf_node) => {
-                                leaf_node.add_child(node_to_add.clone().into())
+                            Owner::None => {
+                                // Insert in integrity
+                                self.mir
+                                    .constraint_graph_mut()
+                                    .insert_integrity_constraints_root(node_to_add);
                             }
+                            // Again, I'm not sure what to do with the other types of operations
+                            _ => unreachable!(),
                         };
-                        if parent == self.mir.constraint_graph().clone().into() {
+                        /*if parent == Link::new(Owner::default()) {
                             self.mir
                                 .constraint_graph_mut()
                                 .insert_integrity_constraints_root(node_to_add);
-                        }
+                        }*/
                     }
                 };
                 Ok(())
@@ -280,47 +291,55 @@ impl<'a> MirBuilder<'a> {
                 self.bindings.enter();
                 for (index, binding) in list_comprehension.bindings.iter().enumerate() {
                     let binding_node =
-                        Parameter::new(binding.span(), ast::Type::Felt.into(), index);
+                        Parameter::new(/*binding.span(), */ index, ast::Type::Felt.into()).as_op();
                     self.bindings.insert(*binding, binding_node.into());
                 }
 
-                let mut iterator_nodes = Vec::new();
+                let mut iterator_nodes: Vec<Link<Vector>> = Vec::new();
                 for iterator in list_comprehension.iterables.iter() {
                     let iterator_node = self.insert_expr(iterator)?;
-                    iterator_nodes.push(iterator_node);
+                    match iterator_node.as_vector() {
+                        Some(vector) => iterator_nodes.push(vector),
+                        None => Err(SemanticAnalysisError::InvalidType(
+                            ast::InvalidTypeError::NonVectorIterable(iterator.span()),
+                        ))?,
+                    }
                 }
 
                 let selector_node = if let Some(selector) = &list_comprehension.selector {
-                    Some(self.insert_scalar_expr(selector)?)
+                    self.insert_scalar_expr(selector)?
                 } else {
-                    None
+                    Link::default()
                 };
                 let body_node = self.insert_scalar_expr(&list_comprehension.body)?;
 
-                let for_node = For::new(iterator_nodes, body_node, selector_node);
+                let for_node = For::new(iterator_nodes.into(), body_node, selector_node).as_op();
 
-                let enf_node = Enf::new(for_node.into());
+                let enf_node: Link<Op> = Enf::new(for_node.into()).as_op().into();
 
                 match in_boundary {
                     true => self
                         .mir
                         .constraint_graph_mut()
-                        .insert_boundary_constraints_root(enf_node.into()),
+                        .insert_boundary_constraints_root(enf_node.clone()),
                     false => {
                         match parent.borrow_mut().deref_mut() {
-                            NodeType::RootNode(root_node) => {
-                                root_node.add_child(enf_node.clone().into())
+                            Owner::Function(ref mut func) => {
+                                *func = func.clone().edit().body(enf_node.clone()).build();
                             }
-                            NodeType::MiddleNode(middle_node) => {
-                                middle_node.add_child(enf_node.clone().into())
+                            Owner::Evaluator(ref mut evaluator) => {
+                                *evaluator =
+                                    evaluator.clone().edit().body(enf_node.clone()).build();
                             }
-                            NodeType::LeafNode(leaf_node) => {
-                                leaf_node.add_child(enf_node.clone().into())
+                            Owner::None => {
+                                // Insert in integrity
+                                self.mir
+                                    .constraint_graph_mut()
+                                    .insert_integrity_constraints_root(enf_node);
                             }
+                            // Again, I'm not sure what to do with the other types of operations
+                            _ => unreachable!(),
                         };
-                        self.mir
-                            .constraint_graph_mut()
-                            .insert_integrity_constraints_root(enf_node.into())
                     }
                 }
 
@@ -348,7 +367,7 @@ impl<'a> MirBuilder<'a> {
         Ok(())
     }
 
-    fn insert_expr(&mut self, expr: &ast::Expr) -> Result<Link<NodeType>, CompileError> {
+    fn insert_expr(&mut self, expr: &ast::Expr) -> Result<Link<Op>, CompileError> {
         match expr {
             ast::Expr::Const(span) => {
                 let node = self.insert_typed_constant(Some(span.span()), span.item.clone());
@@ -372,7 +391,7 @@ impl<'a> MirBuilder<'a> {
                             let value = value.try_into().unwrap();
                             nodes.push(self.insert_scalar_expr(&value)?);
                         }
-                        let node = Vector::new(nodes).into();
+                        let node = Vector::new(nodes).as_op().into();
                         Ok(node)
                     }
                     /*ast::Type::Vector(n) => {
@@ -430,7 +449,11 @@ impl<'a> MirBuilder<'a> {
                                 _ => unreachable!(),
                             }
                         }
-                        let node = Matrix::new(nodes).into();
+                        let vecs: Vec<Link<Vector>> = nodes
+                            .into_iter()
+                            .map(|cols| Vector::new(cols).into())
+                            .collect();
+                        let node = Matrix::new(vecs).as_op().into();
                         Ok(node)
                     }
                     _ => unreachable!(),
@@ -443,9 +466,13 @@ impl<'a> MirBuilder<'a> {
                     for value in vs {
                         cols.push(self.insert_scalar_expr(value)?);
                     }
-                    rows.push(cols);
+                    let mut vec = Vector::builder().size(cols.len());
+                    for value in cols {
+                        vec = vec.elements(value);
+                    }
+                    rows.push(vec.build().into());
                 }
-                let node = Matrix::new(rows).into();
+                let node = Matrix::new(rows).as_op().into();
                 Ok(node)
             }
             ast::Expr::SymbolAccess(access) => {
@@ -500,6 +527,7 @@ impl<'a> MirBuilder<'a> {
                                 self.insert_typed_constant(None, ast::ConstantExpr::Scalar(0));
                             let node =
                                 Fold::new(iterator_node, FoldOperator::Add, accumulator_node)
+                                    .as_op()
                                     .into();
                             Ok(node)
                         }
@@ -511,6 +539,7 @@ impl<'a> MirBuilder<'a> {
                                 self.insert_typed_constant(None, ast::ConstantExpr::Scalar(1));
                             let node =
                                 Fold::new(iterator_node, FoldOperator::Mul, accumulator_node)
+                                    .as_op()
                                     .into();
                             Ok(node)
                         }
@@ -532,7 +561,7 @@ impl<'a> MirBuilder<'a> {
                         .unwrap()
                         .clone();
 
-                    let call_node = Call::new(callee_node, args_node).into();
+                    let call_node = Call::new(callee_node.as_root(), args_node).as_op().into();
                     Ok(call_node)
                 }
             }
@@ -540,24 +569,31 @@ impl<'a> MirBuilder<'a> {
                 self.bindings.enter();
                 for (index, binding) in list_comprehension.bindings.iter().enumerate() {
                     let binding_node =
-                        Parameter::new(binding.span(), ast::Type::Felt.into(), index);
+                        Parameter::new(/*binding.span(), */ index, ast::Type::Felt.into()).as_op();
                     self.bindings.insert(*binding, binding_node.into());
                 }
 
-                let mut iterator_nodes = Vec::new();
+                let iterator_nodes = Link::new(Vec::new());
                 for iterator in list_comprehension.iterables.iter() {
                     let iterator_node = self.insert_expr(iterator)?;
-                    iterator_nodes.push(iterator_node);
+                    match iterator_node.as_vector() {
+                        Some(vector) => iterator_nodes.borrow_mut().push(vector),
+                        None => Err(SemanticAnalysisError::InvalidType(
+                            ast::InvalidTypeError::NonVectorIterable(iterator.span()),
+                        ))?,
+                    }
                 }
 
                 let selector_node = if let Some(selector) = &list_comprehension.selector {
-                    Some(self.insert_scalar_expr(selector)?)
+                    self.insert_scalar_expr(selector)?
                 } else {
-                    None
+                    Link::default()
                 };
                 let body_node = self.insert_scalar_expr(&list_comprehension.body)?;
 
-                let for_node = For::new(iterator_nodes, body_node, selector_node).into();
+                let for_node = For::new(iterator_nodes, body_node, selector_node)
+                    .as_op()
+                    .into();
 
                 self.bindings.exit();
                 Ok(for_node)
@@ -566,7 +602,7 @@ impl<'a> MirBuilder<'a> {
         }
     }
 
-    fn expand_let_expr(&mut self, expr: &ast::Let) -> Result<Link<NodeType>, CompileError> {
+    fn expand_let_expr(&mut self, expr: &ast::Let) -> Result<Link<Op>, CompileError> {
         let mut next_let = Some(expr);
         let snapshot = self.bindings.clone();
         loop {
@@ -592,16 +628,16 @@ impl<'a> MirBuilder<'a> {
         }
     }
 
-    fn insert_scalar_expr(
-        &mut self,
-        expr: &ast::ScalarExpr,
-    ) -> Result<Link<NodeType>, CompileError> {
+    fn insert_scalar_expr(&mut self, expr: &ast::ScalarExpr) -> Result<Link<Op>, CompileError> {
         match expr {
-            ast::ScalarExpr::Const(value) => Ok(SpannedMirValue {
-                span: value.span(),
-                value: MirValue::Constant(ConstantValue::Felt(value.item)),
-            }
-            .into()),
+            ast::ScalarExpr::Const(value) => Ok(Value::builder()
+                .value(SpannedMirValue {
+                    span: value.span(),
+                    value: MirValue::Constant(ConstantValue::Felt(value.item)),
+                })
+                .build()
+                .as_op()
+                .into()),
             ast::ScalarExpr::SymbolAccess(access) => Ok(self.insert_symbol_access(access)),
             ast::ScalarExpr::Binary(expr) => self.insert_binary_expr(expr),
             ast::ScalarExpr::Let(ref let_expr) => {
@@ -620,11 +656,12 @@ impl<'a> MirBuilder<'a> {
                         symbols::Sum => {
                             assert_eq!(call.args.len(), 1);
                             let iterator_node =
-                                self.insert_expr(call.args.first().unwrap()).unwrap();
+                                self.insert_expr(call.args.first().unwrap())?;
                             let accumulator_node =
                                 self.insert_typed_constant(None, ast::ConstantExpr::Scalar(0));
                             let node =
                                 Fold::new(iterator_node, FoldOperator::Add, accumulator_node)
+                                    .as_op()
                                     .into();
                             Ok(node)
                         }
@@ -636,6 +673,7 @@ impl<'a> MirBuilder<'a> {
                                 self.insert_typed_constant(None, ast::ConstantExpr::Scalar(1));
                             let node =
                                 Fold::new(iterator_node, FoldOperator::Mul, accumulator_node)
+                                    .as_op()
                                     .into();
                             Ok(node)
                         }
@@ -678,7 +716,7 @@ impl<'a> MirBuilder<'a> {
                             },
                             _ => unreachable!(),
                         };*/
-                        let call_node = Call::new(callee_node, args_node).into();
+                        let call_node = Call::new(callee_node.as_root(), args_node).as_op().into();
                         Ok(call_node)
                     } else {
                         let mut args_node = Vec::new();
@@ -691,7 +729,7 @@ impl<'a> MirBuilder<'a> {
                                         let expr_node = self.insert_expr(expr).unwrap();
                                         arg_node.push(expr_node);
                                     }
-                                    let arg_node = Vector::new(arg_node).into();
+                                    let arg_node = Vector::new(arg_node).as_op().into();
                                     args_node.push(arg_node);
                                 }
                                 _ => unreachable!(),
@@ -713,7 +751,7 @@ impl<'a> MirBuilder<'a> {
                                 unreachable!();
                             },
                         };*/
-                        let call_node = Call::new(callee_node, args_node).into();
+                        let call_node = Call::new(callee_node.as_root(), args_node).as_op().into();
                         Ok(call_node)
                     }
                 }
@@ -723,7 +761,7 @@ impl<'a> MirBuilder<'a> {
     }
 
     // Use square and multiply algorithm to expand the exp into a series of multiplications
-    fn expand_exp(&mut self, lhs: Link<NodeType>, rhs: u64, span: SourceSpan) -> Link<NodeType> {
+    fn expand_exp(&mut self, lhs: Link<Op>, rhs: u64, span: SourceSpan) -> Link<Op> {
         // 0 -> 1
         // 1 -> lhs
         // n (n pair) ->
@@ -733,24 +771,21 @@ impl<'a> MirBuilder<'a> {
             n if n % 2 == 0 => {
                 let new_lhs = duplicate_node(lhs.clone());
                 let new_rhs = duplicate_node(lhs.clone());
-                let square = Mul::new(new_lhs, new_rhs).into();
+                let square = Mul::new(new_lhs, new_rhs).as_op().into();
                 self.expand_exp(square, n / 2, span)
             }
             n => {
                 let new_lhs = duplicate_node(lhs.clone());
                 let new_rhs = duplicate_node(lhs.clone());
                 let new_lhs_clone = duplicate_node(lhs.clone());
-                let square = Mul::new(new_lhs, new_rhs).into();
-                let rec: Link<NodeType> = self.expand_exp(square, (n - 1) / 2, span);
-                Mul::new(new_lhs_clone, rec).into()
+                let square = Mul::new(new_lhs, new_rhs).as_op().into();
+                let rec: Link<Op> = self.expand_exp(square, (n - 1) / 2, span);
+                Mul::new(new_lhs_clone, rec).as_op().into()
             }
         }
     }
 
-    fn insert_binary_expr(
-        &mut self,
-        expr: &ast::BinaryExpr,
-    ) -> Result<Link<NodeType>, CompileError> {
+    fn insert_binary_expr(&mut self, expr: &ast::BinaryExpr) -> Result<Link<Op>, CompileError> {
         if expr.op == ast::BinaryOp::Exp {
             let lhs = self.insert_scalar_expr(expr.lhs.as_ref())?;
             let ast::ScalarExpr::Const(rhs) = expr.rhs.as_ref() else {
@@ -766,24 +801,24 @@ impl<'a> MirBuilder<'a> {
         let lhs = self.insert_scalar_expr(expr.lhs.as_ref())?;
         let rhs = self.insert_scalar_expr(expr.rhs.as_ref())?;
         Ok(match expr.op {
-            ast::BinaryOp::Add => Add::new(lhs, rhs).into(),
-            ast::BinaryOp::Sub => Sub::new(lhs, rhs).into(),
-            ast::BinaryOp::Mul => Mul::new(lhs, rhs).into(),
+            ast::BinaryOp::Add => Add::new(lhs, rhs).as_op().into(),
+            ast::BinaryOp::Sub => Sub::new(lhs, rhs).as_op().into(),
+            ast::BinaryOp::Mul => Mul::new(lhs, rhs).as_op().into(),
             ast::BinaryOp::Eq => {
-                let sub_node = Sub::new(lhs, rhs).into();
-                Enf::new(sub_node).into()
+                let sub_node = Sub::new(lhs, rhs).as_op().into();
+                Enf::new(sub_node).as_op().into()
             }
             _ => unreachable!(),
         })
     }
 
-    fn insert_bounded_symbol_access(&mut self, bsa: &ast::BoundedSymbolAccess) -> Link<NodeType> {
+    fn insert_bounded_symbol_access(&mut self, bsa: &ast::BoundedSymbolAccess) -> Link<Op> {
         let access_node = self.insert_symbol_access(&bsa.column);
-        Boundary::new(access_node, bsa.boundary).into()
+        Boundary::new(access_node, bsa.boundary).as_op().into()
     }
 
     // Assumed inlining was done, to update
-    fn insert_symbol_access(&mut self, access: &ast::SymbolAccess) -> Link<NodeType> {
+    fn insert_symbol_access(&mut self, access: &ast::SymbolAccess) -> Link<Op> {
         use air_parser::ast::ResolvableIdentifier;
 
         match access.name {
@@ -791,14 +826,17 @@ impl<'a> MirBuilder<'a> {
             // to a periodic column, as all functions have been inlined, and constants propagated.
             ResolvableIdentifier::Resolved(ref qid) => {
                 if let Some(pc) = self.mir.periodic_columns.get(qid).cloned() {
-                    SpannedMirValue {
-                        span: qid.span(),
-                        value: MirValue::PeriodicColumn(PeriodicColumnAccess::new(
-                            *qid,
-                            pc.period(),
-                        )),
-                    }
-                    .into()
+                    Value::builder()
+                        .value(SpannedMirValue {
+                            span: qid.span(),
+                            value: MirValue::PeriodicColumn(PeriodicColumnAccess::new(
+                                *qid,
+                                pc.period(),
+                            )),
+                        })
+                        .build()
+                        .as_op()
+                        .into()
                 } else {
                     // This is a qualified reference that should have been eliminated
                     // during inlining or constant propagation, but somehow slipped through.
@@ -814,28 +852,37 @@ impl<'a> MirBuilder<'a> {
                 // the random values array (generally the case), or the names of trace segments (e.g. `$main`)
                 if id.is_special() {
                     if let Some(rv) = self.random_value_access(access) {
-                        return SpannedMirValue {
-                            span: id.span(),
-                            value: MirValue::RandomValue(rv),
-                        }
-                        .into();
+                        return Value::builder()
+                            .value(SpannedMirValue {
+                                span: id.span(),
+                                value: MirValue::RandomValue(rv),
+                            })
+                            .build()
+                            .as_op()
+                            .into();
                     }
 
                     if let Some(tab) = self.trace_access_binding(access) {
-                        return SpannedMirValue {
-                            span: id.span(),
-                            value: MirValue::TraceAccessBinding(tab),
-                        }
-                        .into();
+                        return Value::builder()
+                            .value(SpannedMirValue {
+                                span: id.span(),
+                                value: MirValue::TraceAccessBinding(tab),
+                            })
+                            .build()
+                            .as_op()
+                            .into();
                     }
 
                     // Must be a trace segment name
                     if let Some(ta) = self.trace_access(access) {
-                        return SpannedMirValue {
-                            span: id.span(),
-                            value: MirValue::TraceAccess(ta),
-                        }
-                        .into();
+                        return Value::builder()
+                            .value(SpannedMirValue {
+                                span: id.span(),
+                                value: MirValue::TraceAccess(ta),
+                            })
+                            .build()
+                            .as_op()
+                            .into();
                     }
 
                     // It should never be possible to reach this point - semantic analysis
@@ -848,35 +895,47 @@ impl<'a> MirBuilder<'a> {
 
                 // Otherwise, we check the trace bindings, random value bindings, and public inputs, in that order
                 if let Some(tab) = self.trace_access_binding(access) {
-                    return SpannedMirValue {
-                        span: id.span(),
-                        value: MirValue::TraceAccessBinding(tab),
-                    }
-                    .into();
+                    return Value::builder()
+                        .value(SpannedMirValue {
+                            span: id.span(),
+                            value: MirValue::TraceAccessBinding(tab),
+                        })
+                        .build()
+                        .as_op()
+                        .into();
                 }
 
                 if let Some(trace_access) = self.trace_access(access) {
-                    return SpannedMirValue {
-                        span: id.span(),
-                        value: MirValue::TraceAccess(trace_access),
-                    }
-                    .into();
+                    return Value::builder()
+                        .value(SpannedMirValue {
+                            span: id.span(),
+                            value: MirValue::TraceAccess(trace_access),
+                        })
+                        .build()
+                        .as_op()
+                        .into();
                 }
 
                 if let Some(random_value) = self.random_value_access(access) {
-                    return SpannedMirValue {
-                        span: id.span(),
-                        value: MirValue::RandomValue(random_value),
-                    }
-                    .into();
+                    return Value::builder()
+                        .value(SpannedMirValue {
+                            span: id.span(),
+                            value: MirValue::RandomValue(random_value),
+                        })
+                        .build()
+                        .as_op()
+                        .into();
                 }
 
                 if let Some(public_input) = self.public_input_access(access) {
-                    return SpannedMirValue {
-                        span: id.span(),
-                        value: MirValue::PublicInput(public_input),
-                    }
-                    .into();
+                    return Value::builder()
+                        .value(SpannedMirValue {
+                            span: id.span(),
+                            value: MirValue::PublicInput(public_input),
+                        })
+                        .build()
+                        .as_op()
+                        .into();
                 }
 
                 // If we reach here, this must be a let-bound variable
@@ -886,7 +945,9 @@ impl<'a> MirBuilder<'a> {
                     .expect("undefined variable")
                     .clone();
                 let let_bound_access_expr_duplicated = duplicate_node(let_bound_access_expr);
-                return Accessor::new(let_bound_access_expr_duplicated, access.access_type);
+                Accessor::new(let_bound_access_expr_duplicated, access.access_type.clone())
+                    .as_op()
+                    .into()
             }
             // These should have been eliminated by previous compiler passes
             ResolvableIdentifier::Unresolved(_) => {
@@ -1026,16 +1087,282 @@ impl<'a> MirBuilder<'a> {
         &mut self,
         span: Option<SourceSpan>,
         value: ast::ConstantExpr,
-    ) -> Link<NodeType> {
+    ) -> Link<Op> {
         let mir_value = match value {
             ast::ConstantExpr::Scalar(val) => ConstantValue::Felt(val),
             ast::ConstantExpr::Vector(val) => ConstantValue::Vector(val),
             ast::ConstantExpr::Matrix(val) => ConstantValue::Matrix(val),
         };
-        SpannedMirValue {
-            span: span.unwrap_or_default(),
-            value: MirValue::Constant(mir_value),
-        }
-        .into()
+        Value::builder()
+            .value(SpannedMirValue {
+                span: span.unwrap_or_default(),
+                value: MirValue::Constant(mir_value),
+            })
+            .build()
+            .as_op()
+            .into()
     }
 }
+
+// struct MirBuilder<'a> {
+//     #[allow(unused)]
+//     diagnostics: &'a DiagnosticsHandler,
+//     mir: &'a mut Mir,
+//     random_values: Option<ast::RandomValues>,
+//     trace_columns: Vec<ast::TraceSegment>,
+//     bindings: LexicalScope<Identifier, Link<Op>>,
+// }
+
+// impl<'a> MirBuilder<'a> {
+//     fn insert_evaluator_function_body(
+//         &mut self,
+//         ident: &QualifiedIdentifier,
+//         func: &ast::EvaluatorFunction,
+//     ) -> Result<(), CompileError> {
+//         eprintln!("insert_evaluator_function_body({:?}, {:?})", ident, func);
+//         todo!()
+//     }
+//     fn insert_function_body(
+//         &mut self,
+//         ident: &QualifiedIdentifier,
+//         func: &ast::Function,
+//     ) -> Result<(), CompileError> {
+//         eprintln!("insert_function_body({:?}, {:?})", ident, func);
+//         todo!()
+//     }
+//     fn build_boundary_constraint(&mut self, bc: &ast::Statement) -> Result<(), CompileError> {
+//         eprintln!("build_boundary_constraint({:?})", bc);
+//         let expr = self.build_statement(bc)?;
+//         eprintln!("expr: {:?}", expr);
+//         todo!();
+//     }
+//     fn build_integrity_constraint(&mut self, ic: &ast::Statement) -> Result<(), CompileError> {
+//         eprintln!("build_integrity_constraint({:?})", ic);
+//         let expr = self.build_statement(ic)?;
+//         eprintln!("expr: {:?}", expr);
+//         todo!();
+//     }
+//     fn build_statement(&mut self, stmt: &ast::Statement) -> Result<Link<Op>, CompileError> {
+//         eprintln!("build_expr({:?})", stmt);
+//         match stmt {
+//             ast::Statement::Let(expr) => self.build_let(expr),
+//             ast::Statement::Expr(expr) => self.build_expr(expr),
+//             ast::Statement::Enforce(expr) => self.build_enforce(expr),
+//             ast::Statement::EnforceIf(expr, cond) => self.build_enforce_if(expr, cond),
+//             ast::Statement::EnforceAll(expr) => self.build_enforce_all(expr),
+//         }
+//     }
+//     fn build_let(&mut self, expr: &ast::Let) -> Result<Link<Op>, CompileError> {
+//         eprintln!("build_let({:?})", expr);
+//         todo!()
+//     }
+//     fn build_expr(&mut self, expr: &ast::Expr) -> Result<Link<Op>, CompileError> {
+//         eprintln!("build_expr({:?})", expr);
+//         todo!()
+//     }
+//     fn build_enforce(&mut self, expr: &ast::ScalarExpr) -> Result<Link<Op>, CompileError> {
+//         eprintln!("build_enforce({:?})", expr);
+//         match expr {
+//             ast::ScalarExpr::Const(spanned_u64) => self.build_const(spanned_u64.item),
+//             ast::ScalarExpr::SymbolAccess(symbol_access) => self.build_symbol_access(symbol_access),
+//             ast::ScalarExpr::BoundedSymbolAccess(bounded_symbol_access) => {
+//                 self.build_bounded_symbol_access(bounded_symbol_access)
+//             }
+//             ast::ScalarExpr::Binary(binary_expr) => self.build_binary_expr(binary_expr),
+//             ast::ScalarExpr::Call(call) => self.build_call(call),
+//             ast::ScalarExpr::Let(let_expr) => self.build_let(&let_expr),
+//         }
+//     }
+//     fn build_enforce_if(
+//         &mut self,
+//         expr: &ast::ScalarExpr,
+//         cond: &ast::ScalarExpr,
+//     ) -> Result<Link<Op>, CompileError> {
+//         eprintln!("build_enforce_if({:?}, {:?})", expr, cond);
+//         todo!()
+//     }
+//     fn build_enforce_all(
+//         &mut self,
+//         expr: &ast::ListComprehension,
+//     ) -> Result<Link<Op>, CompileError> {
+//         eprintln!("build_enforce_all({:?})", expr);
+//         todo!()
+//     }
+//     fn build_const(&mut self, value: u64) -> Result<Link<Op>, CompileError> {
+//         eprintln!("build_const({:?})", value);
+//         todo!()
+//     }
+//     fn build_symbol_access(
+//         &mut self,
+//         symbol_access: &ast::SymbolAccess,
+//     ) -> Result<Link<Op>, CompileError> {
+//         eprintln!("build_symbol_access({:?})", symbol_access);
+//         todo!()
+//     }
+//     fn build_bounded_symbol_access(
+//         &mut self,
+//         bounded_symbol_access: &ast::BoundedSymbolAccess,
+//     ) -> Result<Link<Op>, CompileError> {
+//         eprintln!("build_bounded_symbol_access({:?})", bounded_symbol_access);
+//
+//         use air_parser::ast::ResolvableIdentifier;
+//         let access = bounded_symbol_access.column;
+//
+//         match access.name {
+//             // At this point during compilation, fully-qualified identifiers can only possibly refer
+//             // to a periodic column, as all functions have been inlined, and constants propagated.
+//             ResolvableIdentifier::Resolved(ref qid) => {
+//                 if let Some(pc) = self.mir.periodic_columns.get(qid).cloned() {
+//                     SpannedMirValue {
+//                         span: qid.span(),
+//                         value: MirValue::PeriodicColumn(PeriodicColumnAccess::new(
+//                             *qid,
+//                             pc.period(),
+//                         )),
+//                     }
+//                     .into()
+//                 } else {
+//                     // This is a qualified reference that should have been eliminated
+//                     // during inlining or constant propagation, but somehow slipped through.
+//                     unreachable!(
+//                         "expected reference to periodic column, got `{:?}` instead",
+//                         qid
+//                     );
+//                 }
+//             }
+//             // This must be one of public inputs, random values, or trace columns
+//             ResolvableIdentifier::Global(id) | ResolvableIdentifier::Local(id) => {
+//                 // Special identifiers are those which are `$`-prefixed, and must refer to
+//                 // the random values array (generally the case), or the names of trace segments (e.g. `$main`)
+//                 if id.is_special() {
+//                     if let Some(rv) = self.random_value_access(access) {
+//                         return SpannedMirValue {
+//                             span: id.span(),
+//                             value: MirValue::RandomValue(rv),
+//                         }
+//                         .into();
+//                     }
+//
+//                     if let Some(tab) = self.trace_access_binding(access) {
+//                         return SpannedMirValue {
+//                             span: id.span(),
+//                             value: MirValue::TraceAccessBinding(tab),
+//                         }
+//                         .into();
+//                     }
+//
+//                     // Must be a trace segment name
+//                     if let Some(ta) = self.trace_access(access) {
+//                         return SpannedMirValue {
+//                             span: id.span(),
+//                             value: MirValue::TraceAccess(ta),
+//                         }
+//                         .into();
+//                     }
+//
+//                     // It should never be possible to reach this point - semantic analysis
+//                     // would have caught that this identifier is undefined.
+//                     unreachable!(
+//                         "expected reference to random values array or trace segment: {:#?}",
+//                         access
+//                     );
+//                 }
+//
+//                 // Otherwise, we check the trace bindings, random value bindings, and public inputs, in that order
+//                 if let Some(tab) = self.trace_access_binding(access) {
+//                     return SpannedMirValue {
+//                         span: id.span(),
+//                         value: MirValue::TraceAccessBinding(tab),
+//                     }
+//                     .into();
+//                 }
+//
+//                 if let Some(trace_access) = self.trace_access(access) {
+//                     return SpannedMirValue {
+//                         span: id.span(),
+//                         value: MirValue::TraceAccess(trace_access),
+//                     }
+//                     .into();
+//                 }
+//
+//                 if let Some(random_value) = self.random_value_access(access) {
+//                     return SpannedMirValue {
+//                         span: id.span(),
+//                         value: MirValue::RandomValue(random_value),
+//                     }
+//                     .into();
+//                 }
+//
+//                 if let Some(public_input) = self.public_input_access(access) {
+//                     return SpannedMirValue {
+//                         span: id.span(),
+//                         value: MirValue::PublicInput(public_input),
+//                     }
+//                     .into();
+//                 }
+//
+//                 // If we reach here, this must be a let-bound variable
+//                 let let_bound_access_expr = self
+//                     .bindings
+//                     .get(access.name.as_ref())
+//                     .expect("undefined variable")
+//                     .clone();
+//                 let let_bound_access_expr_duplicated = duplicate_node(let_bound_access_expr);
+//                 return Accessor::new(let_bound_access_expr_duplicated, access.access_type);
+//             }
+//             // These should have been eliminated by previous compiler passes
+//             ResolvableIdentifier::Unresolved(_) => {
+//                 unreachable!(
+//                     "expected fully-qualified or global reference, got `{:?}` instead",
+//                     &access.name
+//                 );
+//             }
+//         }
+//     }
+//     fn build_binary_expr(
+//         &mut self,
+//         binary_expr: &ast::BinaryExpr,
+//     ) -> Result<Link<Op>, CompileError> {
+//         eprintln!("build_binary_expr({:?})", binary_expr);
+//         match binary_expr.op {
+//             ast::BinaryOp::Add => Ok(Add::builder()
+//                 .lhs(self.build_enforce(&binary_expr.lhs)?)
+//                 .rhs(self.build_enforce(&binary_expr.rhs)?)
+//                 .build()
+//                 .as_op()
+//                 .into()),
+//             ast::BinaryOp::Sub => Ok(Sub::builder()
+//                 .lhs(self.build_enforce(&binary_expr.lhs)?)
+//                 .rhs(self.build_enforce(&binary_expr.rhs)?)
+//                 .build()
+//                 .as_op()
+//                 .into()),
+//             ast::BinaryOp::Mul => Ok(Mul::builder()
+//                 .lhs(self.build_enforce(&binary_expr.lhs)?)
+//                 .rhs(self.build_enforce(&binary_expr.rhs)?)
+//                 .build()
+//                 .as_op()
+//                 .into()),
+//             ast::BinaryOp::Exp => self.build_pow(binary_expr),
+//             ast::BinaryOp::Eq => Ok(Enf::builder()
+//                 .expr(
+//                     Sub::builder()
+//                         .lhs(self.build_enforce(&binary_expr.lhs)?)
+//                         .rhs(self.build_enforce(&binary_expr.rhs)?)
+//                         .build()
+//                         .as_op(),
+//                 )
+//                 .build()
+//                 .as_op()
+//                 .into()),
+//         }
+//     }
+//     fn build_call(&mut self, call: &ast::Call) -> Result<Link<Op>, CompileError> {
+//         eprintln!("build_call({:?})", call);
+//         todo!()
+//     }
+//     fn build_pow(&mut self, binary_expr: &ast::BinaryExpr) -> Result<Link<Op>, CompileError> {
+//         eprintln!("build_pow({:?})", binary_expr);
+//         todo!()
+//     }
+// }
