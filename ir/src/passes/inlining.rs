@@ -8,7 +8,7 @@ use air_pass::Pass;
 //use miden_diagnostics::DiagnosticsHandler;
 
 use crate::{
-    ir3::{Graph, Link, Mir, Node, Op, Root},
+    ir3::{Graph, Link, Mir, Node, Op, Root, Vector},
     CompileError,
 };
 
@@ -24,6 +24,7 @@ pub struct CallInliningContext {
     body: Vec<Link<Op>>,
     arguments: Vec<Link<Op>>,
     call_node: Link<Op>,
+    pure_function: bool,
 }
 
 impl CallInliningContext {}
@@ -277,20 +278,34 @@ impl Inlining {
             }
 
             let callee_ref = callee.borrow();
-            let Root::Function(func) = callee_ref.deref() else {
-                unreachable!();
-            };
 
-            let context = CallInliningContext {
-                body: func.body.borrow().deref().clone(),
-                arguments: args.borrow().deref().clone(),
-                call_node: node.as_op().unwrap(),
-            };
-
-            self.func_eval_nodes_where_called
-                .entry(callee.clone())
-                .and_modify(|v| v.push(context.clone()))
-                .or_insert(vec![context]);
+            match callee_ref.deref() {
+                Root::Evaluator(ev) => {
+                    let context = CallInliningContext {
+                        body: ev.body.borrow().deref().clone(),
+                        arguments: args.borrow().deref().clone(),
+                        call_node: node.as_op().unwrap(),
+                        pure_function: false,
+                    };
+                    self.func_eval_nodes_where_called
+                        .entry(callee.clone())
+                        .and_modify(|v| v.push(context.clone()))
+                        .or_insert(vec![context]);
+                }
+                Root::Function(func) => {
+                    let context = CallInliningContext {
+                        body: func.body.borrow().deref().clone(),
+                        arguments: args.borrow().deref().clone(),
+                        call_node: node.as_op().unwrap(),
+                        pure_function: true,
+                    };
+                    self.func_eval_nodes_where_called
+                        .entry(callee.clone())
+                        .and_modify(|v| v.push(context.clone()))
+                        .or_insert(vec![context]);
+                }
+                _ => unreachable!(),
+            }
         }
     }
 
@@ -313,12 +328,16 @@ impl Inlining {
             Some(context) => {
                 self.call_inlining_context = Some(context.clone());
                 self.nodes_to_replace.clear();
-                /*for body_node in context.body.iter() {
-                    self.visit_later(body_node.as_node());
-                }*/
-                // Instead of visiting all the body, we only visit the last node,
-                // which represents the return value of the function
-                self.visit_later(context.body.last().unwrap().clone().as_node());
+                if context.pure_function {
+                    // Instead of visiting all the body, we only visit the last node,
+                    // which represents the return value of the function
+                    self.visit_later(context.body.last().unwrap().clone().as_node());
+                } else {
+                    // We visit all the nodes related to the body
+                    for body_node in context.body.iter() {
+                        self.visit_later(body_node.clone().as_node());
+                    }
+                }
             }
             None => {
                 // Normal visit, insert in the graph the same instruction
@@ -329,28 +348,51 @@ impl Inlining {
                 );
 
                 if let Some(op) = node.clone().as_op() {
+                    // If we are at the last node of the body, we have visited all the body
+                    // (for pure functions, we only visit the last node, and for evaluators, we visit all the nodes)
                     if self
                         .call_inlining_context
                         .clone()
                         .unwrap()
                         .body
-                        .contains(&op)
+                        .last().unwrap()
+                        == &op
                     {
-                        // We have finished inlining the body, we can now replace the Call node with the last expression of the body
-                        let new_node = self
-                            .nodes_to_replace
-                            .get(&op)
-                            .unwrap()
-                            .borrow()
-                            .deref()
-                            .clone();
-                        *self
-                            .call_inlining_context
-                            .as_mut()
-                            .unwrap()
-                            .call_node
-                            .borrow_mut()
-                            .deref_mut() = new_node;
+                        if self.call_inlining_context.clone().unwrap().pure_function {
+                            // We have finished inlining the body, we can now replace the Call node with the last expression of the body
+                            let new_node = self
+                                .nodes_to_replace
+                                .get(&op)
+                                .unwrap()
+                                .borrow()
+                                .deref()
+                                .clone();
+                            *self
+                                .call_inlining_context
+                                .as_mut()
+                                .unwrap()
+                                .call_node
+                                .borrow_mut()
+                                .deref_mut() = new_node;
+                        } else {
+                            // We have finished inlining the body, we can now replace the Call node with all the body
+                            let mut new_nodes = Vec::new();
+                            for body_node in self.call_inlining_context.clone().unwrap().body.iter() {
+                                // FIXME: Maybe we should only push nodes that are Enf()?
+                                // Depends if additional nodes change things (e.g. the Vector size..)
+                                // For now I think we can keep all nodes, and just ignore the non-Enf nodes
+                                // When building the constraints during lowering Mir -> Air
+                                new_nodes.push(self.nodes_to_replace.get(&body_node).unwrap().clone());
+                            }
+                            let new_nodes_vector = Vector::new(new_nodes).as_op();
+                            *self
+                                .call_inlining_context
+                                .as_mut()
+                                .unwrap()
+                                .call_node
+                                .borrow_mut()
+                                .deref_mut() = new_nodes_vector;
+                        }
                     }
                 }
             }

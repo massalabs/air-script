@@ -97,8 +97,8 @@ mod tests {
 
     #[test]
     fn test_evaluator_builder() {
-        let a = Parameter::new(0,MirType::Felt);
-        let b = Parameter::new(1,MirType::Felt);
+        let a = Parameter::new(0, MirType::Felt);
+        let b = Parameter::new(1, MirType::Felt);
         let ev = Evaluator::builder()
             .parameters(a.clone())
             .parameters(b.clone())

@@ -151,7 +151,7 @@ mod tests {
         let parent = Link::new(Owner::Add(Add::default()));
         let function = Link::new(Root::Function(
             Function::builder()
-                .parameters(Parameter::new(0,MirType::Felt))
+                .parameters(Parameter::new(0, MirType::Felt))
                 .return_type(Parameter::new(1, MirType::Felt))
                 .build(),
         ));

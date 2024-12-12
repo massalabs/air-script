@@ -126,9 +126,9 @@ mod tests {
 
     #[test]
     fn test_function_builder() {
-        let a = Parameter::new(0,MirType::Felt);
-        let b = Parameter::new(1,MirType::Felt);
-        let return_type = Parameter::new(2,MirType::Felt);
+        let a = Parameter::new(0, MirType::Felt);
+        let b = Parameter::new(1, MirType::Felt);
+        let return_type = Parameter::new(2, MirType::Felt);
         let func = Function::builder()
             .parameters(a.clone())
             .parameters(b.clone())

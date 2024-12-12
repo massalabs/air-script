@@ -4,8 +4,8 @@ mod function;
 pub use evaluator::Evaluator;
 pub use function::Function;
 
-use crate::ir3::{Leaf, Link, Op};
 use super::value::MirType;
+use crate::ir3::{Leaf, Link, Op};
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Parameter {

@@ -72,7 +72,8 @@ pub struct SpannedMirValue {
 
 #[derive(Debug, Default, Eq, PartialEq, Clone, Hash)]
 pub enum MirType {
-    #[default] Felt,
+    #[default]
+    Felt,
     Vector(usize),
     Matrix(usize, usize),
 }
