@@ -93,12 +93,12 @@ impl EvaluatorBuilderState {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ir3::{Add, Owner};
+    use crate::ir3::{nodes::value::MirType, Add, Owner};
 
     #[test]
     fn test_evaluator_builder() {
-        let a = Parameter::new(0);
-        let b = Parameter::new(1);
+        let a = Parameter::new(0,MirType::Felt);
+        let b = Parameter::new(1,MirType::Felt);
         let ev = Evaluator::builder()
             .parameters(a.clone())
             .parameters(b.clone())

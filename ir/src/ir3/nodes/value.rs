@@ -70,12 +70,11 @@ pub struct SpannedMirValue {
     pub value: MirValue,
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, Hash)]
+#[derive(Debug, Default, Eq, PartialEq, Clone, Hash)]
 pub enum MirType {
-    Felt,
+    #[default] Felt,
     Vector(usize),
     Matrix(usize, usize),
-    Definition(Vec<usize>, usize),
 }
 
 impl From<ast::Type> for MirType {

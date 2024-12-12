@@ -122,13 +122,13 @@ impl FunctionBuilderFull {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ir3::{Add, Owner};
+    use crate::ir3::{nodes::value::MirType, Add, Owner};
 
     #[test]
     fn test_function_builder() {
-        let a = Parameter::new(0);
-        let b = Parameter::new(1);
-        let return_type = Parameter::new(2);
+        let a = Parameter::new(0,MirType::Felt);
+        let b = Parameter::new(1,MirType::Felt);
+        let return_type = Parameter::new(2,MirType::Felt);
         let func = Function::builder()
             .parameters(a.clone())
             .parameters(b.clone())

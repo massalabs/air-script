@@ -5,15 +5,17 @@ pub use evaluator::Evaluator;
 pub use function::Function;
 
 use crate::ir3::{Leaf, Link, Op};
+use super::value::MirType;
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Parameter {
     pub position: usize,
+    pub ty: MirType,
 }
 
 impl Parameter {
-    pub fn new(position: usize) -> Self {
-        Self { position }
+    pub fn new(position: usize, ty: MirType) -> Self {
+        Self { position, ty }
     }
     pub fn as_leaf(self) -> Leaf {
         Leaf::Parameter(self)

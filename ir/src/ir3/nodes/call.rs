@@ -144,15 +144,15 @@ impl CallBuilderFull {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ir3::{Add, Function, Owner, Parameter};
+    use crate::ir3::{nodes::value::MirType, Add, Function, Owner, Parameter};
 
     #[test]
     fn test_call_builder() {
         let parent = Link::new(Owner::Add(Add::default()));
         let function = Link::new(Root::Function(
             Function::builder()
-                .parameters(Parameter::new(0))
-                .return_type(Parameter::new(1))
+                .parameters(Parameter::new(0,MirType::Felt))
+                .return_type(Parameter::new(1, MirType::Felt))
                 .build(),
         ));
         let arg = Link::new(Op::Add(Add::default()));
