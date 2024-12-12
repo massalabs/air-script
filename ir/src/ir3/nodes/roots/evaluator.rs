@@ -77,12 +77,12 @@ impl Default for EvaluatorBuilderState {
 }
 
 impl EvaluatorBuilderState {
-    pub fn parameters(mut self, parameter: Parameter) -> Self {
-        self.parameters.push(Link::from(parameter));
+    pub fn parameters(mut self, parameter: Link<Parameter>) -> Self {
+        self.parameters.push(parameter);
         self
     }
-    pub fn body(mut self, op: Op) -> Self {
-        self.body.push(Link::from(op));
+    pub fn body(mut self, op: Link<Op>) -> Self {
+        self.body.push(op);
         self
     }
     pub fn build(self) -> Evaluator {
@@ -97,12 +97,12 @@ mod tests {
 
     #[test]
     fn test_evaluator_builder() {
-        let a = Parameter::new(0, MirType::Felt);
-        let b = Parameter::new(1, MirType::Felt);
+        let a = Link::new(Parameter::new(0, MirType::Felt));
+        let b = Link::new(Parameter::new(1, MirType::Felt));
         let ev = Evaluator::builder()
             .parameters(a.clone())
             .parameters(b.clone())
-            .body(Op::Add(Add::default()))
+            .body(Op::Add(Add::default()).into())
             .build();
         assert_eq!(ev.parameters.len(), 2);
         assert_eq!(ev.parameters[0].clone(), a.clone().into());

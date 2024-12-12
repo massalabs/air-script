@@ -87,31 +87,31 @@ impl Default for FunctionBuilderEmpty {
 }
 
 impl FunctionBuilderEmpty {
-    pub fn parameters(mut self, parameter: Parameter) -> Self {
-        self.parameters.push(Link::from(parameter));
+    pub fn parameters(mut self, parameter: Link<Parameter>) -> Self {
+        self.parameters.push(parameter);
         self
     }
-    pub fn return_type(mut self, return_type: Parameter) -> FunctionBuilderFull {
-        self.return_type = Some(Link::from(return_type));
+    pub fn return_type(mut self, return_type: Link<Parameter>) -> FunctionBuilderFull {
+        self.return_type = Some(return_type);
         unsafe { std::mem::transmute(self) }
     }
-    pub fn body(&mut self, op: Op) -> &mut Self {
-        self.body.push(Link::from(op));
+    pub fn body(&mut self, op: Link<Op>) -> &mut Self {
+        self.body.push(op);
         self
     }
 }
 
 impl FunctionBuilderFull {
-    pub fn parameters(mut self, parameter: Parameter) -> Self {
-        self.parameters.push(Link::from(parameter));
+    pub fn parameters(mut self, parameter: Link<Parameter>) -> Self {
+        self.parameters.push(parameter);
         self
     }
-    pub fn return_type(mut self, return_type: Parameter) -> Self {
-        self.return_type = Some(Link::from(return_type));
+    pub fn return_type(mut self, return_type: Link<Parameter>) -> Self {
+        self.return_type = Some(return_type);
         self
     }
-    pub fn body(mut self, op: Op) -> Self {
-        self.body.push(Link::from(op));
+    pub fn body(mut self, op: Link<Op>) -> Self {
+        self.body.push(op);
         self
     }
     pub fn build(self) -> Function {
@@ -126,14 +126,14 @@ mod tests {
 
     #[test]
     fn test_function_builder() {
-        let a = Parameter::new(0, MirType::Felt);
-        let b = Parameter::new(1, MirType::Felt);
-        let return_type = Parameter::new(2, MirType::Felt);
+        let a = Link::new(Parameter::new(0, MirType::Felt));
+        let b = Link::new(Parameter::new(1, MirType::Felt));
+        let return_type = Link::new(Parameter::new(2, MirType::Felt));
         let func = Function::builder()
             .parameters(a.clone())
             .parameters(b.clone())
             .return_type(return_type.clone())
-            .body(Op::Add(Add::default()))
+            .body(Op::Add(Add::default()).into())
             .build();
         assert_eq!(func.parameters.len(), 2);
         assert_eq!(func.parameters[0].clone(), a.clone().into());

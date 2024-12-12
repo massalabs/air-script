@@ -18,5 +18,8 @@ pub use matrix::Matrix;
 pub use roots::Evaluator;
 pub use roots::{Function, Parameter};
 pub use structured_ops::{Add, For, ForChild, If, Mul, Sub};
-pub use value::{ConstantValue, MirValue, SpannedMirValue, Value};
+pub use value::{
+    ConstantValue, MirValue, PeriodicColumnAccess, PublicInputAccess, SpannedMirValue,
+    TraceAccessBinding, Value,
+};
 pub use vector::Vector;

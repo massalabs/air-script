@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use std::{borrow::BorrowMut, marker::PhantomData};
 
 use crate::ir3::{BackLink, Builder, Child, Link, Node, NotSet, Op, Owner, Parent};
 
@@ -62,12 +62,12 @@ pub struct VectorBuilder<State> {
     _state: PhantomData<State>,
     parent: BackLink<Owner>,
     size: Option<usize>,
-    elements: Vec<Link<Op>>,
+    elements: Link<Vec<Link<Op>>>,
 }
 
-impl Builder for VectorBuilder<(BackLink<Owner>, NotSet, Vec<Link<Op>>)> {
-    type BuilderEmpty = VectorBuilder<(BackLink<Owner>, NotSet, Vec<Link<Op>>)>;
-    type BuilderFull = VectorBuilder<(BackLink<Owner>, NotSet, Vec<Link<Op>>)>;
+impl Builder for Vector {
+    type BuilderEmpty = VectorBuilder<(BackLink<Owner>, NotSet, Link<Vec<Link<Op>>>)>;
+    type BuilderFull = VectorBuilder<(BackLink<Owner>, NotSet, Link<Vec<Link<Op>>>)>;
     fn builder() -> Self::BuilderEmpty {
         VectorBuilder::default()
     }
@@ -75,39 +75,42 @@ impl Builder for VectorBuilder<(BackLink<Owner>, NotSet, Vec<Link<Op>>)> {
         Self::BuilderFull {
             _state: PhantomData,
             parent: self.parent,
-            size: self.size,
+            size: Some(self.size),
             elements: self.elements,
         }
     }
 }
 
-impl Default for VectorBuilder<(BackLink<Owner>, NotSet, Vec<Link<Op>>)> {
+impl Default for VectorBuilder<(BackLink<Owner>, NotSet, Link<Vec<Link<Op>>>)> {
     fn default() -> Self {
         Self {
             _state: PhantomData,
             parent: BackLink::default(),
             size: None,
-            elements: Vec::new(),
+            elements: Vec::new().into(),
         }
     }
 }
 
-impl VectorBuilder<(BackLink<Owner>, NotSet, Vec<Link<Op>>)> {
+impl VectorBuilder<(BackLink<Owner>, NotSet, Link<Vec<Link<Op>>>)> {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
         self.parent = parent.into();
         self
     }
-    pub fn size(mut self, size: usize) -> VectorBuilder<(BackLink<Owner>, usize, Vec<Link<Op>>)> {
+    pub fn size(
+        mut self,
+        size: usize,
+    ) -> VectorBuilder<(BackLink<Owner>, usize, Link<Vec<Link<Op>>>)> {
         self.size = Some(size);
         unsafe { std::mem::transmute(self) }
     }
     pub fn elements(mut self, elements: Link<Op>) -> Self {
-        self.elements.push(elements);
+        self.elements.borrow_mut().push(elements);
         self
     }
 }
 
-impl VectorBuilder<(BackLink<Owner>, usize, Vec<Link<Op>>)> {
+impl VectorBuilder<(BackLink<Owner>, usize, Link<Vec<Link<Op>>>)> {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
         self.parent = parent.into();
         self
@@ -117,14 +120,14 @@ impl VectorBuilder<(BackLink<Owner>, usize, Vec<Link<Op>>)> {
         self
     }
     pub fn elements(mut self, elements: Link<Op>) -> Self {
-        self.elements.push(elements);
+        self.elements.borrow_mut().push(elements);
         self
     }
     pub fn build(self) -> Vector {
         Vector {
             parent: self.parent,
             size: self.size.expect("size not set"),
-            elements: Link::new(self.elements),
+            elements: self.elements,
         }
     }
 }

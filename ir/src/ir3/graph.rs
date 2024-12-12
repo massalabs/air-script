@@ -6,7 +6,6 @@ use crate::ir3::{Evaluator, Function, Link, Op, Root};
 
 #[derive(Debug, Default)]
 pub struct Graph {
-    roots: Vec<Link<Root>>,
     functions: BTreeMap<QualifiedIdentifier, Link<Function>>,
     evaluators: BTreeMap<QualifiedIdentifier, Link<Evaluator>>,
     pub boundary_constraints_roots: Link<Vec<Link<Op>>>,

@@ -92,8 +92,8 @@ impl EnfBuilderEmpty {
         self.parent = parent.into();
         self
     }
-    pub fn expr(mut self, expr: Op) -> EnfBuilderFull {
-        self.expr = Some(Link::new(expr));
+    pub fn expr(mut self, expr: Link<Op>) -> EnfBuilderFull {
+        self.expr = Some(expr);
         unsafe { std::mem::transmute(self) }
     }
 }
@@ -103,8 +103,8 @@ impl EnfBuilderFull {
         self.parent = parent.into();
         self
     }
-    pub fn expr(mut self, expr: Op) -> Self {
-        self.expr = Some(Link::new(expr));
+    pub fn expr(mut self, expr: Link<Op>) -> Self {
+        self.expr = Some(expr);
         self
     }
     pub fn build(self) -> Enf {
@@ -123,7 +123,7 @@ mod tests {
     #[test]
     fn test_enf_builder() {
         let parent = Link::new(Owner::Evaluator(Evaluator::default()));
-        let expr = Op::Add(Add::default());
+        let expr = Link::new(Add::default().as_op().into());
         let enf = Enf::builder()
             .parent(parent.clone())
             .expr(expr.clone())
