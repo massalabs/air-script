@@ -4,7 +4,7 @@ use air_parser::ast::TraceSegment;
 use air_pass::Pass;
 
 use miden_diagnostics::{DiagnosticsHandler, Severity, SourceSpan};
-use mir::ir3::*;
+use mir::ir::*;
 
 use crate::{graph::NodeIndex, ir::*, CompileError};
 
@@ -180,7 +180,7 @@ impl<'a> AirBuilder<'a> {
                                         .emit();
                             return Err(CompileError::Failed);
                         }
-                        let trace_access = mir::ir3::TraceAccess {
+                        let trace_access = mir::ir::TraceAccess {
                             segment: trace_access_binding.segment,
                             column: trace_access_binding.offset,
                             row_offset: 0,

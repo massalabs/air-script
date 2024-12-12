@@ -8,7 +8,7 @@ use air_pass::Pass;
 
 use miden_diagnostics::{DiagnosticsHandler, SourceSpan, Spanned};
 
-use crate::{ir3::*, CompileError};
+use crate::{ir::*, CompileError};
 
 use super::duplicate_node;
 

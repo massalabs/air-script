@@ -1,17 +1,18 @@
 #[cfg(test)]
 mod tests {
-    use crate::graph::pretty;
-    use crate::passes::InliningOld;
-    use crate::ConstantValue;
-    use crate::MirGraph;
-    use crate::MirOld;
-    use crate::MirType;
-    use crate::MirValue;
-    use crate::Node;
-    use crate::NodeIndex;
-    use crate::Operation;
-    use crate::SpannedMirValue;
+    use crate::passes::Inlining;
     use air_pass::Pass;
+    
+    //use crate::graph::pretty;
+    //use crate::ConstantValue;
+    //use crate::ir2::Mir;
+    //use crate::MirGraph;
+    //use crate::MirType;
+    //use crate::MirValue;
+    //use crate::Node;
+    //use crate::NodeIndex;
+    //use crate::Operation;
+    //use crate::SpannedMirValue;
 
     #[test]
     fn test_inlining() {
@@ -118,17 +119,14 @@ mod tests {
         println!("ORIGINAL:\n{}", pretty(&original, &[double, main]));
         println!("ORIGINAL raw:\n{:?}", original);
         println!("============= Inlining pass =============");
-        let mut inliner = InliningOld::new();
+        let mut inliner = Inlining::new();
 
-        let mut mir_original = MirOld::default();
+        let mut mir_original = Mir::default();
         *mir_original.constraint_graph_mut() = original.clone();
 
         let result = inliner.run(mir_original).unwrap();
         println!("=========================================");
         println!("INLINED raw:\n{:?}", result);
-        println!(
-            "INLINED:\n{}",
-            pretty(&result.constraint_graph(), &[double, main])
-        );
+        println!("INLINED:\n{}", pretty(&result.constraint_graph(), &[double, main]));
     }
 }

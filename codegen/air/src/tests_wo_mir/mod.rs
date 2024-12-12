@@ -1,10 +1,7 @@
-//mod ir;
-
 mod access;
 mod boundary_constraints;
 mod constant;
 mod evaluators;
-mod functions;
 mod integrity_constraints;
 mod list_folding;
 mod pub_inputs;
@@ -18,14 +15,13 @@ pub use crate::CompileError;
 
 use std::sync::Arc;
 
-use crate::ir::Mir;
 use air_pass::Pass;
 use miden_diagnostics::{CodeMap, DiagnosticsConfig, DiagnosticsHandler, Verbosity};
 
-pub fn compile(source: &str) -> Result<Mir, ()> {
+pub fn compile(source: &str) -> Result<crate::Air, ()> {
     let compiler = Compiler::default();
     match compiler.compile(source) {
-        Ok(mir) => Ok(mir),
+        Ok(air) => Ok(air),
         Err(err) => {
             compiler.diagnostics.emit(err);
             compiler.emitter.print_captured_to_stderr();
@@ -87,14 +83,14 @@ impl Compiler {
         }
     }
 
-    pub fn compile(&self, source: &str) -> Result<Mir, CompileError> {
+    pub fn compile(&self, source: &str) -> Result<crate::Air, CompileError> {
         air_parser::parse(&self.diagnostics, self.codemap.clone(), source)
             .map_err(CompileError::Parse)
             .and_then(|ast| {
                 let mut pipeline =
                     air_parser::transforms::ConstantPropagation::new(&self.diagnostics)
-                        //.chain(air_parser::transforms::Inlining::new(&self.diagnostics))
-                        .chain(crate::passes::AstToMir::new(&self.diagnostics));
+                        .chain(air_parser::transforms::Inlining::new(&self.diagnostics))
+                        .chain(crate::passes::AstToAir::new(&self.diagnostics));
                 pipeline.run(ast)
             })
     }

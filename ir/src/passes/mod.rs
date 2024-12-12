@@ -27,7 +27,7 @@ use std::ops::Deref;
 
 use air_pass::Pass;
 
-use crate::ir3::{
+use crate::ir::{
     Accessor, Add, Boundary, Call, Enf, Fold, For, If, Link, Matrix, Mul, Op, Parent, Sub, Value,
     Vector,
 };

@@ -1,6 +1,6 @@
 use std::ops::Deref;
 
-use crate::ir3::{ForChild, Link, Node, Op, Parent};
+use crate::ir::{ForChild, Link, Node, Op, Parent};
 
 pub enum VisitOrder {
     Manual,

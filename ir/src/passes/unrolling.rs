@@ -7,7 +7,7 @@ use air_parser::ast::AccessType;
 use air_pass::Pass;
 //use miden_diagnostics::DiagnosticsHandler;
 
-use crate::{ir3::*, CompileError};
+use crate::{ir::*, CompileError};
 
 use super::{duplicate_node_or_replace, Visit, VisitContext, VisitOrder};
 
