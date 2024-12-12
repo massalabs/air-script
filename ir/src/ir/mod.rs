@@ -1,4 +1,3 @@
-#![allow(unused)]
 mod constraints;
 mod graph;
 mod leaf;

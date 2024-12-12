@@ -5,8 +5,6 @@ use miden_diagnostics::SourceSpan;
 
 use crate::ir::{BackLink, Builder, Child, Leaf, Link, Node, NotSet, Op, Owner, TraceAccess};
 
-use super::*;
-
 /// Represents a scalar value in the [MIR]
 ///
 /// Values are either constant, or evaluated at runtime using the context

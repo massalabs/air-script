@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use air_parser::ast::QualifiedIdentifier;
 
-use crate::ir::{Evaluator, Function, Link, Op, Root};
+use crate::ir::{Evaluator, Function, Link, Op};
 
 #[derive(Debug, Default)]
 pub struct Graph {

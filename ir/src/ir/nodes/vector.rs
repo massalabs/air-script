@@ -104,7 +104,7 @@ impl VectorBuilder<(BackLink<Owner>, NotSet, Link<Vec<Link<Op>>>)> {
         self.size = Some(size);
         unsafe { std::mem::transmute(self) }
     }
-    pub fn elements(mut self, elements: Link<Op>) -> Self {
+    pub fn elements(self, elements: Link<Op>) -> Self {
         self.elements.borrow_mut().push(elements);
         self
     }
@@ -119,7 +119,7 @@ impl VectorBuilder<(BackLink<Owner>, usize, Link<Vec<Link<Op>>>)> {
         self.size = Some(size);
         self
     }
-    pub fn elements(mut self, elements: Link<Op>) -> Self {
+    pub fn elements(self, elements: Link<Op>) -> Self {
         self.elements.borrow_mut().push(elements);
         self
     }
@@ -134,7 +134,6 @@ impl VectorBuilder<(BackLink<Owner>, usize, Link<Vec<Link<Op>>>)> {
 
 #[cfg(test)]
 mod tests {
-    use crate::ir::Add;
 
     use super::*;
 

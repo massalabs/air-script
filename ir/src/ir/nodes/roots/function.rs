@@ -122,7 +122,7 @@ impl FunctionBuilderFull {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ir::{nodes::value::MirType, Add, Owner};
+    use crate::ir::{nodes::value::MirType, Add};
 
     #[test]
     fn test_function_builder() {

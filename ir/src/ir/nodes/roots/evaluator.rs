@@ -1,4 +1,4 @@
-use crate::ir::{Builder, Link, Node, NotSet, Op, Owner, Parameter, Parent, Root};
+use crate::ir::{Builder, Link, Node, Op, Owner, Parameter, Parent, Root};
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Evaluator {
@@ -93,7 +93,7 @@ impl EvaluatorBuilderState {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ir::{nodes::value::MirType, Add, Owner};
+    use crate::ir::{nodes::value::MirType, Add};
 
     #[test]
     fn test_evaluator_builder() {

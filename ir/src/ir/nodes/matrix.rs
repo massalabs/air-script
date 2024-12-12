@@ -134,7 +134,6 @@ impl MatrixBuilder<(BackLink<Owner>, usize, Vec<Link<Vector>>)> {
 
 #[cfg(test)]
 mod tests {
-    use crate::ir::Add;
 
     use super::*;
 

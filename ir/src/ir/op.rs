@@ -1,5 +1,3 @@
-use std::ops::Deref;
-
 use crate::ir::{
     Accessor, Add, Boundary, Call, Enf, Fold, For, If, Link, Matrix, Mul, Owner, Parameter, Sub,
     Value, Vector,
