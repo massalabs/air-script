@@ -232,7 +232,12 @@ impl<'a> MirBuilder<'a> {
                         *func = func.clone().edit().body(expr_node.clone()).build();
                     }
                     Owner::Evaluator(ref mut evaluator) => {
-                        *evaluator = evaluator.clone().edit().body(expr_node.clone()).build();
+                        unreachable!("Unexpected Statement::Expr in evaluator");
+                        //*evaluator = evaluator.clone().edit().body(expr_node.clone()).build();
+                    }
+                    Owner::None => {
+                        // Insert in integrity or boundary
+
                     }
                     // I'm not what to do with the other types of operations
                     _ => unreachable!(),
@@ -263,14 +268,20 @@ impl<'a> MirBuilder<'a> {
                                 *evaluator =
                                     evaluator.clone().edit().body(node_to_add.clone()).build();
                             }
+                            Owner::None => {
+                                // Insert in integrity
+                                self.mir
+                                    .constraint_graph_mut()
+                                    .insert_integrity_constraints_root(node_to_add);
+                            }
                             // Again, I'm not sure what to do with the other types of operations
                             _ => unreachable!(),
                         };
-                        if parent == Link::new(Owner::default()) {
+                        /*if parent == Link::new(Owner::default()) {
                             self.mir
                                 .constraint_graph_mut()
                                 .insert_integrity_constraints_root(node_to_add);
-                        }
+                        }*/
                     }
                 };
                 Ok(())
@@ -320,12 +331,15 @@ impl<'a> MirBuilder<'a> {
                                 *evaluator =
                                     evaluator.clone().edit().body(enf_node.clone()).build();
                             }
+                            Owner::None => {
+                                // Insert in integrity
+                                self.mir
+                                    .constraint_graph_mut()
+                                    .insert_integrity_constraints_root(enf_node);
+                            }
                             // Again, I'm not sure what to do with the other types of operations
                             _ => unreachable!(),
                         };
-                        self.mir
-                            .constraint_graph_mut()
-                            .insert_integrity_constraints_root(enf_node)
                     }
                 }
 
@@ -642,7 +656,7 @@ impl<'a> MirBuilder<'a> {
                         symbols::Sum => {
                             assert_eq!(call.args.len(), 1);
                             let iterator_node =
-                                self.insert_expr(call.args.first().unwrap()).unwrap();
+                                self.insert_expr(call.args.first().unwrap())?;
                             let accumulator_node =
                                 self.insert_typed_constant(None, ast::ConstantExpr::Scalar(0));
                             let node =
