@@ -7,14 +7,6 @@ pub struct Scope {
     node: Node,
 }
 
-impl Scope {
-    pub fn new(parent: BackLink<NodeType>, children: Link<Vec<Link<NodeType>>>) -> Self {
-        Self {
-            node: Node::new(parent, children),
-        }
-    }
-}
-
 impl Debug for Scope {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", &self.node)

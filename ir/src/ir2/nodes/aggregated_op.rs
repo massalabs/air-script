@@ -7,14 +7,6 @@ pub struct Vector {
     node: Node,
 }
 
-impl Vector {
-    pub fn new(parent: Link<NodeType>, values: Vec<Link<NodeType>>) -> Self {
-        Self {
-            node: Node::new(parent.into(), Link::new(values)),
-        }
-    }
-}
-
 impl IsParent for Vector {
     fn get_children(&self) -> Link<Vec<Link<NodeType>>> {
         self.node.get_children()
@@ -45,22 +37,6 @@ impl Debug for Vector {
 #[derive(Clone, Eq, PartialEq, Default)]
 pub struct Matrix {
     node: Node,
-}
-
-impl Matrix {
-    pub fn new(parent: Link<NodeType>, values: Vec<Vec<Link<NodeType>>>) -> Self {
-        let values = values
-            .into_iter()
-            .map(|row| {
-                let vector = Vector::default();
-                vector.get_children().borrow_mut().extend(row);
-                vector.into()
-            })
-            .collect();
-        Self {
-            node: Node::new(parent.into(), Link::new(values)),
-        }
-    }
 }
 
 impl IsParent for Matrix {

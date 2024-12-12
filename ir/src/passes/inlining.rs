@@ -1,57 +1,202 @@
-use std::collections::{BTreeMap, HashSet};
+use std::{
+    collections::HashMap,
+    ops::{ControlFlow, Deref, DerefMut},
+    vec,
+};
 
 use air_pass::Pass;
 //use miden_diagnostics::DiagnosticsHandler;
 
-use crate::{CompileError, MirOld, MirGraph, NodeIndex, Operation};
+use crate::{
+    ir3::{Graph, Link, Mir, Node, Op, Root, Vector},
+    CompileError,
+};
 
-use super::{visitor_old::VisitDefaultOld, VisitOld, VisitContextOld, VisitOrderOld};
+use super::{duplicate_node_or_replace, Visit, VisitContext, VisitOrder};
 
 //pub struct Inlining<'a> {
 //     #[allow(unused)]
 //     diagnostics: &'a DiagnosticsHandler,
 //}
 
-pub struct Inlining {
-    work_stack: Vec<NodeIndex>,
+#[derive(Clone)]
+pub struct CallInliningContext {
+    body: Vec<Link<Op>>,
+    arguments: Vec<Link<Op>>,
+    call_node: Link<Op>,
+    pure_function: bool,
 }
 
-impl VisitContextOld for Inlining {
-    type Graph = MirGraph;
-    fn visit(&mut self, graph: &mut MirGraph, node_index: NodeIndex) {
-        let node = graph.node(&node_index).clone();
-        if let Operation::Definition(_, _, _) = node.op {
-            self.visit_body(graph, node_index);
+impl CallInliningContext {}
+
+pub struct Inlining {
+    // general context
+    work_stack: Vec<Link<Node>>,
+    during_first_pass: bool,
+
+    // context for first pass
+    currently_in_body_of: Option<Link<Root>>,
+    // HashMap<Definition, Functions_where_called>
+    func_eval_dependency_graph: HashMap<Link<Root>, Vec<Link<Root>>>,
+
+    // context for both passes
+    func_eval_inlining_order: Vec<Link<Root>>,
+    // HashMap<Definition, Call nodes where called, along with context>
+    func_eval_nodes_where_called: HashMap<Link<Root>, Vec<CallInliningContext>>,
+
+    // context for second pass
+    call_inlining_context: Option<CallInliningContext>,
+    nodes_to_replace: HashMap<Link<Op>, Link<Op>>,
+}
+
+impl VisitContext for Inlining {
+    type Graph = Graph;
+    fn visit(&mut self, graph: &mut Graph, node: Link<Node>) {
+        if self.during_first_pass {
+            self.visit_first_pass(graph, node);
+        } else {
+            self.visit_second_pass(node);
         }
     }
-    fn as_stack_mut(&mut self) -> &mut Vec<NodeIndex> {
+    fn as_stack_mut(&mut self) -> &mut Vec<Link<Node>> {
         &mut self.work_stack
     }
-    fn boundary_roots(&self, graph: &MirGraph) -> HashSet<NodeIndex> {
-        graph.boundary_constraints_roots.clone()
+
+    // FIXME: Clean this up
+    // Maybe go for an approach for "root_nodes_to_visit", to keep a consistent context
+    fn boundary_roots(&self, graph: &Graph) -> Link<Vec<Link<Node>>> {
+        if self.during_first_pass {
+            return Link::new(
+                graph
+                    .get_function_nodes()
+                    .iter()
+                    .cloned()
+                    .map(|f| f.as_node())
+                    .chain(
+                        graph
+                            .get_evaluator_nodes()
+                            .iter()
+                            .cloned()
+                            .map(|ev| ev.as_node()),
+                    )
+                    .chain(
+                        graph
+                            .boundary_constraints_roots
+                            .borrow()
+                            .deref()
+                            .iter()
+                            .cloned()
+                            .map(|bc| bc.as_node()),
+                    )
+                    .collect(),
+            );
+        } else {
+            let mut callee_nodes_to_inline_in_order = Vec::new();
+            for callee in self.func_eval_inlining_order.iter() {
+                if let Some(nodes_with_context) = self.func_eval_nodes_where_called.get(callee) {
+                    callee_nodes_to_inline_in_order.extend(
+                        nodes_with_context
+                            .iter()
+                            .map(|context| context.call_node.clone().as_node()),
+                    );
+                }
+            }
+            return Link::new(callee_nodes_to_inline_in_order);
+        }
     }
-    fn integrity_roots(&self, graph: &MirGraph) -> HashSet<NodeIndex> {
-        graph.integrity_constraints_roots.clone()
+    fn integrity_roots(&self, graph: &Graph) -> Link<Vec<Link<Node>>> {
+        if self.during_first_pass {
+            return graph
+                .boundary_constraints_roots
+                .borrow()
+                .deref()
+                .iter()
+                .cloned()
+                .map(|ic| ic.as_node())
+                .collect::<Vec<_>>()
+                .into();
+        } else {
+            return Link::new(vec![]);
+        }
     }
-    fn visit_order(&self) -> VisitOrderOld {
-        VisitOrderOld::Manual
+    fn visit_order(&self) -> VisitOrder {
+        if self.during_first_pass {
+            return super::VisitOrder::DepthFirst;
+        } else {
+            return super::VisitOrder::PostOrder;
+        }
     }
 }
 
 //impl<'p> Pass for Inlining<'p> {}
 impl Pass for Inlining {
-    type Input<'a> = MirOld;
-    type Output<'a> = MirOld;
+    type Input<'a> = Mir;
+    type Output<'a> = Mir;
     type Error = CompileError;
 
     fn run<'a>(&mut self, mut ir: Self::Input<'a>) -> Result<Self::Output<'a>, Self::Error> {
-        let mut context = Inlining::new();
-        VisitOld::run(&mut context, &mut ir.constraint_graph_mut());
-        Ok(ir)
+        match self.run_visitor(&mut ir.constraint_graph_mut()) {
+            ControlFlow::Continue(()) => Ok(ir),
+            ControlFlow::Break(_err) => Err(CompileError::Failed),
+        }
     }
 }
 
-impl VisitDefaultOld for Inlining {}
+impl Visit for Inlining {
+    fn run(&mut self, graph: &mut Self::Graph) {
+        // First pass, build the dependency graph
+        self.during_first_pass = true;
+        match self.visit_order() {
+            VisitOrder::Manual => self.visit_manual(graph),
+            VisitOrder::PostOrder => self.visit_postorder(graph),
+            VisitOrder::DepthFirst => self.visit_depthfirst(graph),
+        }
+        while let Some(node) = self.next_node() {
+            self.visit(graph, node);
+        }
+
+        let mut func_eval_dependancy_graph_clone = self.func_eval_dependency_graph.clone();
+        // Note: we remove an element at each iteration (or raise diag), so this will terminate
+        while !func_eval_dependancy_graph_clone.is_empty() {
+            // Find a function without dependency
+            match func_eval_dependancy_graph_clone
+                .clone()
+                .iter()
+                .find(|(_k, v)| v.is_empty())
+            {
+                Some((f, _)) => {
+                    self.func_eval_inlining_order.push(f.clone());
+                    func_eval_dependancy_graph_clone.remove(f);
+                }
+                _ => {
+                    // Circular dep, raise diag
+                }
+            }
+
+            let removed_fn = self.func_eval_inlining_order.last().unwrap();
+
+            // Remove the function from the dependancy graph
+            func_eval_dependancy_graph_clone
+                .iter_mut()
+                .for_each(|(_k, v)| {
+                    v.retain(|x| x != removed_fn);
+                });
+        }
+
+        // Second pass, inline all Calls
+        self.during_first_pass = false;
+        match self.visit_order() {
+            VisitOrder::Manual => self.visit_manual(graph),
+            VisitOrder::PostOrder => self.visit_postorder(graph),
+            VisitOrder::DepthFirst => self.visit_depthfirst(graph),
+        }
+        while let Some(node) = self.next_node() {
+            self.visit(graph, node);
+        }
+    }
+}
+
+//impl VisitDefault for Inlining {}
 
 // impl<'a> Inlining<'a> {
 //     pub fn new(diagnostics: &'a DiagnosticsHandler) -> Self {
@@ -61,176 +206,196 @@ impl VisitDefaultOld for Inlining {}
 // }
 impl Inlining {
     pub fn new() -> Self {
-        Self { work_stack: vec![] }
-    }
-    fn visit_body(&mut self, ir: &mut MirGraph, node_index: NodeIndex) {
-        let def_node_index = node_index;
-        let def_node = ir.node(&def_node_index).clone();
-        if let Operation::Definition(_, _, body) = &def_node.op {
-            // Find all calls in the body
-            for (index_in_body, call_index) in body.iter().enumerate() {
-                self.inline_call(ir, call_index, &def_node_index, index_in_body);
-            }
+        Self {
+            work_stack: vec![],
+            during_first_pass: true,
+            func_eval_dependency_graph: HashMap::new(),
+            nodes_to_replace: HashMap::new(),
+            currently_in_body_of: None,
+            func_eval_inlining_order: Vec::new(),
+            func_eval_nodes_where_called: HashMap::new(),
+            call_inlining_context: None,
         }
     }
 
-    fn inline_call(
-        &mut self,
-        ir: &mut MirGraph,
-        call_index: &NodeIndex,
-        outer_def_index: &NodeIndex,
-        index_in_body: usize,
-    ) {
-        let call_node = ir.node(call_index).clone();
-        if let Operation::Call(def_index, arg_value_indexes) = &call_node.op {
-            let mut body_index_map = BTreeMap::new();
-            // Inline the body of the called function
-            let new_nodes = self.inline_body(ir, &mut body_index_map, def_index, arg_value_indexes);
-            let outer_def_node = ir.node(outer_def_index).clone();
-            if let Operation::Definition(outer_func_arg_indexes, outer_func_ret, outer_body) =
-                &outer_def_node.op
-            {
-                // Edit the body of the outer function
-                // body.last: swap the call with the last node
-                let mut new_body = outer_body.clone();
-                new_body[index_in_body] = *new_nodes.last().unwrap();
-                // body[..body.last]: insert the new nodes in reverse order
-                for op_idx in new_nodes.iter().rev().skip(1) {
-                    new_body.insert(index_in_body, *op_idx);
+    fn run_visitor(&mut self, ir: &mut Graph) -> ControlFlow<()> {
+        Visit::run(self, ir);
+        ControlFlow::Continue(())
+    }
+
+    fn visit_first_pass(&mut self, graph: &Graph, node: Link<Node>) {
+        let funcs_and_evaluators: Vec<_> = graph
+            .get_function_nodes()
+            .iter()
+            .cloned()
+            .map(|f| f.as_node())
+            .chain(
+                graph
+                    .get_evaluator_nodes()
+                    .iter()
+                    .cloned()
+                    .map(|ev| ev.as_node()),
+            )
+            .collect();
+        let boundary_and_integrity_roots: Vec<_> = graph
+            .boundary_constraints_roots
+            .borrow()
+            .deref()
+            .iter()
+            .cloned()
+            .map(|bc| bc.as_node())
+            .chain(
+                graph
+                    .integrity_constraints_roots
+                    .borrow()
+                    .deref()
+                    .iter()
+                    .cloned()
+                    .map(|ic| ic.as_node()),
+            )
+            .collect();
+        if funcs_and_evaluators.contains(&node) {
+            self.currently_in_body_of = Some(node.clone().as_root().unwrap());
+        }
+        if boundary_and_integrity_roots.contains(&node) {
+            self.currently_in_body_of = None;
+        }
+
+        if let Some(call) = node.clone().as_call() {
+            let call_ref = call.borrow();
+            let call = call_ref.deref();
+
+            // /!\ callee should not be in children to avoid loops IMO
+            let callee = call.function.clone();
+            let args = call.arguments.clone();
+
+            if let Some(body_of) = self.currently_in_body_of.clone() {
+                // The current function's body has a call to callee
+                self.func_eval_dependency_graph
+                    .entry(body_of)
+                    .and_modify(|v| v.push(callee.clone()))
+                    .or_insert(vec![callee.clone()]);
+            }
+
+            let callee_ref = callee.borrow();
+
+            match callee_ref.deref() {
+                Root::Evaluator(ev) => {
+                    let context = CallInliningContext {
+                        body: ev.body.borrow().deref().clone(),
+                        arguments: args.borrow().deref().clone(),
+                        call_node: node.as_op().unwrap(),
+                        pure_function: false,
+                    };
+                    self.func_eval_nodes_where_called
+                        .entry(callee.clone())
+                        .and_modify(|v| v.push(context.clone()))
+                        .or_insert(vec![context]);
                 }
-                ir.update_node(
-                    outer_def_index,
-                    Operation::Definition(
-                        outer_func_arg_indexes.clone(),
-                        *outer_func_ret,
-                        new_body,
-                    ),
+                Root::Function(func) => {
+                    let context = CallInliningContext {
+                        body: func.body.borrow().deref().clone(),
+                        arguments: args.borrow().deref().clone(),
+                        call_node: node.as_op().unwrap(),
+                        pure_function: true,
+                    };
+                    self.func_eval_nodes_where_called
+                        .entry(callee.clone())
+                        .and_modify(|v| v.push(context.clone()))
+                        .or_insert(vec![context]);
+                }
+                _ => unreachable!(),
+            }
+        }
+    }
+
+    fn visit_second_pass(&mut self, node: Link<Node>) {
+        // First, check if it's a known Call to inline,
+        // if so, set the context and visit the body
+        let mut new_call_inlining_context = None;
+        for (_callee, calls) in self.func_eval_nodes_where_called.iter_mut() {
+            calls.retain_mut(|context| {
+                if context.call_node == node.clone().as_op().unwrap() {
+                    new_call_inlining_context = Some(context.clone());
+                    false
+                } else {
+                    true
+                }
+            });
+        }
+
+        match new_call_inlining_context {
+            Some(context) => {
+                self.call_inlining_context = Some(context.clone());
+                self.nodes_to_replace.clear();
+                if context.pure_function {
+                    // Instead of visiting all the body, we only visit the last node,
+                    // which represents the return value of the function
+                    self.visit_later(context.body.last().unwrap().clone().as_node());
+                } else {
+                    // We visit all the nodes related to the body
+                    for body_node in context.body.iter() {
+                        self.visit_later(body_node.clone().as_node());
+                    }
+                }
+            }
+            None => {
+                // Normal visit, insert in the graph the same instruction
+                duplicate_node_or_replace(
+                    &mut self.nodes_to_replace,
+                    node.clone().as_op().unwrap(),
+                    self.call_inlining_context.clone().unwrap().arguments,
                 );
-                self.visit_later(*outer_def_index);
+
+                if let Some(op) = node.clone().as_op() {
+                    // If we are at the last node of the body, we have visited all the body
+                    // (for pure functions, we only visit the last node, and for evaluators, we visit all the nodes)
+                    if self
+                        .call_inlining_context
+                        .clone()
+                        .unwrap()
+                        .body
+                        .last().unwrap()
+                        == &op
+                    {
+                        if self.call_inlining_context.clone().unwrap().pure_function {
+                            // We have finished inlining the body, we can now replace the Call node with the last expression of the body
+                            let new_node = self
+                                .nodes_to_replace
+                                .get(&op)
+                                .unwrap()
+                                .borrow()
+                                .deref()
+                                .clone();
+                            *self
+                                .call_inlining_context
+                                .as_mut()
+                                .unwrap()
+                                .call_node
+                                .borrow_mut()
+                                .deref_mut() = new_node;
+                        } else {
+                            // We have finished inlining the body, we can now replace the Call node with all the body
+                            let mut new_nodes = Vec::new();
+                            for body_node in self.call_inlining_context.clone().unwrap().body.iter() {
+                                // FIXME: Maybe we should only push nodes that are Enf()?
+                                // Depends if additional nodes change things (e.g. the Vector size..)
+                                // For now I think we can keep all nodes, and just ignore the non-Enf nodes
+                                // When building the constraints during lowering Mir -> Air
+                                new_nodes.push(self.nodes_to_replace.get(&body_node).unwrap().clone());
+                            }
+                            let new_nodes_vector = Vector::new(new_nodes).as_op();
+                            *self
+                                .call_inlining_context
+                                .as_mut()
+                                .unwrap()
+                                .call_node
+                                .borrow_mut()
+                                .deref_mut() = new_nodes_vector;
+                        }
+                    }
+                }
             }
         }
-    }
-
-    fn inline_body(
-        &mut self,
-        ir: &mut MirGraph,
-        body_index_map: &mut BTreeMap<NodeIndex, NodeIndex>,
-        def_index: &NodeIndex,
-        arg_value_indexes: &[NodeIndex],
-    ) -> Vec<NodeIndex> {
-        let def_node = ir.node(def_index).clone();
-        let mut new_body = vec![];
-        if let Operation::Definition(arg_indexes, _, body) = &def_node.op {
-            // map the arguments to the values of the call
-            for (arg_index, arg_value_index) in arg_indexes.iter().zip(arg_value_indexes) {
-                body_index_map.insert(*arg_index, *arg_value_index);
-            }
-            // Inline the body of the called function
-            for node_index in body {
-                self.inline_op(ir, body_index_map, node_index, &mut new_body);
-            }
-        }
-        new_body
-    }
-
-    fn inline_op(
-        &mut self,
-        ir: &mut MirGraph,
-        body_index_map: &mut BTreeMap<NodeIndex, NodeIndex>,
-        op_index: &NodeIndex,
-        new_body: &mut Vec<NodeIndex>,
-    ) {
-        // Clone the operation and insert it in the new body
-        let new_node = ir.insert_op_placeholder();
-        body_index_map.insert(*op_index, new_node);
-        let op_node = ir.node(op_index).clone();
-        // Update the operation with the new indexes
-        let op = match op_node.op.clone() {
-            Operation::Value(value) => Operation::Value(value),
-            Operation::Add(lhs, rhs) => Operation::Add(
-                *body_index_map.get(&lhs).expect("Add lhs not found"),
-                *body_index_map.get(&rhs).expect("Add rhs not found"),
-            ),
-            Operation::Sub(lhs, rhs) => Operation::Sub(
-                *body_index_map.get(&lhs).expect("Sub lhs not found"),
-                *body_index_map.get(&rhs).expect("Sub rhs not found"),
-            ),
-            Operation::Mul(lhs, rhs) => Operation::Mul(
-                *body_index_map.get(&lhs).expect("Mul lhs not found"),
-                *body_index_map.get(&rhs).expect("Mul rhs not found"),
-            ),
-            Operation::Vector(values) => Operation::Vector(
-                values
-                    .iter()
-                    .map(|value_index| {
-                        *body_index_map
-                            .get(value_index)
-                            .expect("Vector value not found")
-                    })
-                    .collect(),
-            ),
-            Operation::Matrix(rows) => Operation::Matrix(
-                rows.iter()
-                    .map(|row| {
-                        row.iter()
-                            .map(|value_index| {
-                                *body_index_map
-                                    .get(value_index)
-                                    .expect("Matrix value not found")
-                            })
-                            .collect()
-                    })
-                    .collect(),
-            ),
-            Operation::Call(def_index, arg_value_indexes) => Operation::Call(
-                def_index,
-                arg_value_indexes
-                    .iter()
-                    .map(|arg_value_index| {
-                        *body_index_map
-                            .get(arg_value_index)
-                            .unwrap_or(arg_value_index)
-                    })
-                    .collect(),
-            ),
-            Operation::If(cond, then_index, else_index) => Operation::If(
-                *body_index_map.get(&cond).unwrap_or(&cond),
-                *body_index_map.get(&then_index).unwrap_or(&then_index),
-                *body_index_map.get(&else_index).unwrap_or(&else_index),
-            ),
-            Operation::For(iterators, body_index, opt_selector) => Operation::For(
-                iterators
-                    .iter()
-                    .map(|iterator_index| {
-                        *body_index_map.get(iterator_index).unwrap_or(iterator_index)
-                    })
-                    .collect(),
-                *body_index_map.get(&body_index).unwrap_or(&body_index),
-                opt_selector.map(|selector_index| {
-                    *body_index_map
-                        .get(&selector_index)
-                        .unwrap_or(&selector_index)
-                }),
-            ),
-            Operation::Fold(iterator_index, fold_op, init_index) => Operation::Fold(
-                *body_index_map
-                    .get(&iterator_index)
-                    .unwrap_or(&iterator_index),
-                fold_op,
-                *body_index_map.get(&init_index).unwrap_or(&init_index),
-            ),
-            Operation::Enf(value_index) => {
-                Operation::Enf(*body_index_map.get(&value_index).unwrap_or(&value_index))
-            }
-            Operation::Boundary(boundary, value_index) => Operation::Boundary(
-                boundary,
-                *body_index_map.get(&value_index).unwrap_or(&value_index),
-            ),
-            Operation::Variable(var) => Operation::Variable(var),
-            Operation::Definition(_, _, _) => unreachable!(),
-            Operation::Placeholder => Operation::Placeholder,
-        };
-        ir.update_node(&new_node, op);
-        new_body.push(new_node);
     }
 }

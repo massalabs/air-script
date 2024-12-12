@@ -1,10 +1,11 @@
+//mod ir;
+
 mod access;
 mod boundary_constraints;
 mod constant;
 mod evaluators;
 mod functions;
 mod integrity_constraints;
-mod ir;
 mod list_folding;
 mod pub_inputs;
 mod random_values;
@@ -17,10 +18,11 @@ pub use crate::CompileError;
 
 use std::sync::Arc;
 
+use crate::ir3::Mir;
 use air_pass::Pass;
 use miden_diagnostics::{CodeMap, DiagnosticsConfig, DiagnosticsHandler, Verbosity};
 
-pub fn compile(source: &str) -> Result<crate::Mir, ()> {
+pub fn compile(source: &str) -> Result<Mir, ()> {
     let compiler = Compiler::default();
     match compiler.compile(source) {
         Ok(mir) => Ok(mir),
@@ -85,13 +87,13 @@ impl Compiler {
         }
     }
 
-    pub fn compile(&self, source: &str) -> Result<crate::Mir, CompileError> {
+    pub fn compile(&self, source: &str) -> Result<Mir, CompileError> {
         air_parser::parse(&self.diagnostics, self.codemap.clone(), source)
             .map_err(CompileError::Parse)
             .and_then(|ast| {
                 let mut pipeline =
                     air_parser::transforms::ConstantPropagation::new(&self.diagnostics)
-                        /*.chain(air_parser::transforms::Inlining::new(&self.diagnostics))*/
+                        //.chain(air_parser::transforms::Inlining::new(&self.diagnostics))
                         .chain(crate::passes::AstToMir::new(&self.diagnostics));
                 pipeline.run(ast)
             })

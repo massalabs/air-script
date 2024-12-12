@@ -1,3 +1,5 @@
+use air_parser::ast;
+
 use crate::NodeIndex;
 
 use super::*;
@@ -6,7 +8,7 @@ use super::*;
 ///
 /// Values are either constant, or evaluated at runtime using the context
 /// provided to an AirScript program (i.e. random values, public inputs, etc.).
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub enum MirValue {
     /// A constant value.
     Constant(ConstantValue),
@@ -44,14 +46,14 @@ pub enum MirValue {
     Matrix(Vec<Vec<MirValue>>),
 }
 
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub enum ConstantValue {
     Felt(u64),
     Vector(Vec<u64>),
     Matrix(Vec<Vec<u64>>),
 }
 
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct TraceAccessBinding {
     pub segment: TraceSegmentId,
     /// The offset to the first column of the segment which is bound by this binding
@@ -60,7 +62,7 @@ pub struct TraceAccessBinding {
     pub size: usize,
 }
 
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct RandomValueBinding {
     /// The offset in the random values array where this binding begins
     pub offset: usize,
@@ -70,18 +72,28 @@ pub struct RandomValueBinding {
 
 /// Represents a typed value in the [MIR]
 ///
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct SpannedMirValue {
     pub span: SourceSpan,
     pub value: MirValue,
 }
 
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub enum MirType {
     Felt,
     Vector(usize),
     Matrix(usize, usize),
     Definition(Vec<usize>, usize),
+}
+
+impl From<ast::Type> for MirType {
+    fn from(value: ast::Type) -> Self {
+        match value {
+            ast::Type::Felt => MirType::Felt,
+            ast::Type::Vector(n) => MirType::Vector(n),
+            ast::Type::Matrix(cols, rows) => MirType::Matrix(cols, rows),
+        }
+    }
 }
 
 impl MirValue {
@@ -135,7 +147,7 @@ impl SpannedMirValue {
 }
 
 /// Represents an access of a [PeriodicColumn], similar in nature to [TraceAccess]
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct PeriodicColumnAccess {
     pub name: QualifiedIdentifier,
     pub cycle: usize,
@@ -147,7 +159,7 @@ impl PeriodicColumnAccess {
 }
 
 /// Represents an access of a [PublicInput], similar in nature to [TraceAccess]
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct PublicInputAccess {
     /// The name of the public input to access
     pub name: Identifier,

@@ -1,46 +1,113 @@
-use std::{collections::{BTreeMap, HashMap, HashSet}, f32::consts::E, mem, ops::ControlFlow};
+use std::{
+    collections::HashMap,
+    ops::{ControlFlow, Deref, DerefMut},
+};
 
-use air_parser::ast::Boundary;
+use air_parser::ast::AccessType;
 use air_pass::Pass;
 //use miden_diagnostics::DiagnosticsHandler;
 
-use crate::{CompileError, ConstantValue, FoldOperator, MirOld, MirGraph, MirType, MirValue, NodeIndex, Operation, SpannedMirValue, SpannedVariable, TraceAccess};
+use crate::{ir3::*, CompileError};
 
-use super::{VisitOld, VisitContextOld, VisitOrderOld};
+use super::{duplicate_node_or_replace, Visit, VisitContext, VisitOrder};
 
 //pub struct Unrolling<'a> {
 //     #[allow(unused)]
 //     diagnostics: &'a DiagnosticsHandler,
 //}
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct ForInliningContext {
-    body_index: NodeIndex,
-    iterators: Vec<NodeIndex>,
-    selector: Option<NodeIndex>,
+    body: Link<Op>,
+    iterators: Vec<Link<Op>>,
+    selector: Option<Link<Op>>,
     index: usize,
-    parent_for: NodeIndex,
+    parent_for: Link<Op>,
 }
 
 impl ForInliningContext {}
 
 pub struct Unrolling {
     // general context
-    work_stack: Vec<NodeIndex>,
+    work_stack: Vec<Link<Node>>,
     during_first_pass: bool,
 
     // context for both passes
-    bodies_to_inline: HashMap<NodeIndex, ForInliningContext>,
+    bodies_to_inline: Vec<(Link<Op>, ForInliningContext)>,
 
     // context for second pass
-    for_inlining_context: ForInliningContext,
-    nodes_to_replace: HashMap<NodeIndex, NodeIndex>,
+    for_inlining_context: Option<ForInliningContext>,
+    nodes_to_replace: HashMap<Link<Op>, Link<Op>>,
+}
+
+impl VisitContext for Unrolling {
+    #[allow(unused)]
+    fn visit(&mut self, graph: &mut Graph, node: Link<Node>) {
+        if self.during_first_pass {
+            self.visit_first_pass(node);
+        } else {
+            self.visit_second_pass(node);
+        }
+    }
+
+    fn as_stack_mut(&mut self) -> &mut Vec<Link<Node>> {
+        &mut self.work_stack
+    }
+
+    type Graph = Graph;
+
+    fn boundary_roots(&self, graph: &Self::Graph) -> Link<Vec<Link<Node>>> {
+        if self.during_first_pass {
+            return graph
+                .boundary_constraints_roots
+                .borrow()
+                .deref()
+                .iter()
+                .cloned()
+                .map(|bc| bc.as_node())
+                .collect::<Vec<_>>()
+                .into();
+        } else {
+            return self
+                .bodies_to_inline
+                .iter()
+                .map(|(k, _v)| k)
+                .cloned()
+                .map(|op| op.as_node())
+                .collect::<Vec<_>>()
+                .into();
+        }
+    }
+
+    fn integrity_roots(&self, graph: &Self::Graph) -> Link<Vec<Link<Node>>> {
+        if self.during_first_pass {
+            return graph
+                .integrity_constraints_roots
+                .borrow()
+                .deref()
+                .iter()
+                .cloned()
+                .map(|bc| bc.as_node())
+                .collect::<Vec<_>>()
+                .into();
+        } else {
+            return Link::new(vec![]);
+        }
+    }
+
+    fn visit_order(&self) -> super::VisitOrder {
+        if self.during_first_pass {
+            return super::VisitOrder::PostOrder;
+        } else {
+            return super::VisitOrder::PostOrder;
+        }
+    }
 }
 
 //impl<'p> Pass for Unrolling<'p> {}
 impl Pass for Unrolling {
-    type Input<'a> = MirOld;
-    type Output<'a> = MirOld;
+    type Input<'a> = Mir;
+    type Output<'a> = Mir;
     type Error = CompileError;
 
     fn run<'a>(&mut self, mut ir: Self::Input<'a>) -> Result<Self::Output<'a>, Self::Error> {
@@ -51,33 +118,30 @@ impl Pass for Unrolling {
     }
 }
 
-impl VisitOld for Unrolling {
-
+impl Visit for Unrolling {
     fn run(&mut self, graph: &mut Self::Graph) {
-
         // First pass, unroll all nodes fully, except for For nodes
         self.during_first_pass = true;
         match self.visit_order() {
-            VisitOrderOld::Manual => self.visit_manual(graph),
-            VisitOrderOld::PostOrder => self.visit_postorder(graph),
-            VisitOrderOld::DepthFirst => self.visit_depthfirst(graph),
+            VisitOrder::Manual => self.visit_manual(graph),
+            VisitOrder::PostOrder => self.visit_postorder(graph),
+            VisitOrder::DepthFirst => self.visit_depthfirst(graph),
         }
-        while let Some(node_index) = self.next_node() {
-            self.visit(graph, node_index);
+        while let Some(node) = self.next_node() {
+            self.visit(graph, node);
         }
 
         // Second pass, inline For nodes
         self.during_first_pass = false;
         match self.visit_order() {
-            VisitOrderOld::Manual => self.visit_manual(graph),
-            VisitOrderOld::PostOrder => self.visit_postorder(graph),
-            VisitOrderOld::DepthFirst => self.visit_depthfirst(graph),
+            VisitOrder::Manual => self.visit_manual(graph),
+            VisitOrder::PostOrder => self.visit_postorder(graph),
+            VisitOrder::DepthFirst => self.visit_depthfirst(graph),
         }
-        while let Some(node_index) = self.next_node() {
-            self.visit(graph, node_index);
+        while let Some(node) = self.next_node() {
+            self.visit(graph, node);
         }
     }
-
 }
 
 // impl<'a> Unrolling<'a> {
@@ -88,11 +152,11 @@ impl VisitOld for Unrolling {
 // }
 impl Unrolling {
     pub fn new() -> Self {
-        Self { 
+        Self {
             work_stack: vec![],
             during_first_pass: true,
-            bodies_to_inline: HashMap::new(),
-            for_inlining_context: ForInliningContext::default(),
+            bodies_to_inline: Vec::new(),
+            for_inlining_context: None,
             nodes_to_replace: HashMap::new(),
         }
     }
@@ -100,8 +164,8 @@ impl Unrolling {
     // 1. Understand the basics of the previous inlining process
     // 2. Remove what is done during lowering from AST to MIR (unroll, ...)
     // 3. Check how it translates to the MIR structure
-    fn run_visitor(&mut self, ir: &mut MirGraph) -> ControlFlow<()> {
-        VisitOld::run(self, ir);
+    fn run_visitor(&mut self, ir: &mut Graph) -> ControlFlow<()> {
+        Visit::run(self, ir);
         ControlFlow::Continue(())
     }
 }
@@ -113,496 +177,503 @@ enum BinaryOp {
 }
 
 impl Unrolling {
-    fn visit_value(&mut self, graph: &mut MirGraph, node_index: NodeIndex, spanned_mir_value: SpannedMirValue) {
-
-        match spanned_mir_value.value {
+    fn visit_value(&mut self, value: &Value) -> Option<Op> {
+        match value.value.value.clone() {
             MirValue::Constant(c) => match c {
-                ConstantValue::Felt(_) => { },
+                ConstantValue::Felt(_) => {}
                 ConstantValue::Vector(v) => {
                     let mut vec = vec![];
                     for val in v {
-                        let val = graph.insert_op_value(SpannedMirValue {
-                            span: spanned_mir_value.span.clone(),
+                        let val = Value::new(SpannedMirValue {
+                            span: value.value.span.clone(),
                             value: MirValue::Constant(ConstantValue::Felt(val)),
-                        });
+                        })
+                        .as_op()
+                        .into();
                         vec.push(val);
                     }
-                    graph.update_node(&node_index, Operation::Vector(vec));
-                },
+                    return Some(Vector::new(vec).as_op());
+                }
                 ConstantValue::Matrix(m) => {
                     let mut res_m = vec![];
                     for row in m {
                         let mut res_row = vec![];
                         for val in row {
-                            let val = graph.insert_op_value(SpannedMirValue {
-                                span: spanned_mir_value.span.clone(),
+                            let val = Value::new(SpannedMirValue {
+                                span: value.value.span.clone(),
                                 value: MirValue::Constant(ConstantValue::Felt(val)),
-                            });
+                            })
+                            .as_op()
+                            .into();
                             res_row.push(val);
                         }
-                        res_m.push(res_row);
+                        let res_row_vec = Vector::new(res_row).into();
+                        res_m.push(res_row_vec);
                     }
-                    graph.update_node(&node_index, Operation::Matrix(res_m));
-                },
+                    return Some(Matrix::new(res_m).as_op());
+                }
             },
-            MirValue::TraceAccess(_) => { },
-            MirValue::PeriodicColumn(_) => { },
-            MirValue::PublicInput(_) => { },
-            MirValue::RandomValue(_) => { },
+            MirValue::TraceAccess(_) => {}
+            MirValue::PeriodicColumn(_) => {}
+            MirValue::PublicInput(_) => {}
+            MirValue::RandomValue(_) => {}
             MirValue::TraceAccessBinding(trace_access_binding) => {
                 // Create Trace Access based on this binding
                 let mut vec = vec![];
                 for index in 0..trace_access_binding.size {
-                    let val = graph.insert_op_value(SpannedMirValue {
-                        span: spanned_mir_value.span.clone(),
-                        value: MirValue::TraceAccess(
-                            TraceAccess {
-                                segment: trace_access_binding.segment,
-                                column: trace_access_binding.offset + index,
-                                row_offset: 0,  // ???
-                            }
-                        ),
-                    });
+                    let val = Value::new(SpannedMirValue {
+                        span: value.value.span.clone(),
+                        value: MirValue::TraceAccess(TraceAccess {
+                            segment: trace_access_binding.segment,
+                            column: trace_access_binding.offset + index,
+                            row_offset: 0, // ???
+                        }),
+                    })
+                    .as_op()
+                    .into();
                     vec.push(val);
                 }
-                graph.update_node(&node_index, Operation::Vector(vec));
-            },
+                return Some(Vector::new(vec).as_op());
+            }
             MirValue::RandomValueBinding(random_value_binding) => {
                 let mut vec = vec![];
                 for index in 0..random_value_binding.size {
-                    let val = graph.insert_op_value(SpannedMirValue {
-                        span: spanned_mir_value.span.clone(),
+                    let val = Value::new(SpannedMirValue {
+                        span: value.value.span.clone(),
                         value: MirValue::RandomValue(random_value_binding.offset + index),
-                    });
+                    })
+                    .as_op()
+                    .into();
                     vec.push(val);
                 }
-                graph.update_node(&node_index, Operation::Vector(vec));
-            },
-            MirValue::Vector(vec) => {
+                return Some(Vector::new(vec).as_op());
+            }
+        }
+        None
+    }
+
+    fn visit_add(&mut self, add: &Add) -> Option<Op> {
+        let lhs = add.lhs.clone();
+        let rhs = add.rhs.clone();
+
+        if let (Op::Vector(lhs_vector), Op::Vector(rhs_vector)) =
+            (lhs.borrow().deref(), rhs.borrow().deref())
+        {
+            let lhs_vec = lhs_vector.children().borrow().deref().clone();
+            let rhs_vec = rhs_vector.children().borrow().deref().clone();
+
+            if lhs_vec.len() != rhs_vec.len() {
+                // Raise diag
+                todo!();
+            } else {
                 let mut new_vec = vec![];
-                for mir_value in vec {
-                    let val = graph.insert_op_value(SpannedMirValue {
-                        span: spanned_mir_value.span.clone(),
-                        value: mir_value,
-                    });
-                    new_vec.push(val);
+                for (lhs, rhs) in lhs_vec.iter().zip(rhs_vec.iter()) {
+                    let new_node = Add::new(lhs.clone(), rhs.clone()).as_op().into();
+                    new_vec.push(new_node);
                 }
-                graph.update_node(&node_index, Operation::Vector(new_vec));
-            },
-            MirValue::Matrix(matrix) => {
-                let mut new_matrix = vec![];
-                for row in matrix {
-                    let mut new_row = vec![];
-                    for mir_value in row {
-                        let val = graph.insert_op_value(SpannedMirValue {
-                            span: spanned_mir_value.span.clone(),
-                            value: mir_value,
-                        });
-                        new_row.push(val);
-                    }
-                    new_matrix.push(new_row);
-                }
-                graph.update_node(&node_index, Operation::Matrix(new_matrix));
-            },
-            MirValue::Variable(_mir_type, _, _node_index) => todo!(),
-            MirValue::Definition(_vec, _node_index, _node_index1) => todo!(),
-        }
-    }
-
-    fn visit_binary_op(&mut self, graph: &mut MirGraph, node_index: NodeIndex, lhs: NodeIndex, rhs: NodeIndex, binary_op: BinaryOp) {
-        let lhs_op = graph.node(&lhs).op().clone();
-        let rhs_op = graph.node(&rhs).op().clone();
-
-        match (lhs_op, rhs_op) {
-            (Operation::Value(SpannedMirValue { span: _, value: lhs_value }), Operation::Value(SpannedMirValue { span: _, value: rhs_value })) => {
-                // Check value types to ensure scalar, raise diag otherwise
-            },
-            (Operation::Vector(lhs_vec), Operation::Vector(rhs_vec)) => {
-                if lhs_vec.len() != rhs_vec.len() {
-                    // Raise diag
-                } else {
-                    let mut new_vec = vec![];
-                    for (lhs, rhs) in lhs_vec.iter().zip(rhs_vec.iter()) {
-                        let new_node_index = match binary_op {
-                            BinaryOp::Add => graph.insert_op_add(*lhs, *rhs),
-                            BinaryOp::Sub => graph.insert_op_sub(*lhs, *rhs),
-                            BinaryOp::Mul => graph.insert_op_mul(*lhs, *rhs),
-                        };
-                        new_vec.push(new_node_index);
-                    }
-                    graph.update_node(&node_index, Operation::Vector(new_vec));
-                }
-            },
-            _ => { }
-        }
-    }
-
-    fn visit_enf(&mut self, graph: &mut MirGraph, node_index: NodeIndex, child_node_index: NodeIndex) {
-        let child_op = graph.node(&child_node_index).op().clone();
-
-        match child_op {
-            Operation::Value(SpannedMirValue { span: _, value: child_value }) => {
-                // Check value types to ensure scalar, raise diag otherwise
-            },
-            Operation::Vector(child_vec) => {
-                let mut new_vec = vec![];
-                for child in child_vec.iter() {
-                    let new_node_index = graph.insert_op_enf(*child);
-                    new_vec.push(new_node_index);
-                }
-                graph.update_node(&node_index, Operation::Vector(new_vec));
-            },
-            _ => unreachable!()
-        }
-    }
-
-    fn visit_fold(&mut self, graph: &mut MirGraph, node_index: NodeIndex, iterator: NodeIndex, fold_operator: FoldOperator, accumulator: NodeIndex) {
-        // We need to expand this Fold into a nested sequence of binary expressions (add or mul depending on fold_operator)
-
-        let iterator = graph.node(&iterator).op().clone();
-        let iterator_node_indexes= match iterator {
-            Operation::Vector(vec) => {
-                vec
-            },
-            _ => unreachable!()
+                return Some(Vector::new(new_vec).as_op());
+            }
         };
+        None
+    }
 
-        let mut acc_node_index = accumulator;
+    fn visit_sub(&mut self, sub: &Sub) -> Option<Op> {
+        let lhs = sub.lhs.clone();
+        let rhs = sub.rhs.clone();
 
-        match fold_operator {
+        if let (Op::Vector(lhs_vector), Op::Vector(rhs_vector)) =
+            (lhs.borrow().deref(), rhs.borrow().deref())
+        {
+            let lhs_vec = lhs_vector.children().borrow().deref().clone();
+            let rhs_vec = rhs_vector.children().borrow().deref().clone();
+
+            if lhs_vec.len() != rhs_vec.len() {
+                // Raise diag
+            } else {
+                let mut new_vec = vec![];
+                for (lhs, rhs) in lhs_vec.iter().zip(rhs_vec.iter()) {
+                    let new_node = Sub::new(lhs.clone(), rhs.clone()).as_op().into();
+                    new_vec.push(new_node);
+                }
+                return Some(Vector::new(new_vec).as_op());
+            }
+        };
+        None
+    }
+
+    fn visit_mul(&mut self, mul: &Mul) -> Option<Op> {
+        let lhs = mul.lhs.clone();
+        let rhs = mul.rhs.clone();
+
+        if let (Op::Vector(lhs_vector), Op::Vector(rhs_vector)) =
+            (lhs.borrow().deref(), rhs.borrow().deref())
+        {
+            let lhs_vec = lhs_vector.children().borrow().deref().clone();
+            let rhs_vec = rhs_vector.children().borrow().deref().clone();
+
+            if lhs_vec.len() != rhs_vec.len() {
+                // Raise diag
+            } else {
+                let mut new_vec = vec![];
+                for (lhs, rhs) in lhs_vec.iter().zip(rhs_vec.iter()) {
+                    let new_node = Mul::new(lhs.clone(), rhs.clone()).as_op().into();
+                    new_vec.push(new_node);
+                }
+                return Some(Vector::new(new_vec).as_op());
+            }
+        };
+        None
+    }
+
+    fn visit_enf(&mut self, enf: &Enf) -> Option<Op> {
+        let expr = enf.expr.clone();
+        if let Op::Vector(vec) = expr.borrow().deref() {
+            let ops = vec.children().borrow().deref().clone();
+            let mut new_vec = vec![];
+            for op in ops.iter() {
+                let new_node = Enf::new(op.clone()).as_op().into();
+                new_vec.push(new_node);
+            }
+            return Some(Vector::new(new_vec).as_op());
+        };
+        None
+    }
+
+    fn visit_fold(&mut self, fold: &Fold) -> Option<Op> {
+        let iterator = fold.iterator.clone();
+        let operator = fold.operator.clone();
+        let initial_value = fold.initial_value.clone();
+
+        let iterator_ref = iterator.borrow();
+        let Op::Vector(iterator_vector) = iterator_ref.deref() else {
+            unreachable!();
+        };
+        let iterator_nodes = iterator_vector.children().borrow().deref().clone();
+
+        let mut acc_node = initial_value;
+        match operator {
             FoldOperator::Add => {
-                for iterator_node_index in iterator_node_indexes {
-                    let new_acc_node_index = graph.insert_op_add(acc_node_index, iterator_node_index);
-                    acc_node_index = new_acc_node_index;
+                for iterator_node in iterator_nodes {
+                    let new_acc_node = Add::new(acc_node, iterator_node).as_op().into();
+                    acc_node = new_acc_node;
                 }
-            },
+            }
             FoldOperator::Mul => {
-                for iterator_node_index in iterator_node_indexes {
-                    let new_acc_node_index = graph.insert_op_mul(acc_node_index, iterator_node_index);
-                    acc_node_index = new_acc_node_index;
+                for iterator_node in iterator_nodes {
+                    let new_acc_node = Mul::new(acc_node, iterator_node).as_op().into();
+                    acc_node = new_acc_node;
                 }
-            },
+            }
+            FoldOperator::None => {}
         }
 
         // Finally, replace the Fold with the expanded expression
-        graph.update_node(&node_index, graph.node(&acc_node_index).op().clone());
+        return Some(acc_node.borrow().deref().clone());
     }
 
-    fn visit_variable(&mut self, _graph: &mut MirGraph, _node_index: NodeIndex, spanned_variable: SpannedVariable) {
-        // Just check that the variable is a scalar, raise diag otherwise
+    fn visit_parameter(&mut self, _parameter: &Parameter) -> Option<Op> {
+        // FIXME: Just check that the parameter is a scalar, raise diag otherwise
         // List comprehension bodies should only be scalar expressions
-        match spanned_variable.ty {
-            MirType::Felt => { },
-            MirType::Vector(_size) => unreachable!(),
-            MirType::Matrix(_rows, _cols) => unreachable!(),
-            MirType::Definition(_vec, _) => todo!(),
-        }
+        None
     }
 
-    fn visit_if(&mut self, graph: &mut MirGraph, node_index: NodeIndex, cond_node_index: NodeIndex, then_node_index: NodeIndex, else_node_index: NodeIndex) {
-        let cond_op = graph.node(&cond_node_index).op().clone();
-        let then_op = graph.node(&then_node_index).op().clone();
-        let else_op = graph.node(&else_node_index).op().clone();
+    fn visit_if(&mut self, if_node: &If) -> Option<Op> {
+        let condition = if_node.condition.clone();
+        let then_branch = if_node.then_branch.clone();
+        let else_branch = if_node.else_branch.clone();
 
-        match (cond_op, then_op, else_op) {
-            (
-                Operation::Value(SpannedMirValue { span: _, value: cond_value }),
-                Operation::Value(SpannedMirValue { span: _, value: then_value }),
-                Operation::Value(SpannedMirValue { span: _, value: else_value }),                
-            ) => {
-                // Check value types to ensure scalar, raise diag otherwise
-            },
-            (
-                Operation::Vector(cond_vec),
-                Operation::Vector(then_vec),
-                Operation::Vector(else_vec),
-             ) => {
-                if cond_vec.len() != then_vec.len() || cond_vec.len() != else_vec.len() {
-                    // Raise diag
-                } else {
-                    let mut new_vec = vec![];
-                    for ((cond, then), else_) in cond_vec.iter().zip(then_vec.iter()).zip(else_vec.iter()) {
-                        let new_node_index = graph.insert_op_if(*cond, *then, *else_);
-                        new_vec.push(new_node_index);
-                    }
-                    graph.update_node(&node_index, Operation::Vector(new_vec));
-                }
-            },
-            _ => unreachable!()
-        }
-    }
+        if let (
+            Op::Vector(condition_vector),
+            Op::Vector(then_branch_vector),
+            Op::Vector(else_branch_vector),
+        ) = (
+            condition.borrow().deref(),
+            then_branch.borrow().deref(),
+            else_branch.borrow().deref(),
+        ) {
+            let condition_vec = condition_vector.children().borrow().deref().clone();
+            let then_branch_vec = then_branch_vector.children().borrow().deref().clone();
+            let else_branch_vec = else_branch_vector.children().borrow().deref().clone();
 
-    fn visit_boundary(&mut self, graph: &mut MirGraph, node_index: NodeIndex, boundary: Boundary, child_node_index: NodeIndex) {
-        let child_op = graph.node(&child_node_index).op().clone();
-
-        match child_op {
-            Operation::Value(SpannedMirValue { span: _, value: child_value }) => {
-                // Check value types to ensure scalar, raise diag otherwise
-            },
-            Operation::Vector(child_vec) => {
+            if condition_vec.len() != then_branch_vec.len()
+                || condition_vec.len() != else_branch_vec.len()
+            {
+                // Raise diag
+            } else {
                 let mut new_vec = vec![];
-                for child in child_vec.iter() {
-                    let new_node_index = graph.insert_op_boundary(boundary, *child);
-                    new_vec.push(new_node_index);
+                for ((condition, then_branch), else_branch) in condition_vec
+                    .iter()
+                    .zip(then_branch_vec.iter())
+                    .zip(else_branch_vec.iter())
+                {
+                    let new_node =
+                        If::new(condition.clone(), then_branch.clone(), else_branch.clone())
+                            .as_op()
+                            .into();
+                    new_vec.push(new_node);
                 }
-                graph.update_node(&node_index, Operation::Vector(new_vec));
-            },
-            _ => unreachable!()
-        }
+                return Some(Vector::new(new_vec).as_op());
+            }
+        };
+        None
     }
 
-    fn visit_for(&mut self, graph: &mut MirGraph, node_index: NodeIndex, iterators: Vec<NodeIndex>, body: NodeIndex, selector: Option<NodeIndex>) {
-        
+    fn visit_boundary(&mut self, boundary: &Boundary) -> Option<Op> {
+        let expr = boundary.expr.clone();
+        let kind = boundary.kind.clone();
+
+        if let Op::Vector(vec) = expr.borrow().deref() {
+            let expr_vec = vec.children().borrow().deref().clone();
+            let mut new_vec = vec![];
+            for expr in expr_vec.iter() {
+                let new_node = Boundary::new(expr.clone(), kind).as_op().into();
+                new_vec.push(new_node);
+            }
+            return Some(Vector::new(new_vec).as_op());
+        };
+        None
+    }
+
+    fn visit_accessor(&mut self, accessor: &Accessor) -> Option<Op> {
+        let indexable = accessor.indexable.clone();
+        let access_type = accessor.access_type.clone();
+        match access_type {
+            AccessType::Default => {
+                // Check that the child node is a scalar, raise diag otherwise
+                if indexable.clone().as_vector().is_some() {
+                    unreachable!(); // raise diag
+                }
+                if indexable.clone().as_matrix().is_some() {
+                    unreachable!(); // raise diag
+                }
+            }
+            AccessType::Index(index) => {
+                // Check that the child node is a vector, raise diag otherwise
+                // Replace the current node by the index-th element of the vector
+                // Raise diag if index is out of bounds
+
+                if let Op::Vector(indexable_vector) = indexable.borrow().deref() {
+                    let indexable_vec = indexable_vector.children().borrow().deref().clone();
+                    let child_accessed = match indexable_vec.get(index) {
+                        Some(child_accessed) => child_accessed,
+                        None => unreachable!(), // raise diag
+                    };
+
+                    return Some(child_accessed.borrow().deref().clone());
+                } else {
+                    unreachable!(); // raise diag
+                };
+            }
+            AccessType::Matrix(row, col) => {
+                // Check that the child node is a matrix, raise diag otherwise
+                // Replace the current node by the index-th element of the vector
+                // Raise diag if index is out of bounds
+
+                if let Op::Vector(indexable_vector) = indexable.borrow().deref() {
+                    let indexable_vec = indexable_vector.children().borrow().deref().clone();
+                    let row_accessed = match indexable_vec.get(row) {
+                        Some(row_accessed) => row_accessed,
+                        None => unreachable!(), // raise diag
+                    };
+
+                    if let Op::Vector(row_accessed_vector) = row_accessed.borrow().deref() {
+                        let row_accessed_vec =
+                            row_accessed_vector.children().borrow().deref().clone();
+                        let child_accessed = match row_accessed_vec.get(col) {
+                            Some(child_accessed) => child_accessed,
+                            None => unreachable!(), // raise diag
+                        };
+
+                        return Some(child_accessed.borrow().deref().clone());
+                    } else {
+                        unreachable!(); // raise diag
+                    };
+                } else {
+                    unreachable!(); // raise diag
+                };
+            }
+
+            AccessType::Slice(_range_expr) => {
+                unreachable!(); // Slices are not scalar, raise diag
+            }
+        }
+        None
+    }
+
+    fn visit_for(&mut self, node: Link<Op>, for_node: &For) -> Option<Op> {
         // For each value produced by the iterators, we need to:
         // - Duplicate the body
         // - Visit the body and replace the Variables with the value (with the correct index depending on the binding)
         // If there is a selector, we need to enforce the selector on the body through an if node ?
 
+        let iterators_ref = for_node.iterators.borrow();
+        let iterators = iterators_ref.deref();
+        let expr = for_node.expr.clone();
+        let selector = for_node.selector.clone();
+
         // Check iterator lengths
         if iterators.is_empty() {
             unreachable!(); // Raise diag
         }
-        let iterator_expected_len = match graph.node(&iterators[0]).op().clone() {
-            Operation::Vector(vec) => vec.len(),
-            _ => unreachable!(),
-        };
+        let iterator_expected_len = iterators[0]
+            .borrow()
+            .deref()
+            .children()
+            .borrow()
+            .deref()
+            .len();
+
         for iterator in iterators.iter().skip(1) {
-            match graph.node(&iterator).op().clone() {
-                Operation::Vector(vec) => {
-                    if vec.len() != iterator_expected_len {
-                        unreachable!(); // Raise diag
-                    }
-                },
-                _ => unreachable!(),
+            if iterator.borrow().deref().children().borrow().deref().len() != iterator_expected_len
+            {
+                unreachable!(); // Raise diag
             }
         }
 
-        let iterator_nodes_indices = iterators.iter().map(|iterator| {
-            let iterator_op = graph.node(iterator).op().clone();
-            match iterator_op {
-                Operation::Vector(vec) => vec,
-                _ => unreachable!(),
-            }
-        }).collect::<Vec<_>>();
+        let iterator_nodes = iterators
+            .iter()
+            .map(|iterator| iterator.borrow().deref().clone())
+            .collect::<Vec<_>>();
 
         let mut new_vec = vec![];
         for i in 0..iterator_expected_len {
-            let new_node_index = graph.insert_op_placeholder();
-            new_vec.push(new_node_index);
+            let new_node = Link::new(Op::None);
+            new_vec.push(new_node.clone());
 
-            let iterators_i = iterator_nodes_indices.iter().map(|vec| vec[i]).collect::<Vec<_>>();
+            let iterators_i = iterator_nodes
+                .iter()
+                .map(|vec| vec.children().borrow()[i].clone())
+                .collect::<Vec<_>>();
+            let selector = if let Op::None = selector.borrow().deref() {
+                None
+            } else {
+                Some(selector.clone())
+            };
 
-            self.bodies_to_inline.insert(new_node_index, 
+            self.bodies_to_inline.push((
+                new_node,
                 ForInliningContext {
-                    body_index: body,
+                    body: expr.clone(),
                     iterators: iterators_i,
                     selector: selector,
                     index: i,
-                    parent_for: node_index,
-                }
-            );
+                    parent_for: node.clone(),
+                },
+            ));
         }
-
-        graph.update_node(&node_index, Operation::Vector(new_vec));
+        Some(Vector::new(new_vec).as_op())
     }
 
-    fn visit_first_pass(&mut self, graph: &mut MirGraph, node_index: NodeIndex) {
-        let op = graph.node(&node_index).op().clone();
-        match op {
-            Operation::Value(spanned_mir_value) => {
-                // Transform values to scalar nodes (in the case of a vector or matrix, transform into Operation::Vector or Operation::Matrix)
-                self.visit_value(graph, node_index, spanned_mir_value);
-            },
-            Operation::Add(lhs, rhs) => {
-                self.visit_binary_op(graph, node_index, lhs, rhs, BinaryOp::Add);
-            },
-            Operation::Sub(lhs, rhs) => {
-                self.visit_binary_op(graph, node_index, lhs, rhs, BinaryOp::Sub);
-            },
-            Operation::Mul(lhs, rhs) => {
-                self.visit_binary_op(graph, node_index, lhs, rhs, BinaryOp::Mul);
-            },
-            Operation::Enf(child_node_index) => {
-                self.visit_enf(graph, node_index, child_node_index);
-            },
-            Operation::Fold(iterator, fold_operator, accumulator) => {
-                self.visit_fold(graph, node_index, iterator, fold_operator, accumulator);
-            },
-            Operation::For(iterators, body, selector) => {
+    fn visit_first_pass(&mut self, node: Link<Node>) {
+        let new_op: Option<Op> = match node.clone().borrow().deref() {
+            Node::Enf(enf) => self.visit_enf(enf),
+            Node::Boundary(boundary) => self.visit_boundary(boundary),
+            Node::Add(add) => self.visit_add(add),
+            Node::Sub(sub) => self.visit_sub(sub),
+            Node::Mul(mul) => self.visit_mul(mul),
+            Node::If(if_node) => self.visit_if(if_node),
+            Node::For(for_node) => {
                 // For each value produced by the iterators, we need to:
                 // - Duplicate the body
                 // - Visit the body and replace the Variables with the value (with the correct index depending on the binding)
                 // We then have a vector, that we can either fold up or enforce on each value
-
-                self.visit_for(graph, node_index, iterators, body, selector);
-            },
-            Operation::If(cond_node_index, then_node_index, else_node_index) => {
-                self.visit_if(graph, node_index, cond_node_index, then_node_index, else_node_index);
-            },
-
-            Operation::Boundary(boundary, child_node_index) => {
-                self.visit_boundary(graph, node_index, boundary, child_node_index);
-            },
-
-            Operation::Variable(spanned_variable) => {
-                self.visit_variable(graph, node_index, spanned_variable);
-            },
-
-            // These are already unrolled
-            Operation::Vector(_vec) => { }, 
-            Operation::Matrix(_vec) => { },
+                self.visit_for(node.clone().as_op().unwrap(), for_node)
+            }
+            Node::Fold(fold) => self.visit_fold(fold),
+            Node::Accessor(accessor) => self.visit_accessor(accessor),
+            Node::Parameter(parameter) => self.visit_parameter(parameter),
+            Node::Value(value) => self.visit_value(value),
 
             // These should not exist / be accessible from roots after inlining
-            Operation::Placeholder => { },
-            Operation::Definition(_vec, _node_index, _vec1) => { },
-            Operation::Call(_node_index, _vec) => { },
+            Node::Call(_call) => unreachable!(),
+            Node::Function(_function) => unreachable!(),
+            Node::Evaluator(_evaluator) => unreachable!(),
+
+            // Already unrolled
+            Node::Vector(_vector) => None,
+            Node::Matrix(_matrix) => None,
+            Node::None => None,
+        };
+        if let Some(new_op) = new_op {
+            *node.borrow_mut().deref_mut() = new_op.as_node();
         }
     }
 
-    fn visit_second_pass(&mut self, graph: &mut MirGraph, node_index: NodeIndex) {
-        if self.bodies_to_inline.contains_key(&node_index) {
-            // A new body to inline, we should replace the op with the corresponding iteration in the body
-            self.for_inlining_context = self.bodies_to_inline.get(&node_index).unwrap().clone();
-            self.nodes_to_replace.clear();
-            self.visit_later(self.for_inlining_context.body_index);
-        } else {
-            // Normal visit, insert in the graph the same instruction
-            let op = graph.node(&node_index).op().clone();
-            match op {
-                Operation::Variable(spanned_variable) => { 
-                    self.nodes_to_replace.insert(node_index, self.for_inlining_context.iterators[spanned_variable.argument_position]);
-                },
-                Operation::Value(v) => { },
-                Operation::Add(lhs, rhs) => {
-                    let new_lhs_node_index = self.nodes_to_replace.get(&lhs).unwrap_or(&lhs).clone();
-                    let new_rhs_node_index = self.nodes_to_replace.get(&rhs).unwrap_or(&rhs).clone();
-
-                    let new_node_index = graph.insert_op_add(new_lhs_node_index, new_rhs_node_index);
-                    self.nodes_to_replace.insert(node_index, new_node_index);
-                },
-                Operation::Sub(lhs, rhs) => {
-                    let new_lhs_node_index = self.nodes_to_replace.get(&lhs).unwrap_or(&lhs).clone();
-                    let new_rhs_node_index = self.nodes_to_replace.get(&rhs).unwrap_or(&rhs).clone();
-
-                    let new_node_index = graph.insert_op_sub(new_lhs_node_index, new_rhs_node_index);
-                    self.nodes_to_replace.insert(node_index, new_node_index);
-                },
-                Operation::Mul(lhs, rhs) => {
-                    let new_lhs_node_index = self.nodes_to_replace.get(&lhs).unwrap_or(&lhs).clone();
-                    let new_rhs_node_index = self.nodes_to_replace.get(&rhs).unwrap_or(&rhs).clone();
-
-                    let new_node_index = graph.insert_op_mul(new_lhs_node_index, new_rhs_node_index);
-                    self.nodes_to_replace.insert(node_index, new_node_index);
-                },
-                Operation::Fold(iter, f_op, acc ) => {
-                    let new_iter = self.nodes_to_replace.get(&iter).unwrap_or(&iter).clone();
-                    let new_acc = self.nodes_to_replace.get(&acc).unwrap_or(&acc).clone();
-
-                    let new_node_index = graph.insert_op_fold(new_iter, f_op, new_acc);
-                    self.nodes_to_replace.insert(node_index, new_node_index);
-                },
-                Operation::If(cond, then, else_) => { 
-                    let new_cond = self.nodes_to_replace.get(&cond).unwrap_or(&cond).clone();
-                    let new_then = self.nodes_to_replace.get(&then).unwrap_or(&then).clone();
-                    let new_else = self.nodes_to_replace.get(&else_).unwrap_or(&else_).clone();
-
-                    let new_node_index = graph.insert_op_if(new_cond, new_then, new_else);
-                    self.nodes_to_replace.insert(node_index, new_node_index);
-                },
-                Operation::Boundary(b, b_node_index) => { 
-                    let new_b_node_index = self.nodes_to_replace.get(&b_node_index).unwrap_or(&b_node_index).clone();
-                    let new_node_index = graph.insert_op_boundary(b, new_b_node_index);
-                    self.nodes_to_replace.insert(node_index, new_node_index);
-                },
-                Operation::Vector(v) => { 
-                    let new_v = v.iter().map(|node_index| {
-                        self.nodes_to_replace.get(node_index).unwrap_or(node_index).clone()
-                    }).collect();
-                    let new_node_index = graph.insert_op_vector(new_v);
-                    self.nodes_to_replace.insert(node_index, new_node_index);
-                },
-                Operation::Matrix(m) => { 
-                    let new_m = m.iter().map(|row| {
-                        row.iter().map(|node_index| {
-                            self.nodes_to_replace.get(node_index).unwrap_or(node_index).clone()
-                        }).collect()
-                    }).collect();
-                    let new_node_index = graph.insert_op_matrix(new_m);
-                    self.nodes_to_replace.insert(node_index, new_node_index);
-                },
-
-                Operation::Placeholder => unreachable!(),
-                Operation::Enf(_) => unreachable!(),
-                Operation::Definition(_, _, _) =>  unreachable!(),
-                Operation::Call(_, _) =>  unreachable!(),
-                Operation::For(_, _, _) => unreachable!(),
+    fn visit_second_pass(&mut self, node: Link<Node>) {
+        let node_index = self
+            .bodies_to_inline
+            .iter()
+            .position(|(n, _)| n.clone().as_node() == node);
+        match node_index {
+            Some(index) => {
+                // A new body to inline, we should replace the op with the corresponding iteration in the body
+                self.for_inlining_context =
+                    Some(self.bodies_to_inline.get(index).unwrap().clone().1);
+                self.nodes_to_replace.clear();
+                self.visit_later(
+                    self.for_inlining_context
+                        .clone()
+                        .unwrap()
+                        .body
+                        .clone()
+                        .as_node(),
+                );
             }
+            None => {
+                // Normal visit, insert in the graph the same instruction
+                duplicate_node_or_replace(
+                    &mut self.nodes_to_replace,
+                    node.clone().as_op().unwrap(),
+                    self.for_inlining_context.clone().unwrap().iterators,
+                );
 
-            if node_index == self.for_inlining_context.body_index {
-                // We have finished inlining the body, we can now replace the node_index in the current index of the parent For
-                let new_node_index = self.nodes_to_replace.get(&node_index).unwrap_or(&node_index).clone();
+                if node
+                    == self
+                        .for_inlining_context
+                        .clone()
+                        .unwrap()
+                        .body
+                        .clone()
+                        .as_node()
+                {
+                    // We have finished inlining the body, we can now replace the node in the current index of the parent For
+                    let new_node = self
+                        .nodes_to_replace
+                        .get(&node.clone().as_op().unwrap())
+                        .unwrap()
+                        .clone();
 
-                let parent_for = self.for_inlining_context.parent_for;
-                let parent_for_op = graph.node(&parent_for).op().clone();
-                match parent_for_op {
-                    Operation::Vector(vec) => {
-                        let mut new_vec = vec.clone();
+                    let parent_for: Link<Op> =
+                        self.for_inlining_context.clone().unwrap().parent_for;
+                    let mut parent_for_mut_ref = parent_for.borrow_mut();
+                    let Op::Vector(vector) = parent_for_mut_ref.deref_mut() else {
+                        unreachable!();
+                    };
 
-                        let new_node_to_update_at_index = if let Some(selector) = self.for_inlining_context.selector {
-                            let zero_node = graph.insert_op_value(SpannedMirValue {
-                                span: Default::default(),
-                                value: MirValue::Constant(ConstantValue::Felt(0)),
-                            });
-                            let if_node = graph.insert_op_if(selector, new_node_index, zero_node);
-                            if_node
-                        } else {
-                            new_node_index
-                        };
+                    let new_node_to_update_at = if let Some(selector) =
+                        self.for_inlining_context.clone().unwrap().selector
+                    {
+                        let zero_node = Value::new(SpannedMirValue {
+                            span: Default::default(),
+                            value: MirValue::Constant(ConstantValue::Felt(0)),
+                        })
+                        .as_op()
+                        .into();
+                        let if_node = If::new(selector, new_node, zero_node).as_op().into();
+                        if_node
+                    } else {
+                        new_node
+                    };
 
-                        new_vec[self.for_inlining_context.index] = new_node_to_update_at_index;
-
-                        graph.update_node(&parent_for, Operation::Vector(new_vec));
-                    },
-                    _ => unreachable!(),
+                    let children = vector.children();
+                    let mut children_mut_ref = children.borrow_mut();
+                    let children_mut = children_mut_ref.deref_mut();
+                    let child_to_update = children_mut
+                        .get_mut(self.for_inlining_context.clone().unwrap().index)
+                        .unwrap();
+                    *child_to_update = new_node_to_update_at;
                 }
             }
-        }
-
-    }
-}
-
-impl VisitContextOld for Unrolling {
-    fn visit(&mut self, graph: &mut MirGraph, node_index: NodeIndex) {
-        if self.during_first_pass {
-            self.visit_first_pass(graph, node_index);
-        } else {
-            self.visit_second_pass(graph, node_index);
-        }
-    }
-
-    fn as_stack_mut(&mut self) -> &mut Vec<NodeIndex> {
-        &mut self.work_stack
-    }
-    
-    type Graph = MirGraph;
-    
-    fn boundary_roots(&self, graph: &Self::Graph) -> HashSet<NodeIndex> {
-        if self.during_first_pass {
-            return graph.boundary_constraints_roots.clone();
-        } else {
-            return self.bodies_to_inline.keys().cloned().collect();
-        }
-    }
-    
-    fn integrity_roots(&self, graph: &Self::Graph) -> HashSet<NodeIndex> {
-        return graph.integrity_constraints_roots.clone()
-    }
-    
-    fn visit_order(&self) -> super::VisitOrderOld {
-        if self.during_first_pass {
-            return super::VisitOrderOld::PostOrder;
-        } else {
-            return super::VisitOrderOld::PostOrder;
         }
     }
 }

@@ -19,25 +19,25 @@ fn impl_isnode_struct(
 ) -> proc_macro2::TokenStream {
     let fields: Vec<&syn::Field> = struct_data.fields.iter().collect();
     let (node_field_name, field_names) = extract_field_names(&fields);
-    let extra_fields = fields
-        .iter()
-        .filter_map(|field| {
-            if field.ident == Some(node_field_name.clone()) {
-                None
-            } else {
-                Some(*field)
-            }
-        })
-        .collect::<Vec<_>>();
-    let new_signature = make_new_signature(&field_names, &extra_fields);
-    let extra_field_names = extra_fields
-        .iter()
-        .map(|field| field.ident.clone().unwrap())
-        .collect::<Vec<_>>();
+    /*let extra_fields = fields
+    .iter()
+    .filter_map(|field| {
+        if field.ident == Some(node_field_name.clone()) {
+            None
+        } else {
+            Some(*field)
+        }
+    })
+    .collect::<Vec<_>>();*/
+    //let new_signature = make_new_signature(&field_names, &extra_fields);
+    /*let extra_field_names = extra_fields
+    .iter()
+    .map(|field| field.ident.clone().unwrap())
+    .collect::<Vec<_>>();*/
     let getters = make_getters(&field_names);
     let impls = quote! {
         impl #ty {
-            pub fn new(#(#new_signature)*) -> Self {
+            /*pub fn new(#(#new_signature)*) -> Self {
                 Self {
                     #(#extra_field_names,)*
                     #node_field_name: Node::new(
@@ -45,7 +45,7 @@ fn impl_isnode_struct(
                         crate::ir2::Link::new(vec![#(#field_names),*])
                     ),
                 }
-            }
+            }*/
             #(#getters)*
         }
         impl crate::ir2::IsParent for #ty {
@@ -104,6 +104,7 @@ fn extract_field_names(fields: &[&syn::Field]) -> (proc_macro2::Ident, Vec<proc_
     (node_field_name, field_names)
 }
 
+/*
 fn make_new_signature(
     field_names: &[proc_macro2::Ident],
     extra_fields: &[&syn::Field],
@@ -124,7 +125,7 @@ fn make_new_signature(
         }
     }));
     signature
-}
+}*/
 
 fn make_getters(field_names: &[proc_macro2::Ident]) -> Vec<proc_macro2::TokenStream> {
     field_names

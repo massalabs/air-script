@@ -1,15 +1,16 @@
 mod codegen;
-mod graph;
-mod ir;
-mod ir2;
+
+//pub mod ir2;
+pub mod ir3;
 pub mod passes;
 #[cfg(test)]
-mod tests;
+mod tests2;
 
 pub use self::codegen::CodeGenerator;
-pub use self::graph::{MirGraph, Node, NodeIndex};
-pub use self::ir::*;
+//pub use self::ir::*;
+//pub use self::ir2::{Mir, Link, NodeType, LeafNode, MiddleNode, Graph, MirValue};
 
+use ir3::ConstraintError;
 use miden_diagnostics::{Diagnostic, ToDiagnostic};
 
 #[derive(Debug, thiserror::Error)]
@@ -23,6 +24,7 @@ pub enum CompileError {
     #[error("compilation failed, see diagnostics for more information")]
     Failed,
 }
+
 /*
 impl From<air_pass::Pass::Error> for CompileError {
     fn from(err: CompileError) -> Self {

@@ -1,6 +1,6 @@
 use air_parser::ast::QualifiedIdentifier;
 
-use crate::ir2::{Add, BackLink, Link, MiddleNode, NodeType, RootNode, Scope};
+use crate::ir2::{BackLink, Link, MiddleNode, NodeType, RootNode, Scope};
 use std::{collections::BTreeMap, fmt::Debug};
 
 pub trait IsParent: Clone + Into<Link<NodeType>> + Debug {
@@ -33,24 +33,6 @@ pub trait IsParent: Clone + Into<Link<NodeType>> + Debug {
             .last()
             .expect("last() called on empty node")
             .clone()
-    }
-    fn new_value<T>(&mut self, data: T) -> Link<NodeType>
-    where
-        T: Into<Link<NodeType>>,
-    {
-        let node: Link<NodeType> = data.into();
-        self.add_child(node.clone());
-        node
-    }
-    fn new_add(&mut self) -> Link<NodeType> {
-        let node: Link<NodeType> = Add::default().into();
-        self.add_child(node.clone());
-        node
-    }
-    fn new_scope(&mut self) -> Link<NodeType> {
-        let node: Link<NodeType> = Scope::default().into();
-        self.add_child(node.clone());
-        node
     }
 }
 
@@ -134,7 +116,7 @@ impl From<Node> for Link<NodeType> {
 #[derive(Clone, Eq, PartialEq)]
 pub struct Leaf<T> {
     parent: BackLink<NodeType>,
-    data: T,
+    pub data: T,
 }
 
 impl<T> Leaf<T> {
@@ -190,8 +172,8 @@ pub struct Graph {
     nodes: Link<Vec<Link<NodeType>>>,
     functions: BTreeMap<QualifiedIdentifier, Link<NodeType>>,
     evaluators: BTreeMap<QualifiedIdentifier, Link<NodeType>>,
-    boundary_constraints_roots: Link<Vec<Link<NodeType>>>,
-    integrity_constraints_roots: Link<Vec<Link<NodeType>>>,
+    pub boundary_constraints_roots: Link<Vec<Link<NodeType>>>,
+    pub integrity_constraints_roots: Link<Vec<Link<NodeType>>>,
 }
 
 // Public API
@@ -208,16 +190,35 @@ impl Graph {
         self.functions.insert(ident, node);
     }
 
-    pub fn get_function(&mut self, ident: &QualifiedIdentifier) -> Option<&Link<NodeType>> {
+    pub fn get_function(&self, ident: &QualifiedIdentifier) -> Option<&Link<NodeType>> {
         self.functions.get(ident)
+    }
+
+    pub fn get_function_mut(&mut self, ident: &QualifiedIdentifier) -> Option<&mut Link<NodeType>> {
+        self.functions.get_mut(ident)
+    }
+
+    pub fn get_function_nodes(&self) -> Vec<Link<NodeType>> {
+        self.functions.values().cloned().collect()
     }
 
     pub fn insert_evaluator(&mut self, ident: QualifiedIdentifier, node: Link<NodeType>) {
         self.evaluators.insert(ident, node);
     }
 
-    pub fn get_evaluator(&mut self, ident: &QualifiedIdentifier) -> Option<&Link<NodeType>> {
+    pub fn get_evaluator(&self, ident: &QualifiedIdentifier) -> Option<&Link<NodeType>> {
         self.evaluators.get(ident)
+    }
+
+    pub fn get_evaluator_mut(
+        &mut self,
+        ident: &QualifiedIdentifier,
+    ) -> Option<&mut Link<NodeType>> {
+        self.evaluators.get_mut(ident)
+    }
+
+    pub fn get_evaluator_nodes(&self) -> Vec<Link<NodeType>> {
+        self.evaluators.values().cloned().collect()
     }
 
     pub fn insert_boundary_constraints_root(&mut self, root: Link<NodeType>) {

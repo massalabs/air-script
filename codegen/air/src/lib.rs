@@ -2,8 +2,11 @@ mod codegen;
 mod graph;
 mod ir;
 pub mod passes;
+//#[cfg(test)]
+//mod tests;
+
 #[cfg(test)]
-mod tests;
+mod tests2;
 
 pub use self::codegen::CodeGenerator;
 pub use self::graph::{AlgebraicGraph, Node, NodeIndex};
