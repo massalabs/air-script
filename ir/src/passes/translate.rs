@@ -145,12 +145,12 @@ impl<'a> MirBuilder<'a> {
         let evaluator: Link<Evaluator> = raw_evaluator.into();
         // Insert the function body
         for stmt in body.iter() {
-            self.build_function_body_statement(evaluator.clone().as_owner().into(), stmt)?;
+            self.build_function_body_statement(evaluator.clone().as_owner(), stmt)?;
         }
 
         self.mir
             .constraint_graph_mut()
-            .insert_evaluator(ident.clone(), evaluator.clone().into());
+            .insert_evaluator(*ident, evaluator.clone());
 
         self.bindings.exit();
 
@@ -170,13 +170,13 @@ impl<'a> MirBuilder<'a> {
         self.bindings.enter();
         for (index, (ident, ty)) in params.iter().enumerate() {
             let param_node: Link<Parameter> =
-                Parameter::new(/*ident.span(),ty.clone(), */ index).into();
+                Parameter::new(/*ident.span(),*/ index, (*ty).into()).into();
             self.bindings.insert(*ident, param_node.clone().as_op());
             function = function.parameters(param_node);
         }
 
         let return_variable_node: Link<Parameter> =
-            Parameter::new(/*ident.span(), func.return_type.into(), */ 0).into();
+            Parameter::new(/*ident.span(), */ 0, func.return_type.into()).into();
         let function: Link<Function> = function.return_type(return_variable_node).build().into();
 
         // Insert the function body
@@ -186,7 +186,7 @@ impl<'a> MirBuilder<'a> {
 
         self.mir
             .constraint_graph_mut()
-            .insert_function(ident.clone(), function.clone());
+            .insert_function(*ident, function.clone());
 
         self.bindings.exit();
 
@@ -280,7 +280,7 @@ impl<'a> MirBuilder<'a> {
                 self.bindings.enter();
                 for (index, binding) in list_comprehension.bindings.iter().enumerate() {
                     let binding_node =
-                        Parameter::new(/*binding.span(), ast::Type::Felt.into(), */ index).as_op();
+                        Parameter::new(/*binding.span(), */ index, ast::Type::Felt.into()).as_op();
                     self.bindings.insert(*binding, binding_node.into());
                 }
 
@@ -325,7 +325,7 @@ impl<'a> MirBuilder<'a> {
                         };
                         self.mir
                             .constraint_graph_mut()
-                            .insert_integrity_constraints_root(enf_node.into())
+                            .insert_integrity_constraints_root(enf_node)
                     }
                 }
 
@@ -555,11 +555,11 @@ impl<'a> MirBuilder<'a> {
                 self.bindings.enter();
                 for (index, binding) in list_comprehension.bindings.iter().enumerate() {
                     let binding_node =
-                        Parameter::new(/*binding.span(), ast::Type::Felt.into(), */ index).as_op();
+                        Parameter::new(/*binding.span(), */ index, ast::Type::Felt.into()).as_op();
                     self.bindings.insert(*binding, binding_node.into());
                 }
 
-                let mut iterator_nodes = Link::new(Vec::new());
+                let iterator_nodes = Link::new(Vec::new());
                 for iterator in list_comprehension.iterables.iter() {
                     let iterator_node = self.insert_expr(iterator)?;
                     match iterator_node.as_vector() {
@@ -931,9 +931,9 @@ impl<'a> MirBuilder<'a> {
                     .expect("undefined variable")
                     .clone();
                 let let_bound_access_expr_duplicated = duplicate_node(let_bound_access_expr);
-                return Accessor::new(let_bound_access_expr_duplicated, access.access_type.clone())
+                Accessor::new(let_bound_access_expr_duplicated, access.access_type.clone())
                     .as_op()
-                    .into();
+                    .into()
             }
             // These should have been eliminated by previous compiler passes
             ResolvableIdentifier::Unresolved(_) => {
