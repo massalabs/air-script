@@ -170,12 +170,6 @@ impl Unrolling {
     }
 }
 
-enum BinaryOp {
-    Add,
-    Sub,
-    Mul,
-}
-
 impl Unrolling {
     fn visit_value(&mut self, value: &Value) -> Option<Op> {
         match value.value.value.clone() {

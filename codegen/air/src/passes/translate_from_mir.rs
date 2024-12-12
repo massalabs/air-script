@@ -34,7 +34,6 @@ impl<'p> Pass for MirToAir<'p> {
         let mut builder = AirBuilder {
             diagnostics: self.diagnostics,
             air: &mut air,
-            mir: &mir,
             trace_columns: mir.trace_columns.clone(),
         };
 
@@ -55,7 +54,6 @@ impl<'p> Pass for MirToAir<'p> {
 struct AirBuilder<'a> {
     diagnostics: &'a DiagnosticsHandler,
     air: &'a mut Air,
-    mir: &'a Mir,
     trace_columns: Vec<TraceSegment>,
 }
 
@@ -89,29 +87,31 @@ impl<'a> AirBuilder<'a> {
                 let value = match mir_value {
                     MirValue::Constant(constant_value) => {
                         if let ConstantValue::Felt(felt) = constant_value {
-                            Value::Constant(*felt)
+                            crate::ir::Value::Constant(*felt)
                         } else {
                             unreachable!()
                         }
                     }
-                    MirValue::TraceAccess(trace_access) => Value::TraceAccess(TraceAccess {
-                        segment: trace_access.segment,
-                        column: trace_access.column,
-                        row_offset: trace_access.row_offset,
-                    }),
+                    MirValue::TraceAccess(trace_access) => {
+                        crate::ir::Value::TraceAccess(crate::ir::TraceAccess {
+                            segment: trace_access.segment,
+                            column: trace_access.column,
+                            row_offset: trace_access.row_offset,
+                        })
+                    }
                     MirValue::PeriodicColumn(periodic_column_access) => {
-                        Value::PeriodicColumn(PeriodicColumnAccess {
+                        crate::ir::Value::PeriodicColumn(crate::ir::PeriodicColumnAccess {
                             name: periodic_column_access.name.clone(),
                             cycle: periodic_column_access.cycle,
                         })
                     }
                     MirValue::PublicInput(public_input_access) => {
-                        Value::PublicInput(PublicInputAccess {
+                        crate::ir::Value::PublicInput(crate::ir::PublicInputAccess {
                             name: public_input_access.name.clone(),
                             index: public_input_access.index,
                         })
                     }
-                    MirValue::RandomValue(rv) => Value::RandomValue(*rv),
+                    MirValue::RandomValue(rv) => crate::ir::Value::RandomValue(*rv),
                     _ => unreachable!(),
                 };
 
@@ -133,7 +133,7 @@ impl<'a> AirBuilder<'a> {
             Op::Matrix(matrix) => {
                 let rows = matrix.children().borrow().deref().clone();
                 for row in rows.iter() {
-                    let vec = row.children().borrow().deref().clone();
+                    let vec = row.borrow().deref().children().borrow().deref().clone();
                     for node in vec.iter() {
                         self.build_boundary_constraint(node)?;
                     }
@@ -143,7 +143,7 @@ impl<'a> AirBuilder<'a> {
             Op::Enf(enf) => {
                 let child_op = enf.expr.clone();
 
-                let Op::Sub(sub) = child_op.borrow().deref().clone() else {
+                let Op::Sub(_sub) = child_op.borrow().deref().clone() else {
                     unreachable!(); // Raise diag
                 };
 
@@ -163,15 +163,7 @@ impl<'a> AirBuilder<'a> {
                     unreachable!(); // Raise diag
                 };
 
-                let SpannedMirValue {
-                    value: MirValue::TraceAccess(_trace_access),
-                    span: _lhs_span,
-                } = &value.value
-                else {
-                    unreachable!(); // Raise diag
-                };
-
-                let (trace_access, lhs_span) = match leaf.data {
+                let (trace_access, lhs_span) = match value.value {
                     SpannedMirValue {
                         value: MirValue::TraceAccess(trace_access),
                         span: lhs_span,
@@ -195,7 +187,7 @@ impl<'a> AirBuilder<'a> {
                         };
                         (trace_access, lhs_span)
                     }
-                    _ => unreachable!("Expected TraceAccess, received {:?}", leaf.data), // Raise diag
+                    _ => unreachable!("Expected TraceAccess, received {:?}", value.value), // Raise diag
                 };
 
                 if let Some(prev) = self.trace_columns[trace_access.segment].mark_constrained(
@@ -218,11 +210,13 @@ impl<'a> AirBuilder<'a> {
                 let lhs = self
                     .air
                     .constraint_graph_mut()
-                    .insert_node(Operation::Value(Value::TraceAccess(TraceAccess {
-                        segment: trace_access.segment,
-                        column: trace_access.column,
-                        row_offset: trace_access.row_offset,
-                    })));
+                    .insert_node(Operation::Value(crate::ir::Value::TraceAccess(
+                        crate::ir::TraceAccess {
+                            segment: trace_access.segment,
+                            column: trace_access.column,
+                            row_offset: trace_access.row_offset,
+                        },
+                    )));
                 let rhs = self.insert_mir_operation(&rhs);
 
                 // Compare the inferred trace segment and domain of the operands
@@ -279,16 +273,16 @@ impl<'a> AirBuilder<'a> {
             Op::Matrix(matrix) => {
                 let rows = matrix.children().borrow().deref().clone();
                 for row in rows.iter() {
-                    let vec = row.children().borrow().deref().clone();
+                    let vec = row.borrow().deref().children().borrow().deref().clone();
                     for node in vec.iter() {
                         self.build_integrity_constraint(node)?;
                     }
                 }
             }
             Op::Enf(enf) => {
-                let child_op = enf.expr().clone();
+                let child_op = enf.expr.clone();
                 match child_op.clone().borrow().deref() {
-                    Op::Sub(sub) => {
+                    Op::Sub(_sub) => {
                         self.build_integrity_constraint(&child_op)?;
                     }
                     Op::If(if_node) => {
@@ -301,7 +295,7 @@ impl<'a> AirBuilder<'a> {
 
                         let pos_root =
                             self.insert_op(Operation::Mul(then_node_index, cond_node_index));
-                        let one = self.insert_op(Operation::Value(Value::Constant(1)));
+                        let one = self.insert_op(Operation::Value(crate::ir::Value::Constant(1)));
                         let neg_cond = self.insert_op(Operation::Sub(one, cond_node_index));
                         let neg_root = self.insert_op(Operation::Mul(else_node_index, neg_cond));
 

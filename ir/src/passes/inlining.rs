@@ -355,7 +355,8 @@ impl Inlining {
                         .clone()
                         .unwrap()
                         .body
-                        .last().unwrap()
+                        .last()
+                        .unwrap()
                         == &op
                     {
                         if self.call_inlining_context.clone().unwrap().pure_function {
@@ -377,12 +378,14 @@ impl Inlining {
                         } else {
                             // We have finished inlining the body, we can now replace the Call node with all the body
                             let mut new_nodes = Vec::new();
-                            for body_node in self.call_inlining_context.clone().unwrap().body.iter() {
+                            for body_node in self.call_inlining_context.clone().unwrap().body.iter()
+                            {
                                 // FIXME: Maybe we should only push nodes that are Enf()?
                                 // Depends if additional nodes change things (e.g. the Vector size..)
                                 // For now I think we can keep all nodes, and just ignore the non-Enf nodes
                                 // When building the constraints during lowering Mir -> Air
-                                new_nodes.push(self.nodes_to_replace.get(&body_node).unwrap().clone());
+                                new_nodes
+                                    .push(self.nodes_to_replace.get(&body_node).unwrap().clone());
                             }
                             let new_nodes_vector = Vector::new(new_nodes).as_op();
                             *self
