@@ -97,12 +97,7 @@ pub fn duplicate_node(node: Link<Op>) -> Link<Op> {
                 .borrow()
                 .iter()
                 .cloned()
-                .map(|iterator| {
-                    duplicate_node(iterator.as_op().into())
-                        .as_vector()
-                        .unwrap()
-                        .into()
-                })
+                .map(|iterator| duplicate_node(iterator))
                 .collect::<Vec<_>>()
                 .into();
             let new_body = duplicate_node(body);
@@ -249,15 +244,7 @@ pub fn duplicate_node_or_replace(
                 .borrow()
                 .iter()
                 .cloned()
-                .map(|iterator| {
-                    current_replace_map
-                        .get(&iterator.as_op())
-                        .unwrap()
-                        .clone()
-                        .as_vector()
-                        .unwrap()
-                        .into()
-                })
+                .map(|iterator| current_replace_map.get(&iterator).unwrap().clone())
                 .collect::<Vec<_>>()
                 .into();
             let new_body = current_replace_map.get(&body).unwrap().clone();

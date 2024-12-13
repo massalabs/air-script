@@ -113,7 +113,7 @@ fn get_children(link: Link<Node>) -> Link<Vec<Link<Op>>> {
                 match for_child.borrow().deref() {
                     ForChild::Iterators(link) => {
                         for vector in link.borrow().iter() {
-                            op_children.push(vector.clone().as_op());
+                            op_children.push(vector.clone());
                         }
                     }
                     ForChild::Expr(link) => op_children.push(link.borrow().clone().into()),

@@ -1,7 +1,7 @@
-use crate::ir::{BackLink, Builder, Child, Link, Node, NotSet, Op, Owner, Parent, Vector};
+use crate::ir::{BackLink, Builder, Child, Link, Node, NotSet, Op, Owner, Parent};
 
 pub enum ForChild {
-    Iterators(Link<Vec<Link<Vector>>>),
+    Iterators(Link<Vec<Link<Op>>>),
     Expr(Link<Op>),
     Selector(Link<Op>),
 }
@@ -9,13 +9,13 @@ pub enum ForChild {
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct For {
     pub parent: BackLink<Owner>,
-    pub iterators: Link<Vec<Link<Vector>>>,
+    pub iterators: Link<Vec<Link<Op>>>,
     pub expr: Link<Op>,
     pub selector: Link<Op>,
 }
 
 impl For {
-    pub fn new(iterators: Link<Vec<Link<Vector>>>, expr: Link<Op>, selector: Link<Op>) -> Self {
+    pub fn new(iterators: Link<Vec<Link<Op>>>, expr: Link<Op>, selector: Link<Op>) -> Self {
         Self {
             iterators,
             expr,
@@ -67,15 +67,15 @@ impl Child for For {
 pub struct ForBuilder<State> {
     _state: std::marker::PhantomData<State>,
     parent: BackLink<Owner>,
-    iterators: Vec<Link<Vector>>,
+    iterators: Vec<Link<Op>>,
     expr: Option<Link<Op>>,
     selector: Option<Link<Op>>,
 }
 
-type ForBuilderEmpty = ForBuilder<(BackLink<Owner>, Vec<Link<Vector>>, NotSet, NotSet)>;
-type ForBuilderA = ForBuilder<(BackLink<Owner>, Vec<Link<Vector>>, Link<Op>, NotSet)>;
-type ForBuilderB = ForBuilder<(BackLink<Owner>, Vec<Link<Vector>>, NotSet, Link<Op>)>;
-type ForBuilderFull = ForBuilder<(BackLink<Owner>, Vec<Link<Vector>>, Link<Op>, Link<Op>)>;
+type ForBuilderEmpty = ForBuilder<(BackLink<Owner>, Vec<Link<Op>>, NotSet, NotSet)>;
+type ForBuilderA = ForBuilder<(BackLink<Owner>, Vec<Link<Op>>, Link<Op>, NotSet)>;
+type ForBuilderB = ForBuilder<(BackLink<Owner>, Vec<Link<Op>>, NotSet, Link<Op>)>;
+type ForBuilderFull = ForBuilder<(BackLink<Owner>, Vec<Link<Op>>, Link<Op>, Link<Op>)>;
 
 impl Builder for For {
     type BuilderEmpty = ForBuilderEmpty;
@@ -111,7 +111,7 @@ impl ForBuilderEmpty {
         self.parent = parent.into();
         self
     }
-    pub fn iterators(mut self, iterator: Link<Vector>) -> Self {
+    pub fn iterators(mut self, iterator: Link<Op>) -> Self {
         self.iterators.push(iterator);
         self
     }
@@ -130,7 +130,7 @@ impl ForBuilderA {
         self.parent = parent.into();
         self
     }
-    pub fn iterators(mut self, iterator: Link<Vector>) -> Self {
+    pub fn iterators(mut self, iterator: Link<Op>) -> Self {
         self.iterators.push(iterator);
         self
     }
@@ -149,7 +149,7 @@ impl ForBuilderB {
         self.parent = parent.into();
         self
     }
-    pub fn iterators(mut self, iterator: Link<Vector>) -> Self {
+    pub fn iterators(mut self, iterator: Link<Op>) -> Self {
         self.iterators.push(iterator);
         self
     }
@@ -168,7 +168,7 @@ impl ForBuilderFull {
         self.parent = parent.into();
         self
     }
-    pub fn iterators(mut self, iterator: Link<Vector>) -> Self {
+    pub fn iterators(mut self, iterator: Link<Op>) -> Self {
         self.iterators.push(iterator);
         self
     }
@@ -192,15 +192,15 @@ impl ForBuilderFull {
 
 #[cfg(test)]
 mod tests {
-    use crate::ir::{Add, Evaluator, Sub};
+    use crate::ir::{Add, Evaluator, SpannedMirValue, Sub, Value};
 
     use super::*;
 
     #[test]
     fn test_for_builder() {
         let parent = Link::new(Owner::Evaluator(Evaluator::default()));
-        let i_a = Link::new(Vector::default());
-        let i_b = Link::new(Vector::default());
+        let i_a = Link::new(Value::builder().value(SpannedMirValue::default()).build()).as_op();
+        let i_b = Link::new(Value::builder().value(SpannedMirValue::default()).build()).as_op();
         let expr = Link::new(Op::Add(Add::default()));
         let selector = Link::new(Op::Sub(Sub::default()));
         let for_op = For::builder()

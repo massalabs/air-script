@@ -1,4 +1,5 @@
 use std::{
+    borrow::Borrow,
     collections::HashMap,
     ops::{ControlFlow, Deref, DerefMut},
 };
@@ -510,33 +511,38 @@ impl Unrolling {
             unreachable!(); // Raise diag
         }
         let iterator_expected_len = iterators[0]
+            .clone()
+            .as_vector()?
             .borrow()
-            .deref()
             .children()
             .borrow()
-            .deref()
             .len();
 
         for iterator in iterators.iter().skip(1) {
-            if iterator.borrow().deref().children().borrow().deref().len() != iterator_expected_len
+            if iterator
+                .clone()
+                .as_vector()?
+                .borrow()
+                .children()
+                .borrow()
+                .len()
+                != iterator_expected_len
             {
                 unreachable!(); // Raise diag
             }
         }
-
-        let iterator_nodes = iterators
-            .iter()
-            .map(|iterator| iterator.borrow().deref().clone())
-            .collect::<Vec<_>>();
 
         let mut new_vec = vec![];
         for i in 0..iterator_expected_len {
             let new_node = Link::new(Op::None);
             new_vec.push(new_node.clone());
 
-            let iterators_i = iterator_nodes
+            let iterators_i = iterators
                 .iter()
-                .map(|vec| vec.children().borrow()[i].clone())
+                .map(|op| match op.clone().as_vector() {
+                    Some(vec) => vec.borrow().children().borrow()[i].clone(),
+                    _ => unreachable!(),
+                })
                 .collect::<Vec<_>>();
             let selector = if let Op::None = selector.borrow().deref() {
                 None

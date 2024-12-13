@@ -291,15 +291,10 @@ impl<'a> MirBuilder<'a> {
                     self.bindings.insert(*binding, binding_node.into());
                 }
 
-                let mut iterator_nodes: Vec<Link<Vector>> = Vec::new();
+                let mut iterator_nodes: Vec<Link<Op>> = Vec::new();
                 for iterator in list_comprehension.iterables.iter() {
                     let iterator_node = self.insert_expr(iterator)?;
-                    match iterator_node.as_vector() {
-                        Some(vector) => iterator_nodes.push(vector),
-                        None => Err(SemanticAnalysisError::InvalidType(
-                            ast::InvalidTypeError::NonVectorIterable(iterator.span()),
-                        ))?,
-                    }
+                    iterator_nodes.push(iterator_node);
                 }
 
                 let selector_node = if let Some(selector) = &list_comprehension.selector {
@@ -572,12 +567,7 @@ impl<'a> MirBuilder<'a> {
                 let iterator_nodes = Link::new(Vec::new());
                 for iterator in list_comprehension.iterables.iter() {
                     let iterator_node = self.insert_expr(iterator)?;
-                    match iterator_node.as_vector() {
-                        Some(vector) => iterator_nodes.borrow_mut().push(vector),
-                        None => Err(SemanticAnalysisError::InvalidType(
-                            ast::InvalidTypeError::NonVectorIterable(iterator.span()),
-                        ))?,
-                    }
+                    iterator_nodes.borrow_mut().push(iterator_node);
                 }
 
                 let selector_node = if let Some(selector) = &list_comprehension.selector {
