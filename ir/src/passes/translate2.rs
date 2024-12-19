@@ -41,11 +41,12 @@ impl Pass for AstToMir<'_> {
 }
 
 pub struct MirBuilder<'a> {
+    program: &'a ast::Program,
     mir: Mir,
     random_values: Option<&'a ast::RandomValues>,
     trace_columns: &'a Vec<ast::TraceSegment>,
     bindings: LexicalScope<&'a ast::Identifier, Link<Op>>,
-    program: &'a ast::Program,
+    access_map: LexicalScope<&'a ast::Identifier, Vec<Link<Op>>>,
     in_boundary: bool,
     root: Link<Root>,
 }
@@ -58,11 +59,12 @@ enum AstEvalOrFunc {
 impl<'a> MirBuilder<'a> {
     pub fn new(program: &'a ast::Program) -> Self {
         Self {
+            program,
             mir: Mir::default(),
             random_values: program.random_values.as_ref(),
             trace_columns: program.trace_columns.as_ref(),
             bindings: LexicalScope::default(),
-            program,
+            access_map: LexicalScope::default(),
             in_boundary: true,
             root: Link::default(),
         }
@@ -123,28 +125,38 @@ impl<'a> MirBuilder<'a> {
     ) -> Result<Link<Evaluator>, CompileError> {
         let mut ev = Evaluator::builder();
         self.bindings.enter();
+        self.access_map.enter();
+        let mut i = 0;
         for trace_segment in &ast_eval.params {
             println!("trace_segment: {:#?}", trace_segment);
             for binding in &trace_segment.bindings {
-                let spanned_mir_value = SpannedMirValue {
-                    span: binding.span(),
-                    value: MirValue::TraceAccessBinding(TraceAccessBinding {
-                        segment: trace_segment.id,
-                        offset: binding.offset,
-                        size: binding.size,
-                    }),
-                };
-                let access_binding_node: Link<Op> = Value::builder()
-                    .value(spanned_mir_value)
-                    .build()
-                    .as_op()
-                    .into();
-                self.bindings
-                    .insert(binding.name.as_ref().unwrap(), access_binding_node.clone());
-                ev = ev.parameters(access_binding_node.as_value().unwrap().into());
+                println!("binding: {:#?}", binding);
+                match binding.ty {
+                    ast::Type::Felt => {
+                        let param: Link<Parameter> = Parameter::new(i, MirType::Felt).into();
+                        i += 1;
+                        self.bindings
+                            .insert(binding.name.as_ref().unwrap(), param.clone().as_op());
+                        ev = ev.parameters(param);
+                    }
+                    ast::Type::Vector(size) => {
+                        for _ in 0..size {
+                            let param: Link<Parameter> = Parameter::new(i, MirType::Felt).into();
+                            println!("param: {:#?}", param);
+                            i += 1;
+                            self.bindings
+                                .insert(binding.name.as_ref().unwrap(), param.clone().as_op());
+                            ev = ev.parameters(param);
+                        }
+                    }
+                    ast::Type::Matrix(rows, cols) => {
+                        unimplemented!("matrix parameters not supported");
+                    }
+                }
             }
         }
         self.bindings.exit();
+        self.access_map.exit();
         let ev = Link::new(ev.build());
         self.mir
             .constraint_graph_mut()
@@ -155,7 +167,7 @@ impl<'a> MirBuilder<'a> {
     fn translate_function_signature(
         &mut self,
         ident: &ast::QualifiedIdentifier,
-        ast_func: &ast::Function,
+        ast_func: &'a ast::Function,
     ) -> Result<Link<Function>, CompileError> {
         eprintln!(
             "translate_function_signature({:?}, {:#?})",
@@ -163,12 +175,15 @@ impl<'a> MirBuilder<'a> {
         );
         let mut func = Function::builder();
         let mut i = 0;
-        for (i, (ident, ty)) in ast_func.params.iter().enumerate() {
+        self.bindings.enter();
+        self.access_map.enter();
+        for (i, (param_ident, ty)) in ast_func.params.iter().enumerate() {
             let ty = self.translate_type(ty);
-            eprintln!("ident: {:#?}", ident);
+            eprintln!("ident: {:#?}", param_ident);
             eprintln!("ty: {:#?}", ty);
-            let param = Parameter::new(i, ty);
-            func = func.parameters(param.into());
+            let param: Link<Parameter> = Parameter::new(i, ty).into();
+            func = func.parameters(param.clone());
+            self.bindings.insert(param_ident, param.as_op());
         }
         i += 1;
         let ret = Parameter::new(i, self.translate_type(&ast_func.return_type));
@@ -176,6 +191,8 @@ impl<'a> MirBuilder<'a> {
         self.mir
             .constraint_graph_mut()
             .insert_function(*ident, func.clone());
+        self.bindings.exit();
+        self.access_map.exit();
         Ok(func)
     }
 
@@ -744,15 +761,11 @@ impl<'a> MirBuilder<'a> {
         }
 
         // If we reach here, this must be a let-bound variable
-        let let_bound_access_expr = self
+        let node = self
             .bindings
             .get(access.name.as_ref())
-            .expect("undefined variable")
+            .unwrap_or_else(|| panic!("undefined variable {:#?}", access))
             .clone();
-        let let_bound_access_expr_duplicated = duplicate_node(let_bound_access_expr);
-        let node = Accessor::new(let_bound_access_expr_duplicated, access.access_type.clone())
-            .as_op()
-            .into();
         Ok(node)
     }
 

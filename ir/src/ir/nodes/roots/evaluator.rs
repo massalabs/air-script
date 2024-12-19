@@ -1,13 +1,13 @@
-use crate::ir::{Builder, Link, Node, Op, Owner, Parent, Root, Value};
+use crate::ir::{Builder, Link, Node, Op, Owner, Parameter, Parent, Root};
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Evaluator {
-    pub parameters: Vec<Link<Value>>,
+    pub parameters: Vec<Link<Parameter>>,
     pub body: Link<Vec<Link<Op>>>,
 }
 
 impl Evaluator {
-    pub fn new(parameters: Vec<Link<Value>>, body: Vec<Link<Op>>) -> Self {
+    pub fn new(parameters: Vec<Link<Parameter>>, body: Vec<Link<Op>>) -> Self {
         Self {
             parameters,
             body: Link::new(body),
@@ -45,11 +45,11 @@ impl Parent for Evaluator {
 
 pub struct EvaluatorBuilder<State> {
     _state: std::marker::PhantomData<State>,
-    parameters: Vec<Link<Value>>,
+    parameters: Vec<Link<Parameter>>,
     body: Vec<Link<Op>>,
 }
 
-type EvaluatorBuilderState = EvaluatorBuilder<(Vec<Link<Value>>, Vec<Link<Op>>)>;
+type EvaluatorBuilderState = EvaluatorBuilder<(Vec<Link<Parameter>>, Vec<Link<Op>>)>;
 
 impl Builder for Evaluator {
     type BuilderEmpty = EvaluatorBuilderState;
@@ -77,7 +77,7 @@ impl Default for EvaluatorBuilderState {
 }
 
 impl EvaluatorBuilderState {
-    pub fn parameters(mut self, parameter: Link<Value>) -> Self {
+    pub fn parameters(mut self, parameter: Link<Parameter>) -> Self {
         self.parameters.push(parameter);
         self
     }
@@ -95,30 +95,12 @@ mod tests {
     use air_parser::ast::AccessType;
 
     use super::*;
-    use crate::ir::{Add, MirValue, SpannedMirValue, TraceAccessBinding};
+    use crate::ir::{Add, MirType, MirValue, SpannedMirValue, TraceAccessBinding};
 
     #[test]
     fn test_evaluator_builder() {
-        let a = Value::builder()
-            .value(SpannedMirValue {
-                span: Default::default(),
-                value: MirValue::TraceAccessBinding(TraceAccessBinding {
-                    segment: 0,
-                    offset: 0,
-                    size: 1,
-                }),
-            })
-            .build();
-        let b = Value::builder()
-            .value(SpannedMirValue {
-                span: Default::default(),
-                value: MirValue::TraceAccessBinding(TraceAccessBinding {
-                    segment: 1,
-                    offset: 1,
-                    size: 2,
-                }),
-            })
-            .build();
+        let a = Parameter::new(0, MirType::Felt);
+        let b = Parameter::new(1, MirType::Felt);
         let ev = Evaluator::builder()
             .parameters(a.clone().into())
             .parameters(b.clone().into())

@@ -1,8 +1,10 @@
-use std::ops::Deref;
+use std::{borrow::Borrow, cell::RefCell, ops::Deref, rc::Rc};
 
-use crate::ir::{BackLink, Builder, Child, Link, Node, NotSet, Op, Owner, Parent, Root};
+use crate::ir::{
+    Accessor, BackLink, Builder, Child, Link, Node, NotSet, Op, Owner, Parent, Root, Value,
+};
 
-use super::{MirValue, SpannedMirValue, TraceAccessBinding};
+use super::{MirValue, SpannedMirValue, TraceAccessBinding, Vector};
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Call {
@@ -122,56 +124,20 @@ impl CallBuilderFull {
         self
     }
     pub fn argument(mut self, argument: Link<Op>) -> Self {
-        self.arguments.push(argument);
+        let arguments: Vec<Link<Op>> = unpack_op(argument);
+        self.arguments.extend(arguments);
         self
     }
     pub fn build(self) -> Call {
-        let num_args = match self.function.clone().unwrap().borrow().deref() {
-            Root::Function(func) => self.arguments.len(),
-            Root::Evaluator(ev) => ev
-                .parameters
-                .iter()
-                .map(|p| match p.borrow().deref().value {
-                    SpannedMirValue {
-                        span: _,
-                        value:
-                            MirValue::TraceAccessBinding(TraceAccessBinding {
-                                segment: _,
-                                offset: _,
-                                size,
-                            }),
-                    } => size,
-                    _ => unreachable!(),
-                })
-                .sum(),
+        let callee_params = match self.function.clone().unwrap().borrow().deref() {
+            Root::Function(func) => func.parameters.clone(),
+            Root::Evaluator(ev) => ev.parameters.clone(),
             Root::None => unreachable!(),
         };
-        if num_args
-            != match self.function.clone().unwrap().borrow().deref() {
-                Root::Function(func) => func.parameters.len(),
-                Root::Evaluator(ev) => ev
-                    .parameters
-                    .iter()
-                    .map(|p| match p.borrow().deref().value {
-                        SpannedMirValue {
-                            span: _,
-                            value:
-                                MirValue::TraceAccessBinding(TraceAccessBinding {
-                                    segment: _,
-                                    offset: _,
-                                    size,
-                                }),
-                        } => size,
-                        _ => unreachable!(),
-                    })
-                    .sum(),
-                Root::None => unreachable!(),
-            }
-        {
+        if self.arguments.len() != callee_params.len() {
             panic!(
-                "wrong number of arguments {:#?}\n    for function {:#?}",
-                self.arguments,
-                self.function.unwrap()
+                "wrong number of arguments {:#?}\n    for {:#?}",
+                self.arguments, callee_params
             );
         }
         Call {
@@ -179,6 +145,49 @@ impl CallBuilderFull {
             function: self.function.unwrap(),
             arguments: Link::new(self.arguments),
         }
+    }
+}
+
+fn unpack_op(op: Link<Op>) -> Vec<Link<Op>> {
+    println!("unpack_op: {:#?}", op);
+    match op.borrow().deref() {
+        Op::Vector(vec @ Vector { .. }) => vec
+            .elements
+            .clone()
+            .borrow()
+            .iter()
+            .flat_map(|op| unpack_op(op.clone()))
+            .collect(),
+
+        Op::Value(val) => match &val.value {
+            SpannedMirValue {
+                value: MirValue::TraceAccessBinding(binding),
+                span,
+            } => {
+                let segment = binding.segment;
+                let mut offset = binding.offset;
+                let mut new_bindings: Vec<Link<Op>> = Vec::new();
+                for i in 0..binding.size {
+                    let new_binding = Op::Value(
+                        Value::builder()
+                            .value(SpannedMirValue {
+                                value: MirValue::TraceAccessBinding(TraceAccessBinding {
+                                    segment,
+                                    offset,
+                                    size: 1,
+                                }),
+                                span: *span,
+                            })
+                            .build(),
+                    );
+                    new_bindings.push(Link::new(new_binding));
+                    offset += i;
+                }
+                new_bindings
+            }
+            _ => vec![op.clone()],
+        },
+        _ => vec![op.clone()],
     }
 }
 
