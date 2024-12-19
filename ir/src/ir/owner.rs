@@ -1,9 +1,7 @@
 use crate::ir::{
-    Accessor, Add, Boundary, Call, Enf, Evaluator, Fold, For, Function, If, Matrix, Mul, Op, Sub,
-    Vector,
+    Accessor, Add, Boundary, Call, Enf, Evaluator, Fold, For, Function, If, Link, Matrix, Mul,
+    Node, Op, Parent, Sub, Vector,
 };
-
-use super::{Link, Node};
 
 /// The nodes that can own Op nodes
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
@@ -105,7 +103,7 @@ impl Owner {
             _ => None,
         }
     }
-    pub fn as_index_access(self) -> Option<Accessor> {
+    pub fn as_accessor(self) -> Option<Accessor> {
         match self {
             Owner::Accessor(a) => Some(a),
             _ => None,
@@ -155,6 +153,9 @@ impl Link<Owner> {
     pub fn as_function(self) -> Option<Link<Function>> {
         self.borrow().clone().as_function().map(|f| f.into())
     }
+    pub fn as_evaluator(self) -> Option<Link<Evaluator>> {
+        self.borrow().clone().as_evaluator().map(|e| e.into())
+    }
     pub fn as_enf(self) -> Option<Link<Enf>> {
         self.borrow().clone().as_enf().map(|e| e.into())
     }
@@ -188,13 +189,58 @@ impl Link<Owner> {
     pub fn as_matrix(self) -> Option<Link<Matrix>> {
         self.borrow().clone().as_matrix().map(|m| m.into())
     }
-    pub fn as_index_access(self) -> Option<Link<Accessor>> {
-        self.borrow().clone().as_index_access().map(|a| a.into())
+    pub fn as_accessor(self) -> Option<Link<Accessor>> {
+        self.borrow().clone().as_accessor().map(|a| a.into())
     }
     pub fn as_op(self) -> Option<Link<Op>> {
         self.borrow().clone().as_op().map(|o| o.into())
     }
     pub fn as_node(self) -> Link<Node> {
         self.borrow().clone().as_node().into()
+    }
+}
+
+impl Parent for Owner {
+    type Child = Op;
+    fn children(&self) -> Link<Vec<Link<Self::Child>>> {
+        match self {
+            Owner::Function(function) => function.children(),
+            Owner::Evaluator(evaluator) => evaluator.children(),
+            Owner::Enf(enf) => enf.children(),
+            Owner::Boundary(boundary) => boundary.children(),
+            Owner::Add(add) => add.children(),
+            Owner::Sub(sub) => sub.children(),
+            Owner::Mul(mul) => mul.children(),
+            Owner::If(if_node) => if_node.children(),
+            Owner::For(for_node) => for_node.children(),
+            Owner::Call(call) => call.children(),
+            Owner::Fold(fold) => fold.children(),
+            Owner::Vector(vector) => vector.children(),
+            Owner::Matrix(matrix) => matrix.children(),
+            Owner::Accessor(accessor) => accessor.children(),
+            Owner::None => Link::new(Vec::new()),
+        }
+    }
+    fn remove_child(&mut self, child: Link<Self::Child>)
+    where
+        Self::Child: PartialEq,
+    {
+        match self {
+            Owner::Function(function) => function.remove_child(child),
+            Owner::Evaluator(evaluator) => evaluator.remove_child(child),
+            Owner::Enf(enf) => enf.remove_child(child),
+            Owner::Boundary(boundary) => boundary.remove_child(child),
+            Owner::Add(add) => add.remove_child(child),
+            Owner::Sub(sub) => sub.remove_child(child),
+            Owner::Mul(mul) => mul.remove_child(child),
+            Owner::If(if_node) => if_node.remove_child(child),
+            Owner::For(for_node) => for_node.remove_child(child),
+            Owner::Call(call) => call.remove_child(child),
+            Owner::Fold(fold) => fold.remove_child(child),
+            Owner::Vector(vector) => vector.remove_child(child),
+            Owner::Matrix(matrix) => matrix.remove_child(child),
+            Owner::Accessor(accessor) => accessor.remove_child(child),
+            Owner::None => {}
+        }
     }
 }

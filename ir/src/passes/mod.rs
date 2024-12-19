@@ -14,11 +14,16 @@ pub use self::unrolling_old::UnrollingOld;
 pub use self::visitor_old::{Graph, VisitContextOld, VisitOld, VisitOrderOld};*/
 
 mod inlining;
+//mod inlining2;
 mod translate;
+mod translate2;
 mod unrolling;
 mod visitor;
+mod visitor2;
+// pub use self::inlining::Inlining;
 pub use self::inlining::Inlining;
-pub use self::translate::AstToMir;
+//pub use self::translate::AstToMir;
+pub use self::translate2::AstToMir;
 pub use self::unrolling::Unrolling;
 pub use self::visitor::{Visit, VisitContext, VisitOrder};
 
@@ -145,7 +150,12 @@ pub fn duplicate_node(node: Link<Op>) -> Link<Op> {
             let children_ref = children_link.borrow();
             let children = children_ref.deref();
             for row in children.iter() {
-                let row_children_link = row.borrow().children().clone();
+                let row_children_link = row
+                    .clone()
+                    .as_vector()
+                    .expect(format!("expected Vector, found {:?}", row).as_str())
+                    .children()
+                    .clone();
                 let row_children_ref = row_children_link.borrow();
                 let row_children = row_children_ref.deref();
                 let new_row_as_vec = row_children
@@ -299,7 +309,12 @@ pub fn duplicate_node_or_replace(
             let children_ref = children_link.borrow();
             let children = children_ref.deref();
             for row in children.iter() {
-                let row_children_link = row.borrow().children().clone();
+                let row_children_link = row
+                    .clone()
+                    .as_vector()
+                    .expect(format!("expected Vector, found {:?}", row).as_str())
+                    .children()
+                    .clone();
                 let row_children_ref = row_children_link.borrow();
                 let row_children = row_children_ref.deref();
                 let new_row_as_vec = row_children

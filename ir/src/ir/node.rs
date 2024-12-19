@@ -107,7 +107,7 @@ impl Node {
             _ => None,
         }
     }
-    pub fn as_index_access(self) -> Option<Accessor> {
+    pub fn as_accessor(self) -> Option<Accessor> {
         match self {
             Node::Accessor(a) => Some(a),
             _ => None,
@@ -187,6 +187,9 @@ impl Link<Node> {
     pub fn as_function(self) -> Option<Link<Function>> {
         self.borrow().clone().as_function().map(|f| f.into())
     }
+    pub fn as_evaluator(self) -> Option<Link<Evaluator>> {
+        self.borrow().clone().as_evaluator().map(|e| e.into())
+    }
     pub fn as_enf(self) -> Option<Link<Enf>> {
         self.borrow().clone().as_enf().map(|e| e.into())
     }
@@ -220,8 +223,8 @@ impl Link<Node> {
     pub fn as_matrix(self) -> Option<Link<Matrix>> {
         self.borrow().clone().as_matrix().map(|m| m.into())
     }
-    pub fn as_index_access(self) -> Option<Link<Accessor>> {
-        self.borrow().clone().as_index_access().map(|a| a.into())
+    pub fn as_accessor(self) -> Option<Link<Accessor>> {
+        self.borrow().clone().as_accessor().map(|a| a.into())
     }
     pub fn as_parameter(self) -> Option<Link<Parameter>> {
         self.borrow().clone().as_parameter().map(|p| p.into())
@@ -237,5 +240,8 @@ impl Link<Node> {
     }
     pub fn as_root(self) -> Option<Link<Root>> {
         self.borrow().clone().as_root().map(|r| r.into())
+    }
+    pub fn as_leaf(self) -> Option<Link<Leaf>> {
+        self.borrow().clone().as_leaf().map(|l| l.into())
     }
 }

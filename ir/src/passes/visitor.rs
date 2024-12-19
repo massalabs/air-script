@@ -1,6 +1,6 @@
 use std::ops::Deref;
 
-use crate::ir::{ForChild, Link, Node, Op, Parent};
+use crate::ir::{Link, Node, Op, Parent};
 
 pub enum VisitOrder {
     Manual,
@@ -106,34 +106,11 @@ fn get_children(link: Link<Node>) -> Link<Vec<Link<Op>>> {
         Node::Sub(sub) => sub.children(),
         Node::Mul(mul) => mul.children(),
         Node::If(if_node) => if_node.children(),
-        Node::For(for_node) => {
-            let mut op_children = Vec::new();
-            let for_children = for_node.children();
-            for for_child in for_children.borrow().iter() {
-                match for_child.borrow().deref() {
-                    ForChild::Iterators(link) => {
-                        for vector in link.borrow().iter() {
-                            op_children.push(vector.clone());
-                        }
-                    }
-                    ForChild::Expr(link) => op_children.push(link.borrow().clone().into()),
-                    ForChild::Selector(link) => op_children.push(link.borrow().clone().into()),
-                };
-            }
-            Link::new(op_children)
-        }
+        Node::For(for_node) => for_node.children(),
         Node::Call(call) => call.children(),
         Node::Fold(fold) => fold.children(),
         Node::Vector(vector) => vector.children(),
-        Node::Matrix(matrix) => matrix
-            .children()
-            .borrow()
-            .deref()
-            .clone()
-            .iter()
-            .map(|v| v.clone().as_op().into())
-            .collect::<Vec<_>>()
-            .into(),
+        Node::Matrix(matrix) => matrix.children(),
         Node::Accessor(accessor) => accessor.children(),
         Node::Parameter(_parameter) => Link::new(vec![]),
         Node::Value(_value) => Link::new(vec![]),

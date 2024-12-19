@@ -38,6 +38,22 @@ pub trait Parent {
     }
 }
 
+impl<T> Parent for Link<T>
+where
+    T: Parent,
+{
+    type Child = T::Child;
+    fn children(&self) -> Link<Vec<Link<Self::Child>>> {
+        self.borrow().children()
+    }
+    fn remove_child(&mut self, child: Link<Self::Child>)
+    where
+        Self::Child: PartialEq,
+    {
+        self.borrow_mut().remove_child(child);
+    }
+}
+
 /// A trait for nodes that can have a parent
 /// This is used with the Parent trait to allow for easy traversal and manipulation of the graph
 pub trait Child: Clone + Into<Link<Self>> + PartialEq {
@@ -61,6 +77,19 @@ pub trait Child: Clone + Into<Link<Self>> + PartialEq {
         }
         // Change the parent
         self.set_parent(new_parent);
+    }
+}
+
+impl<T> Child for Link<T>
+where
+    T: Child,
+{
+    type Parent = T::Parent;
+    fn get_parent(&self) -> BackLink<Self::Parent> {
+        self.borrow().get_parent()
+    }
+    fn set_parent(&mut self, parent: Link<Self::Parent>) {
+        self.borrow_mut().set_parent(parent);
     }
 }
 

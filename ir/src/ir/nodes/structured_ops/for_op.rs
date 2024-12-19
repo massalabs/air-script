@@ -1,11 +1,5 @@
 use crate::ir::{BackLink, Builder, Child, Link, Node, NotSet, Op, Owner, Parent};
 
-pub enum ForChild {
-    Iterators(Link<Vec<Link<Op>>>),
-    Expr(Link<Op>),
-    Selector(Link<Op>),
-}
-
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct For {
     pub parent: BackLink<Owner>,
@@ -44,13 +38,12 @@ impl Link<For> {
 }
 
 impl Parent for For {
-    type Child = ForChild;
+    type Child = Op;
     fn children(&self) -> Link<Vec<Link<Self::Child>>> {
-        Link::new(vec![
-            ForChild::Iterators(self.iterators.clone()).into(),
-            ForChild::Expr(self.expr.clone()).into(),
-            ForChild::Selector(self.selector.clone()).into(),
-        ])
+        let mut children = Vec::from(self.iterators.borrow().clone());
+        children.push(self.expr.clone());
+        children.push(self.selector.clone());
+        Link::new(children)
     }
 }
 

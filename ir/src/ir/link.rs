@@ -26,7 +26,7 @@ impl<T> Link<T> {
 
 impl<T: Debug> Debug for Link<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self.link.borrow())
+        self.link.borrow().fmt(f)
     }
 }
 

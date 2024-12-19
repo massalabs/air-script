@@ -104,6 +104,7 @@ impl<'a> MirBuilder<'a> {
         ident: &QualifiedIdentifier,
         func: &ast::EvaluatorFunction,
     ) -> Result<(), CompileError> {
+        eprintln!("Inserting evaluator function body {:?}", ident);
         let mut raw_evaluator = Evaluator::builder().build();
 
         let body = &func.body;

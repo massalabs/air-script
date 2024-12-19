@@ -2,6 +2,8 @@ use std::ops::Deref;
 
 use crate::ir::{BackLink, Builder, Child, Link, Node, NotSet, Op, Owner, Parent, Root};
 
+use super::{MirValue, SpannedMirValue, TraceAccessBinding};
+
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Call {
     pub parent: BackLink<Owner>,
@@ -124,14 +126,53 @@ impl CallBuilderFull {
         self
     }
     pub fn build(self) -> Call {
-        if self.arguments.len()
+        let num_args = match self.function.clone().unwrap().borrow().deref() {
+            Root::Function(func) => self.arguments.len(),
+            Root::Evaluator(ev) => ev
+                .parameters
+                .iter()
+                .map(|p| match p.borrow().deref().value {
+                    SpannedMirValue {
+                        span: _,
+                        value:
+                            MirValue::TraceAccessBinding(TraceAccessBinding {
+                                segment: _,
+                                offset: _,
+                                size,
+                            }),
+                    } => size,
+                    _ => unreachable!(),
+                })
+                .sum(),
+            Root::None => unreachable!(),
+        };
+        if num_args
             != match self.function.clone().unwrap().borrow().deref() {
                 Root::Function(func) => func.parameters.len(),
-                Root::Evaluator(ev) => ev.parameters.len(),
-                _ => unreachable!(),
+                Root::Evaluator(ev) => ev
+                    .parameters
+                    .iter()
+                    .map(|p| match p.borrow().deref().value {
+                        SpannedMirValue {
+                            span: _,
+                            value:
+                                MirValue::TraceAccessBinding(TraceAccessBinding {
+                                    segment: _,
+                                    offset: _,
+                                    size,
+                                }),
+                        } => size,
+                        _ => unreachable!(),
+                    })
+                    .sum(),
+                Root::None => unreachable!(),
             }
         {
-            panic!("wrong number of arguments");
+            panic!(
+                "wrong number of arguments {:#?}\n    for function {:#?}",
+                self.arguments,
+                self.function.unwrap()
+            );
         }
         Call {
             parent: self.parent,

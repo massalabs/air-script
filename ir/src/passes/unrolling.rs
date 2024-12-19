@@ -1,5 +1,4 @@
 use std::{
-    borrow::Borrow,
     collections::HashMap,
     ops::{ControlFlow, Deref, DerefMut},
 };
@@ -512,7 +511,8 @@ impl Unrolling {
         }
         let iterator_expected_len = iterators[0]
             .clone()
-            .as_vector()?
+            .as_vector()
+            .expect("Iterators should be vectors")
             .borrow()
             .children()
             .borrow()
@@ -521,7 +521,8 @@ impl Unrolling {
         for iterator in iterators.iter().skip(1) {
             if iterator
                 .clone()
-                .as_vector()?
+                .as_vector()
+                .expect("Iterators should be vectors")
                 .borrow()
                 .children()
                 .borrow()

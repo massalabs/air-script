@@ -4,9 +4,9 @@ use crate::ir::{BackLink, Builder, Child, Link, Node, NotSet, Op, Owner, Parent}
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Vector {
-    parent: BackLink<Owner>,
-    size: usize,
-    elements: Link<Vec<Link<Op>>>,
+    pub parent: BackLink<Owner>,
+    pub size: usize,
+    pub elements: Link<Vec<Link<Op>>>,
 }
 
 impl Vector {

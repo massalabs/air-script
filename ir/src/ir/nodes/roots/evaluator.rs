@@ -1,13 +1,13 @@
-use crate::ir::{Builder, Link, Node, Op, Owner, Parameter, Parent, Root};
+use crate::ir::{Builder, Link, Node, Op, Owner, Parent, Root, Value};
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Evaluator {
-    pub parameters: Vec<Link<Parameter>>,
+    pub parameters: Vec<Link<Value>>,
     pub body: Link<Vec<Link<Op>>>,
 }
 
 impl Evaluator {
-    pub fn new(parameters: Vec<Link<Parameter>>, body: Vec<Link<Op>>) -> Self {
+    pub fn new(parameters: Vec<Link<Value>>, body: Vec<Link<Op>>) -> Self {
         Self {
             parameters,
             body: Link::new(body),
@@ -45,11 +45,11 @@ impl Parent for Evaluator {
 
 pub struct EvaluatorBuilder<State> {
     _state: std::marker::PhantomData<State>,
-    parameters: Vec<Link<Parameter>>,
+    parameters: Vec<Link<Value>>,
     body: Vec<Link<Op>>,
 }
 
-type EvaluatorBuilderState = EvaluatorBuilder<(Vec<Link<Parameter>>, Vec<Link<Op>>)>;
+type EvaluatorBuilderState = EvaluatorBuilder<(Vec<Link<Value>>, Vec<Link<Op>>)>;
 
 impl Builder for Evaluator {
     type BuilderEmpty = EvaluatorBuilderState;
@@ -77,7 +77,7 @@ impl Default for EvaluatorBuilderState {
 }
 
 impl EvaluatorBuilderState {
-    pub fn parameters(mut self, parameter: Link<Parameter>) -> Self {
+    pub fn parameters(mut self, parameter: Link<Value>) -> Self {
         self.parameters.push(parameter);
         self
     }
@@ -92,21 +92,44 @@ impl EvaluatorBuilderState {
 
 #[cfg(test)]
 mod tests {
+    use air_parser::ast::AccessType;
+
     use super::*;
-    use crate::ir::{nodes::value::MirType, Add};
+    use crate::ir::{Add, MirValue, SpannedMirValue, TraceAccessBinding};
 
     #[test]
     fn test_evaluator_builder() {
-        let a = Link::new(Parameter::new(0, MirType::Felt));
-        let b = Link::new(Parameter::new(1, MirType::Felt));
+        let a = Value::builder()
+            .value(SpannedMirValue {
+                span: Default::default(),
+                value: MirValue::TraceAccessBinding(TraceAccessBinding {
+                    segment: 0,
+                    offset: 0,
+                    size: 1,
+                }),
+            })
+            .build();
+        let b = Value::builder()
+            .value(SpannedMirValue {
+                span: Default::default(),
+                value: MirValue::TraceAccessBinding(TraceAccessBinding {
+                    segment: 1,
+                    offset: 1,
+                    size: 2,
+                }),
+            })
+            .build();
         let ev = Evaluator::builder()
-            .parameters(a.clone())
-            .parameters(b.clone())
+            .parameters(a.clone().into())
+            .parameters(b.clone().into())
             .body(Op::Add(Add::default()).into())
             .build();
-        assert_eq!(ev.parameters.len(), 2);
-        assert_eq!(ev.parameters[0].clone(), a.clone().into());
-        assert_eq!(ev.parameters[1].clone(), b.clone().into());
-        assert_eq!(ev.body.borrow().len(), 1);
+        assert_eq!(
+            ev,
+            Evaluator {
+                parameters: vec![a.into(), b.into()],
+                body: Link::new(vec![Op::Add(Add::default()).into()]),
+            }
+        );
     }
 }

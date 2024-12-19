@@ -114,7 +114,7 @@ impl PublicInputAccess {
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Value {
-    parent: BackLink<Owner>,
+    pub parent: BackLink<Owner>,
     pub value: SpannedMirValue,
 }
 

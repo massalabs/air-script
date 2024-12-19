@@ -1,4 +1,6 @@
-use std::marker::PhantomData;
+use std::{
+    marker::PhantomData,
+};
 
 use crate::ir::{BackLink, Builder, Child, Link, Node, NotSet, Op, Owner, Parent, Vector};
 
@@ -42,9 +44,15 @@ impl Link<Matrix> {
 }
 
 impl Parent for Matrix {
-    type Child = Vector;
+    type Child = Op;
     fn children(&self) -> Link<Vec<Link<Self::Child>>> {
-        self.elements.clone()
+        self.elements
+            .clone()
+            .borrow_mut()
+            .iter()
+            .map(|element| element.clone().as_op())
+            .collect::<Vec<_>>()
+            .into()
     }
 }
 
@@ -65,7 +73,7 @@ pub struct MatrixBuilder<State> {
     elements: Vec<Link<Vector>>,
 }
 
-impl Builder for MatrixBuilder<(BackLink<Owner>, NotSet, Vec<Link<Vector>>)> {
+impl Builder for Matrix {
     type BuilderEmpty = MatrixBuilder<(BackLink<Owner>, NotSet, Vec<Link<Vector>>)>;
     type BuilderFull = MatrixBuilder<(BackLink<Owner>, NotSet, Vec<Link<Vector>>)>;
     fn builder() -> Self::BuilderEmpty {
@@ -75,8 +83,8 @@ impl Builder for MatrixBuilder<(BackLink<Owner>, NotSet, Vec<Link<Vector>>)> {
         Self::BuilderFull {
             _state: PhantomData,
             parent: self.parent,
-            size: self.size,
-            elements: self.elements,
+            size: Some(self.size),
+            elements: self.elements.borrow().clone(),
         }
     }
 }

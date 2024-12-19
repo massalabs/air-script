@@ -5,7 +5,7 @@ pub use evaluator::Evaluator;
 pub use function::Function;
 
 use super::value::MirType;
-use crate::ir::{Leaf, Link, Op};
+use crate::ir::{Leaf, Link, Node, Op};
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Parameter {
@@ -23,6 +23,9 @@ impl Parameter {
     pub fn as_op(self) -> Op {
         Op::Parameter(self)
     }
+    pub fn as_node(self) -> Node {
+        Node::Parameter(self)
+    }
 }
 
 impl Link<Parameter> {
@@ -31,5 +34,8 @@ impl Link<Parameter> {
     }
     pub fn as_op(self) -> Link<Op> {
         Link::new(Op::Parameter(self.borrow().clone()))
+    }
+    pub fn as_node(self) -> Link<Node> {
+        Link::new(Node::Parameter(self.borrow().clone()))
     }
 }
