@@ -92,10 +92,9 @@ impl EvaluatorBuilderState {
 
 #[cfg(test)]
 mod tests {
-    use air_parser::ast::AccessType;
 
     use super::*;
-    use crate::ir::{Add, MirType, MirValue, SpannedMirValue, TraceAccessBinding};
+    use crate::ir::{Add, MirType};
 
     #[test]
     fn test_evaluator_builder() {

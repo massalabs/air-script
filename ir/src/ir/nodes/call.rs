@@ -1,8 +1,6 @@
-use std::{borrow::Borrow, cell::RefCell, ops::Deref, rc::Rc};
+use std::{borrow::Borrow, ops::Deref};
 
-use crate::ir::{
-    Accessor, BackLink, Builder, Child, Link, Node, NotSet, Op, Owner, Parent, Root, Value,
-};
+use crate::ir::{BackLink, Builder, Child, Link, Node, NotSet, Op, Owner, Parent, Root, Value};
 
 use super::{MirValue, SpannedMirValue, TraceAccessBinding, Vector};
 
@@ -151,13 +149,27 @@ impl CallBuilderFull {
 fn unpack_op(op: Link<Op>) -> Vec<Link<Op>> {
     println!("unpack_op: {:#?}", op);
     match op.borrow().deref() {
-        Op::Vector(vec @ Vector { .. }) => vec
-            .elements
-            .clone()
-            .borrow()
-            .iter()
-            .flat_map(|op| unpack_op(op.clone()))
-            .collect(),
+        Op::Vector(vec @ Vector { .. })
+            if vec.elements.borrow().iter().any(|op| {
+                matches!(
+                    op.borrow().deref(),
+                    Op::Value(Value {
+                        value: SpannedMirValue {
+                            value: MirValue::TraceAccessBinding(_),
+                            ..
+                        },
+                        ..
+                    })
+                )
+            }) =>
+        {
+            vec.elements
+                .clone()
+                .borrow()
+                .iter()
+                .flat_map(|op| unpack_op(op.clone()))
+                .collect()
+        }
 
         Op::Value(val) => match &val.value {
             SpannedMirValue {

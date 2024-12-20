@@ -1,4 +1,4 @@
-use std::ops::{Deref};
+use std::ops::Deref;
 
 use crate::ir::{
     Accessor, Add, Boundary, Call, Enf, Evaluator, Fold, For, Function, Graph, If, Leaf, Link,

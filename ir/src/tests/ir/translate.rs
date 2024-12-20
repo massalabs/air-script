@@ -2,7 +2,6 @@ use crate::tests::translate;
 
 #[cfg(test)]
 mod tests {
-    
 
     use super::*;
 

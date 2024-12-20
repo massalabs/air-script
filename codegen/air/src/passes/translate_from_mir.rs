@@ -124,14 +124,14 @@ impl<'a> AirBuilder<'a> {
     fn build_boundary_constraint(&mut self, bc: &Link<Op>) -> Result<(), CompileError> {
         match bc.borrow().deref() {
             Op::Vector(vector) => {
-                let vec = vector.children().borrow().deref().clone();
+                let vec = vector.elements.borrow().deref().clone();
                 for node in vec.iter() {
                     self.build_boundary_constraint(node)?;
                 }
                 return Ok(());
             }
             Op::Matrix(matrix) => {
-                let rows = matrix.children().borrow().deref().clone();
+                let rows = matrix.elements.borrow().deref().clone();
                 for row in rows.iter() {
                     let vec = row.borrow().deref().children().borrow().deref().clone();
                     for node in vec.iter() {
@@ -271,7 +271,7 @@ impl<'a> AirBuilder<'a> {
                 }
             }
             Op::Matrix(matrix) => {
-                let rows = matrix.children().borrow().deref().clone();
+                let rows = matrix.elements.borrow().deref().clone();
                 for row in rows.iter() {
                     let vec = row.borrow().deref().children().borrow().deref().clone();
                     for node in vec.iter() {

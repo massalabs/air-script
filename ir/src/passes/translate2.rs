@@ -1,4 +1,4 @@
-use std::borrow::BorrowMut;
+use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
 
 use air_parser::ast::AccessType;
@@ -9,8 +9,8 @@ use miden_diagnostics::{DiagnosticsHandler, Span, Spanned};
 use crate::ir::{Add, Boundary, Enf, Evaluator, Matrix, Mul, Root, Sub};
 use crate::{
     ir::{
-        Accessor, Builder, Call, ConstantValue, Fold, FoldOperator, For, Function, Link, Mir,
-        MirType, MirValue, Op, Parameter, PublicInputAccess, SpannedMirValue, TraceAccess,
+        Builder, Call, ConstantValue, Fold, FoldOperator, For, Function, Link, Mir, MirType,
+        MirValue, Op, Parameter, PublicInputAccess, SpannedMirValue, TraceAccess,
         TraceAccessBinding, Value, Vector,
     },
     passes::duplicate_node,
@@ -46,14 +46,10 @@ pub struct MirBuilder<'a> {
     random_values: Option<&'a ast::RandomValues>,
     trace_columns: &'a Vec<ast::TraceSegment>,
     bindings: LexicalScope<&'a ast::Identifier, Link<Op>>,
-    access_map: LexicalScope<&'a ast::Identifier, Vec<Link<Op>>>,
-    in_boundary: bool,
+    access_maps:
+        HashMap<&'a ast::QualifiedIdentifier, HashMap<&'a ast::Identifier, Vec<Link<Parameter>>>>,
     root: Link<Root>,
-}
-
-enum AstEvalOrFunc {
-    Eval(ast::EvaluatorFunction),
-    Func(ast::Function),
+    in_boundary: bool,
 }
 
 impl<'a> MirBuilder<'a> {
@@ -64,10 +60,17 @@ impl<'a> MirBuilder<'a> {
             random_values: program.random_values.as_ref(),
             trace_columns: program.trace_columns.as_ref(),
             bindings: LexicalScope::default(),
-            access_map: LexicalScope::default(),
-            in_boundary: true,
+            access_maps: HashMap::new(),
             root: Link::default(),
+            in_boundary: true,
         }
+    }
+
+    fn access_map(
+        &mut self,
+        ident: &'a ast::QualifiedIdentifier,
+    ) -> &mut HashMap<&'a ast::Identifier, Vec<Link<Parameter>>> {
+        self.access_maps.entry(ident).or_default()
     }
 
     pub fn translate_program(&mut self) -> Result<(), CompileError> {
@@ -89,22 +92,10 @@ impl<'a> MirBuilder<'a> {
             self.translate_evaluator_signature(ident, evaluator)?;
         }
         for (ident, function) in &self.program.functions {
-            let func = self
-                .mir
-                .constraint_graph()
-                .get_function(ident)
-                .unwrap()
-                .clone();
-            self.translate_body(ident, func.as_root(), &function.body)?;
+            self.translate_function(ident, function)?;
         }
         for (ident, evaluator) in &self.program.evaluators {
-            let ev = self
-                .mir
-                .constraint_graph()
-                .get_evaluator(ident)
-                .unwrap()
-                .clone();
-            self.translate_body(ident, ev.as_root(), &evaluator.body)?;
+            self.translate_evaluator(ident, evaluator)?;
         }
         self.root = Link::default();
         self.in_boundary = true;
@@ -123,77 +114,169 @@ impl<'a> MirBuilder<'a> {
         ident: &'a ast::QualifiedIdentifier,
         ast_eval: &'a ast::EvaluatorFunction,
     ) -> Result<Link<Evaluator>, CompileError> {
+        self._translate_evaluator_known(ident, ast_eval, false)
+    }
+
+    fn translate_evaluator(
+        &mut self,
+        ident: &'a ast::QualifiedIdentifier,
+        ast_eval: &'a ast::EvaluatorFunction,
+    ) -> Result<Link<Evaluator>, CompileError> {
+        self._translate_evaluator_known(ident, ast_eval, true)
+    }
+
+    fn _translate_evaluator_known(
+        &mut self,
+        ident: &'a ast::QualifiedIdentifier,
+        ast_eval: &'a ast::EvaluatorFunction,
+        known_signature: bool,
+    ) -> Result<Link<Evaluator>, CompileError> {
         let mut ev = Evaluator::builder();
         self.bindings.enter();
-        self.access_map.enter();
         let mut i = 0;
         for trace_segment in &ast_eval.params {
             println!("trace_segment: {:#?}", trace_segment);
             for binding in &trace_segment.bindings {
                 println!("binding: {:#?}", binding);
-                match binding.ty {
-                    ast::Type::Felt => {
-                        let param: Link<Parameter> = Parameter::new(i, MirType::Felt).into();
-                        i += 1;
-                        self.bindings
-                            .insert(binding.name.as_ref().unwrap(), param.clone().as_op());
-                        ev = ev.parameters(param);
-                    }
-                    ast::Type::Vector(size) => {
-                        for _ in 0..size {
-                            let param: Link<Parameter> = Parameter::new(i, MirType::Felt).into();
-                            println!("param: {:#?}", param);
-                            i += 1;
-                            self.bindings
-                                .insert(binding.name.as_ref().unwrap(), param.clone().as_op());
-                            ev = ev.parameters(param);
-                        }
-                    }
-                    ast::Type::Matrix(rows, cols) => {
-                        unimplemented!("matrix parameters not supported");
-                    }
+                let params =
+                    self.translate_params(ident, binding.name.as_ref(), &binding.ty, &mut i);
+                for param in params {
+                    ev = ev.parameters(param.clone());
                 }
             }
         }
-        self.bindings.exit();
-        self.access_map.exit();
         let ev = Link::new(ev.build());
-        self.mir
-            .constraint_graph_mut()
-            .insert_evaluator(*ident, ev.clone());
+        if known_signature {
+            self.translate_body(ident, ev.clone().as_root(), &ast_eval.body)?;
+            let original = self.mir
+                .constraint_graph_mut()
+                .get_evaluator_mut(ident)
+                .unwrap_or_else(||panic!("missing evaluator signature for {:?}\nuse self.translate_evaluator_signature(ident, ast_eval) before self.translate_evaluator(ident, ast_eval)", ident));
+            if original.borrow().parameters != ev.borrow().parameters {
+                panic!(
+                    "evaluator parameter mismatch for {:?}\nexpected: {:#?}\nbut got: {:#?}",
+                    ident,
+                    original.borrow().parameters,
+                    ev.borrow().parameters
+                );
+            }
+            let mut updated = original.clone().borrow().clone().edit();
+            for op in ev.clone().borrow().body.borrow().iter() {
+                updated = updated.body(op.clone());
+            }
+            *original = updated.build().into();
+        } else {
+            self.mir
+                .constraint_graph_mut()
+                .insert_evaluator(*ident, ev.clone());
+        }
+        self.bindings.exit();
         Ok(ev)
     }
 
     fn translate_function_signature(
         &mut self,
-        ident: &ast::QualifiedIdentifier,
+        ident: &'a ast::QualifiedIdentifier,
         ast_func: &'a ast::Function,
     ) -> Result<Link<Function>, CompileError> {
-        eprintln!(
-            "translate_function_signature({:?}, {:#?})",
-            ident, ast_func.params
-        );
+        self._translate_function_known(ident, ast_func, false)
+    }
+
+    fn translate_function(
+        &mut self,
+        ident: &'a ast::QualifiedIdentifier,
+        ast_func: &'a ast::Function,
+    ) -> Result<Link<Function>, CompileError> {
+        self._translate_function_known(ident, ast_func, true)
+    }
+
+    fn _translate_function_known(
+        &mut self,
+        ident: &'a ast::QualifiedIdentifier,
+        ast_func: &'a ast::Function,
+        known_signature: bool,
+    ) -> Result<Link<Function>, CompileError> {
         let mut func = Function::builder();
         let mut i = 0;
         self.bindings.enter();
-        self.access_map.enter();
-        for (i, (param_ident, ty)) in ast_func.params.iter().enumerate() {
-            let ty = self.translate_type(ty);
-            eprintln!("ident: {:#?}", param_ident);
-            eprintln!("ty: {:#?}", ty);
-            let param: Link<Parameter> = Parameter::new(i, ty).into();
-            func = func.parameters(param.clone());
-            self.bindings.insert(param_ident, param.as_op());
+        for (param_ident, ty) in ast_func.params.iter() {
+            let name = Some(param_ident);
+            let params = self.translate_params(ident, name, ty, &mut i);
+            for param in params {
+                func = func.parameters(param.clone());
+                self.bindings.insert(param_ident, param.as_op());
+            }
         }
         i += 1;
         let ret = Parameter::new(i, self.translate_type(&ast_func.return_type));
         let func = Link::new(func.return_type(ret.into()).build());
-        self.mir
-            .constraint_graph_mut()
-            .insert_function(*ident, func.clone());
+        if known_signature {
+            self.translate_body(ident, func.clone().as_root(), &ast_func.body)?;
+            let original = self.mir
+                .constraint_graph_mut()
+                .get_function_mut(ident).unwrap_or_else(||panic!("missing function signature for {:?}\nuse self.translate_function_signature(ident, ast_func) before self.translate_function(ident, ast_func)", ident));
+            let orig_sig = original.clone().borrow().clone();
+            let new_sig = func.borrow();
+            if orig_sig.parameters != new_sig.parameters {
+                panic!(
+                    "function parameter mismatch for {:?}\nexpected: {:#?}\nbut got: {:#?}",
+                    ident,
+                    original.borrow().deref().parameters,
+                    func.borrow().deref().parameters
+                );
+            } else if orig_sig.return_type != new_sig.return_type {
+                panic!(
+                    "function return mismatch for {:?}\nexpected: {:#?}\nbut got: {:#?}",
+                    ident,
+                    original.borrow().deref().return_type,
+                    func.borrow().deref().return_type
+                );
+            }
+            let mut updated = original.clone().borrow().clone().edit();
+            for op in func.clone().borrow().body.borrow().iter() {
+                updated = updated.body(op.clone());
+            }
+            *original = updated.build().into();
+        } else {
+            self.mir
+                .constraint_graph_mut()
+                .insert_function(*ident, func.clone());
+        }
         self.bindings.exit();
-        self.access_map.exit();
         Ok(func)
+    }
+
+    fn translate_params(
+        &mut self,
+        func_ident: &'a ast::QualifiedIdentifier,
+        name: Option<&'a ast::Identifier>,
+        ty: &ast::Type,
+        i: &mut usize,
+    ) -> Vec<Link<Parameter>> {
+        let access_map = self.access_map(func_ident);
+        match ty {
+            ast::Type::Felt => {
+                let param: Link<Parameter> = Parameter::new(*i, MirType::Felt).into();
+                *i += 1;
+                self.bindings.insert(name.unwrap(), param.clone().as_op());
+                vec![param]
+            }
+            ast::Type::Vector(size) => {
+                let access_map_entry = access_map.entry(name.as_ref().unwrap()).or_default();
+                let mut params = Vec::new();
+                for _ in 0..*size {
+                    let param: Link<Parameter> = Parameter::new(*i, MirType::Felt).into();
+                    println!("param: {:#?}", param);
+                    *i += 1;
+                    access_map_entry.push(param.clone());
+                    params.push(param);
+                }
+                params
+            }
+            ast::Type::Matrix(_rows, _cols) => {
+                unimplemented!("matrix parameters not supported");
+            }
+        }
     }
 
     fn translate_body(

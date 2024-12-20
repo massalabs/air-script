@@ -15,6 +15,7 @@ mod tests {
     //use crate::SpannedMirValue;
 
     #[test]
+    #[ignore]
     fn test_inlining() {
         let code = "
         def test

@@ -1,6 +1,4 @@
-use std::{
-    marker::PhantomData,
-};
+use std::marker::PhantomData;
 
 use crate::ir::{BackLink, Builder, Child, Link, Node, NotSet, Op, Owner, Parent, Vector};
 
