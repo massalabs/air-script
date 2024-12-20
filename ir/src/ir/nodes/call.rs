@@ -149,27 +149,13 @@ impl CallBuilderFull {
 fn unpack_op(op: Link<Op>) -> Vec<Link<Op>> {
     println!("unpack_op: {:#?}", op);
     match op.borrow().deref() {
-        Op::Vector(vec @ Vector { .. })
-            if vec.elements.borrow().iter().any(|op| {
-                matches!(
-                    op.borrow().deref(),
-                    Op::Value(Value {
-                        value: SpannedMirValue {
-                            value: MirValue::TraceAccessBinding(_),
-                            ..
-                        },
-                        ..
-                    })
-                )
-            }) =>
-        {
-            vec.elements
-                .clone()
-                .borrow()
-                .iter()
-                .flat_map(|op| unpack_op(op.clone()))
-                .collect()
-        }
+        Op::Vector(vec @ Vector { .. }) => vec
+            .elements
+            .clone()
+            .borrow()
+            .iter()
+            .flat_map(|op| unpack_op(op.clone()))
+            .collect(),
 
         Op::Value(val) => match &val.value {
             SpannedMirValue {
