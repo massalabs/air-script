@@ -49,6 +49,7 @@ pub struct MirBuilder<'a> {
     access_maps:
         HashMap<&'a ast::QualifiedIdentifier, HashMap<&'a ast::Identifier, Vec<Link<Parameter>>>>,
     root: Link<Root>,
+    root_name: Option<&'a ast::QualifiedIdentifier>,
     in_boundary: bool,
 }
 
@@ -62,6 +63,7 @@ impl<'a> MirBuilder<'a> {
             bindings: LexicalScope::default(),
             access_maps: HashMap::new(),
             root: Link::default(),
+            root_name: None,
             in_boundary: true,
         }
     }
@@ -131,8 +133,9 @@ impl<'a> MirBuilder<'a> {
         ast_eval: &'a ast::EvaluatorFunction,
         known_signature: bool,
     ) -> Result<Link<Evaluator>, CompileError> {
-        let mut ev = Evaluator::builder();
         self.bindings.enter();
+        self.root_name = Some(ident);
+        let mut ev = Evaluator::builder();
         let mut i = 0;
         for trace_segment in &ast_eval.params {
             println!("trace_segment: {:#?}", trace_segment);
@@ -196,15 +199,15 @@ impl<'a> MirBuilder<'a> {
         ast_func: &'a ast::Function,
         known_signature: bool,
     ) -> Result<Link<Function>, CompileError> {
+        self.bindings.enter();
+        self.root_name = Some(ident);
         let mut func = Function::builder();
         let mut i = 0;
-        self.bindings.enter();
         for (param_ident, ty) in ast_func.params.iter() {
             let name = Some(param_ident);
             let params = self.translate_params(ident, name, ty, &mut i);
             for param in params {
                 func = func.parameters(param.clone());
-                self.bindings.insert(param_ident, param.as_op());
             }
         }
         i += 1;
@@ -843,14 +846,37 @@ impl<'a> MirBuilder<'a> {
                 .into());
         }
 
-        // If we reach here, this must be a let-bound variable
         let node = self
             .bindings
             .get(access.name.as_ref())
-            .unwrap_or_else(|| panic!("undefined variable {:#?}", access))
+            .unwrap_or(
+                &self
+                    .access_maps
+                    .get(self.root_name.unwrap())
+                    .and_then(|m| {
+                        let params = m.get(access.name.as_ref())?;
+                        let position = access.offset;
+                        let param = params.get(position).unwrap_or_else(|| {
+                            panic!(
+                                "undefined variable: {:?} at position: {:?}",
+                                access, position
+                            )
+                        });
+                        Some(param.clone().as_op())
+                    })
+                    .unwrap_or_else(|| panic!("undefined variable: {:?}", access.name)),
+            )
             .clone();
         Ok(node)
     }
+    //    // If we reach here, this must be a let-bound variable
+    //    let node = self
+    //        .bindings
+    //        .get(access.name.as_ref())
+    //        .unwrap_or_else(|| panic!("undefined variable {:#?}", access))
+    //        .clone();
+    //    Ok(node)
+    //}
 
     // Check assumptions, probably this assumed that the inlining pass did some work
     fn public_input_access(&self, access: &ast::SymbolAccess) -> Option<PublicInputAccess> {
