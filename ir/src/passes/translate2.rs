@@ -46,8 +46,6 @@ pub struct MirBuilder<'a> {
     random_values: Option<&'a ast::RandomValues>,
     trace_columns: &'a Vec<ast::TraceSegment>,
     bindings: LexicalScope<&'a ast::Identifier, Link<Op>>,
-    access_maps:
-        HashMap<&'a ast::QualifiedIdentifier, HashMap<&'a ast::Identifier, Vec<Link<Parameter>>>>,
     root: Link<Root>,
     root_name: Option<&'a ast::QualifiedIdentifier>,
     in_boundary: bool,
@@ -61,18 +59,10 @@ impl<'a> MirBuilder<'a> {
             random_values: program.random_values.as_ref(),
             trace_columns: program.trace_columns.as_ref(),
             bindings: LexicalScope::default(),
-            access_maps: HashMap::new(),
             root: Link::default(),
             root_name: None,
             in_boundary: true,
         }
-    }
-
-    fn access_map(
-        &mut self,
-        ident: &'a ast::QualifiedIdentifier,
-    ) -> &mut HashMap<&'a ast::Identifier, Vec<Link<Parameter>>> {
-        self.access_maps.entry(ident).or_default()
     }
 
     pub fn translate_program(&mut self) -> Result<(), CompileError> {
@@ -256,7 +246,6 @@ impl<'a> MirBuilder<'a> {
         ty: &ast::Type,
         i: &mut usize,
     ) -> Vec<Link<Parameter>> {
-        let access_map = self.access_map(func_ident);
         match ty {
             ast::Type::Felt => {
                 let param: Link<Parameter> = Parameter::new(*i, MirType::Felt).into();
@@ -265,15 +254,16 @@ impl<'a> MirBuilder<'a> {
                 vec![param]
             }
             ast::Type::Vector(size) => {
-                let access_map_entry = access_map.entry(name.as_ref().unwrap()).or_default();
+                let mut vector = Vector::builder().size(*size);
                 let mut params = Vec::new();
                 for _ in 0..*size {
                     let param: Link<Parameter> = Parameter::new(*i, MirType::Felt).into();
-                    println!("param: {:#?}", param);
                     *i += 1;
-                    access_map_entry.push(param.clone());
+                    vector = vector.elements(param.clone().as_op());
                     params.push(param);
                 }
+                let vector: Link<Op> = vector.build().as_op().into();
+                self.bindings.insert(name.unwrap(), vector.clone());
                 params
             }
             ast::Type::Matrix(_rows, _cols) => {
@@ -481,7 +471,7 @@ impl<'a> MirBuilder<'a> {
 
     fn translate_vector_scalar_expr(
         &mut self,
-        v: &'a Vec<ast::ScalarExpr>,
+        v: &'a [ast::ScalarExpr],
     ) -> Result<Link<Op>, CompileError> {
         let mut node = Vector::builder().size(v.len());
         for value in v.iter() {
@@ -524,7 +514,7 @@ impl<'a> MirBuilder<'a> {
                         .build()
                         .as_op()
                         .into();
-                    return Ok(node);
+                    Ok(node)
                 } else {
                     // This is a qualified reference that should have been eliminated
                     // during inlining or constant propagation, but somehow slipped through.
@@ -849,34 +839,10 @@ impl<'a> MirBuilder<'a> {
         let node = self
             .bindings
             .get(access.name.as_ref())
-            .unwrap_or(
-                &self
-                    .access_maps
-                    .get(self.root_name.unwrap())
-                    .and_then(|m| {
-                        let params = m.get(access.name.as_ref())?;
-                        let position = access.offset;
-                        let param = params.get(position).unwrap_or_else(|| {
-                            panic!(
-                                "undefined variable: {:?} at position: {:?}",
-                                access, position
-                            )
-                        });
-                        Some(param.clone().as_op())
-                    })
-                    .unwrap_or_else(|| panic!("undefined variable: {:?}", access.name)),
-            )
+            .unwrap_or_else(|| panic!("undefined variable: {:?}", access))
             .clone();
         Ok(node)
     }
-    //    // If we reach here, this must be a let-bound variable
-    //    let node = self
-    //        .bindings
-    //        .get(access.name.as_ref())
-    //        .unwrap_or_else(|| panic!("undefined variable {:#?}", access))
-    //        .clone();
-    //    Ok(node)
-    //}
 
     // Check assumptions, probably this assumed that the inlining pass did some work
     fn public_input_access(&self, access: &ast::SymbolAccess) -> Option<PublicInputAccess> {
