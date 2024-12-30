@@ -112,12 +112,6 @@ impl PublicInputAccess {
     }
 }
 
-#[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
-pub struct Value {
-    pub parent: BackLink<Owner>,
-    pub value: SpannedMirValue,
-}
-
 impl Default for SpannedMirValue {
     fn default() -> Self {
         Self {
@@ -125,6 +119,12 @@ impl Default for SpannedMirValue {
             span: Default::default(),
         }
     }
+}
+
+#[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
+pub struct Value {
+    pub parent: BackLink<Owner>,
+    pub value: SpannedMirValue,
 }
 
 impl Value {
@@ -173,9 +173,12 @@ pub struct ValueBuilder<State> {
     value: Option<SpannedMirValue>,
 }
 
+type ValueBuilderEmpty = ValueBuilder<(BackLink<Owner>, NotSet)>;
+type ValueBuilderFull = ValueBuilder<(BackLink<Owner>, SpannedMirValue)>;
+
 impl Builder for Value {
-    type BuilderEmpty = ValueBuilder<(BackLink<Owner>, NotSet)>;
-    type BuilderFull = ValueBuilder<(BackLink<Owner>, NotSet)>;
+    type BuilderEmpty = ValueBuilderEmpty;
+    type BuilderFull = ValueBuilderFull;
     fn builder() -> Self::BuilderEmpty {
         ValueBuilder::default()
     }
@@ -188,7 +191,7 @@ impl Builder for Value {
     }
 }
 
-impl Default for ValueBuilder<(BackLink<Owner>, NotSet)> {
+impl Default for ValueBuilderEmpty {
     fn default() -> Self {
         Self {
             _state: PhantomData,
@@ -198,21 +201,18 @@ impl Default for ValueBuilder<(BackLink<Owner>, NotSet)> {
     }
 }
 
-impl ValueBuilder<(BackLink<Owner>, NotSet)> {
+impl ValueBuilderEmpty {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
         self.parent = parent.into();
         self
     }
-    pub fn value(
-        mut self,
-        value: SpannedMirValue,
-    ) -> ValueBuilder<(BackLink<Owner>, SpannedMirValue)> {
+    pub fn value(mut self, value: SpannedMirValue) -> ValueBuilderFull {
         self.value = Some(value);
         unsafe { std::mem::transmute(self) }
     }
 }
 
-impl ValueBuilder<(BackLink<Owner>, SpannedMirValue)> {
+impl ValueBuilderFull {
     pub fn value(mut self, value: SpannedMirValue) -> Self {
         self.value = Some(value);
         self
