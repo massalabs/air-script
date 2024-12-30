@@ -6,7 +6,7 @@ use air_parser::{ast, symbols, LexicalScope, SemanticAnalysisError};
 use air_pass::Pass;
 use miden_diagnostics::{DiagnosticsHandler, Span, Spanned};
 
-use crate::ir::{Add, Boundary, Enf, Evaluator, Matrix, Mul, Root, Sub};
+use crate::ir::{Accessor, Add, Boundary, Enf, Evaluator, Matrix, Mul, Root, Sub};
 use crate::{
     ir::{
         Builder, Call, ConstantValue, Fold, FoldOperator, For, Function, Link, Mir, MirType,
@@ -836,12 +836,16 @@ impl<'a> MirBuilder<'a> {
                 .into());
         }
 
-        let node = self
+        //    // If we reach here, this must be a let-bound variable
+        let let_bound_access_expr = self
             .bindings
             .get(access.name.as_ref())
             .unwrap_or_else(|| panic!("undefined variable: {:?}", access))
             .clone();
-        Ok(node)
+        let accessor: Link<Op> = Accessor::new(let_bound_access_expr, access.access_type.clone())
+            .as_op()
+            .into();
+        Ok(accessor)
     }
 
     // Check assumptions, probably this assumed that the inlining pass did some work
