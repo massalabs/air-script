@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 
 use air_parser::ast::AccessType;
 use air_parser::{ast, symbols, LexicalScope, SemanticAnalysisError};
@@ -152,7 +152,13 @@ impl<'a> MirBuilder<'a> {
                     ev.borrow().parameters
                 );
             }
-            original.borrow_mut().body = ev.borrow().body.clone();
+            let body = ev.borrow().body.borrow().clone();
+            original
+                .borrow()
+                .body
+                .borrow_mut()
+                .deref_mut()
+                .clone_from(&body);
         } else {
             self.mir
                 .constraint_graph_mut()
@@ -197,7 +203,7 @@ impl<'a> MirBuilder<'a> {
         }
         i += 1;
         let ret = Parameter::create(i, self.translate_type(&ast_func.return_type));
-        let func = func.return_type(ret.into()).build();
+        let func = func.return_type(ret).build();
         if known_signature {
             self.translate_body(ident, func.clone().as_root(), &ast_func.body)?;
             let original = self.mir
@@ -220,7 +226,13 @@ impl<'a> MirBuilder<'a> {
                     func.borrow().deref().return_type
                 );
             }
-            original.borrow_mut().body = func.borrow().body.clone();
+            let body = func.borrow().body.borrow().clone();
+            original
+                .borrow()
+                .body
+                .borrow_mut()
+                .deref_mut()
+                .clone_from(&body);
         } else {
             self.mir
                 .constraint_graph_mut()
@@ -239,7 +251,7 @@ impl<'a> MirBuilder<'a> {
     ) -> Vec<Link<Parameter>> {
         match ty {
             ast::Type::Felt => {
-                let param: Link<Parameter> = Parameter::create(*i, MirType::Felt).into();
+                let param = Parameter::create(*i, MirType::Felt);
                 *i += 1;
                 self.bindings.insert(name.unwrap(), param.clone().as_op());
                 vec![param]
@@ -275,8 +287,8 @@ impl<'a> MirBuilder<'a> {
         for stmt in body {
             let op = self.translate_statement(stmt)?;
             match func.clone().borrow().deref() {
-                Root::Function(f) => f.borrow_mut().body.borrow_mut().push(op.clone()),
-                Root::Evaluator(e) => e.borrow_mut().body.borrow_mut().push(op.clone()),
+                Root::Function(f) => f.borrow().body.borrow_mut().push(op.clone()),
+                Root::Evaluator(e) => e.borrow().body.borrow_mut().push(op.clone()),
                 Root::None => {
                     unreachable!("expected function or evaluator, got None")
                 }
