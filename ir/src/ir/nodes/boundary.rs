@@ -89,14 +89,6 @@ impl Builder for Boundary {
     fn builder() -> Self::BuilderEmpty {
         BoundaryBuilder::default()
     }
-    fn edit(self) -> Self::BuilderFull {
-        Self::BuilderFull {
-            _state: std::marker::PhantomData,
-            parent: self.parent,
-            kind: Some(self.kind),
-            expr: Some(self.expr),
-        }
-    }
 }
 
 impl Default for BoundaryBuilderEmpty {

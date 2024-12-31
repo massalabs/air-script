@@ -64,14 +64,6 @@ impl Builder for Call {
     fn builder() -> Self::BuilderEmpty {
         CallBuilder::default()
     }
-    fn edit(self) -> Self::BuilderFull {
-        Self::BuilderFull {
-            _state: std::marker::PhantomData,
-            parent: self.parent,
-            function: Some(self.function),
-            arguments: self.arguments.borrow().clone(),
-        }
-    }
 }
 
 impl Default for CallBuilderEmpty {

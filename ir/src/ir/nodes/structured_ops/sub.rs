@@ -65,14 +65,6 @@ impl Builder for Sub {
     fn builder() -> Self::BuilderEmpty {
         SubBuilder::default()
     }
-    fn edit(self) -> Self::BuilderFull {
-        Self::BuilderFull {
-            _state: std::marker::PhantomData,
-            parent: self.parent,
-            lhs: Some(self.lhs),
-            rhs: Some(self.rhs),
-        }
-    }
 }
 
 impl Default for SubBuilderEmpty {

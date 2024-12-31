@@ -174,13 +174,6 @@ impl Builder for Value {
     fn builder() -> Self::BuilderEmpty {
         ValueBuilder::default()
     }
-    fn edit(self) -> Self::BuilderFull {
-        Self::BuilderFull {
-            _state: PhantomData,
-            parent: self.parent,
-            value: Some(self.value),
-        }
-    }
 }
 
 impl Default for ValueBuilderEmpty {

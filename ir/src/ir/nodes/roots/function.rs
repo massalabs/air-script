@@ -57,14 +57,6 @@ impl Builder for Function {
     fn builder() -> Self::BuilderEmpty {
         FunctionBuilder::default()
     }
-    fn edit(self) -> Self::BuilderFull {
-        Self::BuilderFull {
-            _state: std::marker::PhantomData,
-            parameters: self.parameters,
-            return_type: Some(self.return_type),
-            body: self.body.borrow().clone(),
-        }
-    }
 }
 
 impl Default for FunctionBuilderEmpty {

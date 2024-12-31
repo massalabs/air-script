@@ -61,28 +61,28 @@ impl<'a> AirBuilder<'a> {
     fn insert_mir_operation(&mut self, mir_node: &Link<Op>) -> NodeIndex {
         match mir_node.borrow().deref() {
             Op::Add(add) => {
-                let lhs = add.lhs.clone();
-                let rhs = add.rhs.clone();
+                let lhs = add.borrow().lhs.clone();
+                let rhs = add.borrow().rhs.clone();
                 let lhs_node_index = self.insert_mir_operation(&lhs);
                 let rhs_node_index = self.insert_mir_operation(&rhs);
                 return self.insert_op(Operation::Add(lhs_node_index, rhs_node_index));
             }
             Op::Sub(sub) => {
-                let lhs = sub.lhs.clone();
-                let rhs = sub.rhs.clone();
+                let lhs = sub.borrow().lhs.clone();
+                let rhs = sub.borrow().rhs.clone();
                 let lhs_node_index = self.insert_mir_operation(&lhs);
                 let rhs_node_index = self.insert_mir_operation(&rhs);
                 return self.insert_op(Operation::Sub(lhs_node_index, rhs_node_index));
             }
             Op::Mul(mul) => {
-                let lhs = mul.lhs.clone();
-                let rhs = mul.rhs.clone();
+                let lhs = mul.borrow().lhs.clone();
+                let rhs = mul.borrow().rhs.clone();
                 let lhs_node_index = self.insert_mir_operation(&lhs);
                 let rhs_node_index = self.insert_mir_operation(&rhs);
                 return self.insert_op(Operation::Mul(lhs_node_index, rhs_node_index));
             }
             Op::Value(value) => {
-                let mir_value = &value.value.value;
+                let mir_value = &value.borrow().value.value;
 
                 let value = match mir_value {
                     MirValue::Constant(constant_value) => {
@@ -124,14 +124,14 @@ impl<'a> AirBuilder<'a> {
     fn build_boundary_constraint(&mut self, bc: &Link<Op>) -> Result<(), CompileError> {
         match bc.borrow().deref() {
             Op::Vector(vector) => {
-                let vec = vector.elements.borrow().deref().clone();
+                let vec = vector.borrow().elements.borrow().deref().clone();
                 for node in vec.iter() {
                     self.build_boundary_constraint(node)?;
                 }
                 return Ok(());
             }
             Op::Matrix(matrix) => {
-                let rows = matrix.elements.borrow().deref().clone();
+                let rows = matrix.borrow().elements.borrow().deref().clone();
                 for row in rows.iter() {
                     let vec = row.borrow().deref().children().borrow().deref().clone();
                     for node in vec.iter() {
@@ -141,7 +141,7 @@ impl<'a> AirBuilder<'a> {
                 return Ok(());
             }
             Op::Enf(enf) => {
-                let child_op = enf.expr.clone();
+                let child_op = enf.borrow().expr.clone();
 
                 let Op::Sub(_sub) = child_op.borrow().deref().clone() else {
                     unreachable!(); // Raise diag
@@ -152,18 +152,18 @@ impl<'a> AirBuilder<'a> {
             }
             Op::Sub(sub) => {
                 // Check that lhs is a Bounded trace access
-                let lhs = sub.lhs.clone();
-                let rhs = sub.rhs.clone();
+                let lhs = sub.borrow().lhs.clone();
+                let rhs = sub.borrow().rhs.clone();
 
                 let Op::Boundary(boundary) = lhs.borrow().deref().clone() else {
                     unreachable!(); // Raise diag
                 };
-                let expected_trace_access_expr = boundary.expr.clone();
+                let expected_trace_access_expr = boundary.borrow().expr.clone();
                 let Op::Value(value) = expected_trace_access_expr.borrow().deref().clone() else {
                     unreachable!(); // Raise diag
                 };
 
-                let (trace_access, lhs_span) = match value.value {
+                let (trace_access, lhs_span) = match value.borrow().value.clone() {
                     SpannedMirValue {
                         value: MirValue::TraceAccess(trace_access),
                         span: lhs_span,
@@ -187,13 +187,13 @@ impl<'a> AirBuilder<'a> {
                         };
                         (trace_access, lhs_span)
                     }
-                    _ => unreachable!("Expected TraceAccess, received {:?}", value.value), // Raise diag
+                    _ => unreachable!("Expected TraceAccess, received {:?}", value.borrow().value), // Raise diag
                 };
 
                 if let Some(prev) = self.trace_columns[trace_access.segment].mark_constrained(
                     lhs_span,
                     trace_access.column,
-                    boundary.kind,
+                    boundary.borrow().kind,
                 ) {
                     self.diagnostics
                                 .diagnostic(Severity::Error)
@@ -220,7 +220,7 @@ impl<'a> AirBuilder<'a> {
                 let rhs = self.insert_mir_operation(&rhs);
 
                 // Compare the inferred trace segment and domain of the operands
-                let domain = boundary.kind.into();
+                let domain = boundary.borrow().kind.into();
                 {
                     let graph = self.air.constraint_graph();
                     let (lhs_segment, lhs_domain) = graph.node_details(&lhs, domain)?;
@@ -271,7 +271,7 @@ impl<'a> AirBuilder<'a> {
                 }
             }
             Op::Matrix(matrix) => {
-                let rows = matrix.elements.borrow().deref().clone();
+                let rows = matrix.borrow().elements.borrow().deref().clone();
                 for row in rows.iter() {
                     let vec = row.borrow().deref().children().borrow().deref().clone();
                     for node in vec.iter() {
@@ -280,15 +280,15 @@ impl<'a> AirBuilder<'a> {
                 }
             }
             Op::Enf(enf) => {
-                let child_op = enf.expr.clone();
+                let child_op = enf.borrow().expr.clone();
                 match child_op.clone().borrow().deref() {
                     Op::Sub(_sub) => {
                         self.build_integrity_constraint(&child_op)?;
                     }
                     Op::If(if_node) => {
-                        let cond = if_node.condition.clone();
-                        let then_branch = if_node.then_branch.clone();
-                        let else_branch = if_node.else_branch.clone();
+                        let cond = if_node.borrow().condition.clone();
+                        let then_branch = if_node.borrow().then_branch.clone();
+                        let else_branch = if_node.borrow().else_branch.clone();
                         let cond_node_index = self.insert_mir_operation(&cond);
                         let then_node_index = self.insert_mir_operation(&then_branch);
                         let else_node_index = self.insert_mir_operation(&else_branch);
@@ -318,8 +318,8 @@ impl<'a> AirBuilder<'a> {
                 }
             }
             Op::Sub(sub) => {
-                let lhs = sub.lhs.clone();
-                let rhs = sub.rhs.clone();
+                let lhs = sub.borrow().lhs.clone();
+                let rhs = sub.borrow().rhs.clone();
                 let lhs_node_index = self.insert_mir_operation(&lhs);
                 let rhs_node_index = self.insert_mir_operation(&rhs);
                 let root = self.insert_op(Operation::Sub(lhs_node_index, rhs_node_index));

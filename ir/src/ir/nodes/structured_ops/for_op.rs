@@ -75,15 +75,6 @@ impl Builder for For {
     fn builder() -> Self::BuilderEmpty {
         ForBuilder::default()
     }
-    fn edit(self) -> Self::BuilderFull {
-        Self::BuilderFull {
-            _state: std::marker::PhantomData,
-            parent: self.parent,
-            iterators: self.iterators.borrow().clone(),
-            expr: Some(self.expr),
-            selector: Some(self.selector),
-        }
-    }
 }
 
 impl Default for ForBuilderEmpty {

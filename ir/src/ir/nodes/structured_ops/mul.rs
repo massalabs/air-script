@@ -65,14 +65,6 @@ impl Builder for Mul {
     fn builder() -> Self::BuilderEmpty {
         MulBuilder::default()
     }
-    fn edit(self) -> Self::BuilderFull {
-        Self::BuilderFull {
-            _state: std::marker::PhantomData,
-            parent: self.parent,
-            lhs: Some(self.lhs),
-            rhs: Some(self.rhs),
-        }
-    }
 }
 
 impl Default for MulBuilderEmpty {
