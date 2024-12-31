@@ -103,7 +103,4 @@ pub trait Builder {
     type BuilderFull;
     /// Create a new empty builder that exposes all fields
     fn builder() -> Self::BuilderEmpty;
-    /// Consumes the current node
-    /// and returns a new builder with all fields set to expose all fields
-    fn edit(self) -> Self::BuilderFull;
 }

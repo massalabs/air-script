@@ -84,15 +84,6 @@ impl Builder for Fold {
     fn builder() -> Self::BuilderEmpty {
         FoldBuilder::default()
     }
-    fn edit(self) -> Self::BuilderFull {
-        Self::BuilderFull {
-            _state: std::marker::PhantomData,
-            parent: self.parent,
-            iterator: Some(self.iterator),
-            operator: Some(self.operator),
-            initial_value: Some(self.initial_value),
-        }
-    }
 }
 
 impl Default for FoldBuilderEmpty {

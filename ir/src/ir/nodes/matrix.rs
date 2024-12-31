@@ -69,14 +69,6 @@ impl Builder for Matrix {
     fn builder() -> Self::BuilderEmpty {
         MatrixBuilder::default()
     }
-    fn edit(self) -> Self::BuilderFull {
-        Self::BuilderFull {
-            _state: PhantomData,
-            parent: self.parent,
-            size: Some(self.size),
-            elements: self.elements.borrow().clone(),
-        }
-    }
 }
 
 impl Default for MatrixBuilder<(BackLink<Owner>, NotSet, Vec<Link<Vector>>)> {

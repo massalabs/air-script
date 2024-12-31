@@ -65,14 +65,6 @@ impl Builder for Add {
     fn builder() -> Self::BuilderEmpty {
         AddBuilder::default()
     }
-    fn edit(self) -> Self::BuilderFull {
-        Self::BuilderFull {
-            _state: std::marker::PhantomData,
-            parent: self.parent,
-            lhs: Some(self.lhs),
-            rhs: Some(self.rhs),
-        }
-    }
 }
 
 impl Default for AddBuilderEmpty {

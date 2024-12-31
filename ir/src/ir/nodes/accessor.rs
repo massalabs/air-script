@@ -122,14 +122,6 @@ impl Builder for Accessor {
     fn builder() -> Self::BuilderEmpty {
         AccessorBuilder::default()
     }
-    fn edit(self) -> Self::BuilderFull {
-        Self::BuilderFull {
-            _state: std::marker::PhantomData,
-            parent: self.parent,
-            indexable: Some(self.indexable),
-            access_type: Some(self.access_type),
-        }
-    }
 }
 
 impl Default for AccessorBuilderEmpty {

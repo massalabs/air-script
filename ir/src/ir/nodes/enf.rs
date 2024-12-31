@@ -60,13 +60,6 @@ impl Builder for Enf {
     fn builder() -> Self::BuilderEmpty {
         EnfBuilder::default()
     }
-    fn edit(self) -> Self::BuilderFull {
-        Self::BuilderFull {
-            _state: std::marker::PhantomData,
-            parent: self.parent,
-            expr: Some(self.expr),
-        }
-    }
 }
 
 impl Default for EnfBuilderEmpty {

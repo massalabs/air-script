@@ -49,13 +49,6 @@ impl Builder for Evaluator {
     fn builder() -> Self::BuilderEmpty {
         EvaluatorBuilder::default()
     }
-    fn edit(self) -> Self::BuilderFull {
-        Self::BuilderFull {
-            _state: std::marker::PhantomData,
-            parameters: self.parameters,
-            body: self.body.borrow().clone(),
-        }
-    }
 }
 
 impl Default for EvaluatorBuilderState {

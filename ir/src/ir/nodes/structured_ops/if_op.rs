@@ -76,15 +76,6 @@ impl Builder for If {
     fn builder() -> Self::BuilderEmpty {
         IfBuilder::default()
     }
-    fn edit(self) -> Self::BuilderFull {
-        Self::BuilderFull {
-            _state: std::marker::PhantomData,
-            parent: self.parent,
-            condition: Some(self.condition),
-            then_branch: Some(self.then_branch),
-            else_branch: Some(self.else_branch),
-        }
-    }
 }
 
 impl Default for IfBuilderEmpty {

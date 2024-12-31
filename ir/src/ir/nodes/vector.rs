@@ -63,14 +63,6 @@ impl Builder for Vector {
     fn builder() -> Self::BuilderEmpty {
         VectorBuilder::default()
     }
-    fn edit(self) -> Self::BuilderFull {
-        Self::BuilderFull {
-            _state: PhantomData,
-            parent: self.parent,
-            size: Some(self.size),
-            elements: self.elements,
-        }
-    }
 }
 
 impl Default for VectorBuilder<(BackLink<Owner>, NotSet, Link<Vec<Link<Op>>>)> {
