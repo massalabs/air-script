@@ -8,60 +8,37 @@ use super::Node;
 /// These represent the top level functions and evaluators
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub enum Root {
-    Function(Function),
-    Evaluator(Evaluator),
+    Function(Link<Function>),
+    Evaluator(Link<Evaluator>),
     #[default]
     None,
 }
 
-impl Root {
-    pub fn as_function(self) -> Option<Function> {
-        match self {
-            Root::Function(f) => Some(f),
-            _ => None,
-        }
-    }
-    pub fn as_evaluator(self) -> Option<Evaluator> {
-        match self {
-            Root::Evaluator(e) => Some(e),
-            _ => None,
-        }
-    }
-    pub fn as_owner(self) -> Owner {
-        match self {
-            Root::Function(f) => Owner::Function(f.clone()),
-            Root::Evaluator(e) => Owner::Evaluator(e.clone()),
-            Root::None => Owner::None,
-        }
-    }
-    pub fn as_node(self) -> Node {
-        match self {
-            Root::Function(f) => Node::Function(f),
-            Root::Evaluator(e) => Node::Evaluator(e),
-            Root::None => Node::None,
-        }
-    }
-}
-
 impl Link<Root> {
     pub fn as_function(self) -> Option<Link<Function>> {
-        self.borrow()
-            .deref()
-            .clone()
-            .as_function()
-            .map(|f| f.into())
+        match self.borrow().deref() {
+            Root::Function(f) => Some(f.clone()),
+            _ => None,
+        }
     }
     pub fn as_evaluator(self) -> Option<Link<Evaluator>> {
-        self.borrow()
-            .deref()
-            .clone()
-            .as_evaluator()
-            .map(|e| e.into())
+        match self.borrow().deref() {
+            Root::Evaluator(e) => Some(e.clone()),
+            _ => None,
+        }
     }
     pub fn as_owner(self) -> Link<Owner> {
-        self.borrow().deref().clone().as_owner().into()
+        match self.borrow().deref() {
+            Root::Function(f) => Owner::Function(f.clone()).into(),
+            Root::Evaluator(e) => Owner::Evaluator(e.clone()).into(),
+            Root::None => Owner::None.into(),
+        }
     }
     pub fn as_node(self) -> Link<Node> {
-        self.borrow().deref().clone().as_node().into()
+        match self.borrow().deref() {
+            Root::Function(f) => Node::Function(f.clone()).into(),
+            Root::Evaluator(e) => Node::Evaluator(e.clone()).into(),
+            Root::None => Node::None.into(),
+        }
     }
 }

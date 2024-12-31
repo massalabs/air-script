@@ -9,34 +9,26 @@ pub struct If {
 }
 
 impl If {
-    pub fn new(condition: Link<Op>, then_branch: Link<Op>, else_branch: Link<Op>) -> Self {
+    pub fn create(condition: Link<Op>, then_branch: Link<Op>, else_branch: Link<Op>) -> Link<Self> {
         Self {
             condition,
             then_branch,
             else_branch,
             ..Default::default()
         }
-    }
-    pub fn as_op(self) -> Op {
-        Op::If(self)
-    }
-    pub fn as_owner(self) -> Owner {
-        Owner::If(self)
-    }
-    pub fn as_node(self) -> Node {
-        Node::If(self)
+        .into()
     }
 }
 
 impl Link<If> {
     pub fn as_op(self) -> Link<Op> {
-        Link::new(Op::If(self.borrow().clone()))
+        Op::If(self).into()
     }
     pub fn as_owner(self) -> Link<Owner> {
-        Link::new(Owner::If(self.borrow().clone()))
+        Owner::If(self).into()
     }
     pub fn as_node(self) -> Link<Node> {
-        Link::new(Node::If(self.borrow().clone()))
+        Node::If(self).into()
     }
 }
 
@@ -257,27 +249,30 @@ impl IfBuilderFull {
         self.else_branch = Some(else_branch);
         self
     }
-    pub fn build(self) -> If {
+    pub fn build(self) -> Link<If> {
         If {
             parent: self.parent,
             condition: self.condition.unwrap(),
             then_branch: self.then_branch.unwrap(),
             else_branch: self.else_branch.unwrap(),
         }
+        .into()
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::ops::Deref;
+
     use super::*;
     use crate::ir::{Add, Evaluator, Mul, Owner, Sub};
 
     #[test]
     fn test_if_builder() {
-        let parent = Link::new(Owner::Evaluator(Evaluator::default()));
-        let condition = Link::new(Op::Sub(Sub::default()));
-        let then_branch = Link::new(Op::Add(Add::default()));
-        let else_branch = Link::new(Op::Mul(Mul::default()));
+        let parent = Link::new(Owner::Evaluator(Evaluator::default().into()));
+        let condition = Link::new(Op::Sub(Sub::default().into()));
+        let then_branch = Link::new(Op::Add(Add::default().into()));
+        let else_branch = Link::new(Op::Mul(Mul::default().into()));
         let if_op = If::builder()
             .parent(parent.clone())
             .condition(condition.clone())
@@ -285,8 +280,8 @@ mod tests {
             .else_branch(else_branch.clone())
             .build();
         assert_eq!(
-            if_op,
-            If {
+            if_op.borrow().deref(),
+            &If {
                 parent: parent.into(),
                 condition,
                 then_branch,

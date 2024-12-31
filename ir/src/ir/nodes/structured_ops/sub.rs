@@ -8,33 +8,25 @@ pub struct Sub {
 }
 
 impl Sub {
-    pub fn new(lhs: Link<Op>, rhs: Link<Op>) -> Self {
+    pub fn create(lhs: Link<Op>, rhs: Link<Op>) -> Link<Self> {
         Self {
             lhs,
             rhs,
             ..Default::default()
         }
-    }
-    pub fn as_op(self) -> Op {
-        Op::Sub(self)
-    }
-    pub fn as_owner(self) -> Owner {
-        Owner::Sub(self)
-    }
-    pub fn as_node(self) -> Node {
-        Node::Sub(self)
+        .into()
     }
 }
 
 impl Link<Sub> {
     pub fn as_op(self) -> Link<Op> {
-        Link::new(Op::Sub(self.borrow().clone()))
+        Op::Sub(self).into()
     }
     pub fn as_owner(self) -> Link<Owner> {
-        Link::new(Owner::Sub(self.borrow().clone()))
+        Owner::Sub(self).into()
     }
     pub fn as_node(self) -> Link<Node> {
-        Link::new(Node::Sub(self.borrow().clone()))
+        Node::Sub(self).into()
     }
 }
 
@@ -152,23 +144,26 @@ impl SubBuilderFull {
         self.rhs = Some(rhs);
         self
     }
-    pub fn build(self) -> Sub {
+    pub fn build(self) -> Link<Sub> {
         Sub {
             parent: self.parent,
             lhs: self.lhs.unwrap(),
             rhs: self.rhs.unwrap(),
         }
+        .into()
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::ops::Deref;
+
     use super::*;
     use crate::ir::{Evaluator, Owner};
 
     #[test]
     fn test_sub_builder() {
-        let parent = Link::new(Owner::Evaluator(Evaluator::default()));
+        let parent = Link::new(Owner::Evaluator(Evaluator::default().into()));
         let lhs = Link::new(Op::default());
         let rhs = Link::new(Op::default());
         let sub = Sub::builder()
@@ -177,8 +172,8 @@ mod tests {
             .rhs(rhs.clone())
             .build();
         assert_eq!(
-            sub,
-            Sub {
+            sub.borrow().deref(),
+            &Sub {
                 parent: parent.into(),
                 lhs,
                 rhs,

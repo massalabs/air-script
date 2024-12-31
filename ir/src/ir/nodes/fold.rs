@@ -17,34 +17,30 @@ pub enum FoldOperator {
 }
 
 impl Fold {
-    pub fn new(iterator: Link<Op>, operator: FoldOperator, initial_value: Link<Op>) -> Self {
+    pub fn create(
+        iterator: Link<Op>,
+        operator: FoldOperator,
+        initial_value: Link<Op>,
+    ) -> Link<Self> {
         Self {
             iterator,
             operator,
             initial_value,
             ..Default::default()
         }
-    }
-    pub fn as_op(self) -> Op {
-        Op::Fold(self)
-    }
-    pub fn as_owner(self) -> Owner {
-        Owner::Fold(self)
-    }
-    pub fn as_node(self) -> Node {
-        Node::Fold(self)
+        .into()
     }
 }
 
 impl Link<Fold> {
     pub fn as_op(self) -> Link<Op> {
-        Link::new(Op::Fold(self.borrow().clone()))
+        Op::Fold(self).into()
     }
     pub fn as_owner(self) -> Link<Owner> {
-        Link::new(Owner::Fold(self.borrow().clone()))
+        Owner::Fold(self).into()
     }
     pub fn as_node(self) -> Link<Node> {
-        Link::new(Node::Fold(self.borrow().clone()))
+        Node::Fold(self).into()
     }
 }
 
@@ -261,38 +257,41 @@ impl FoldBuilderFull {
         self.initial_value = Some(initial_value);
         self
     }
-    pub fn build(self) -> Fold {
+    pub fn build(self) -> Link<Fold> {
         Fold {
             parent: self.parent,
             iterator: self.iterator.unwrap(),
             operator: self.operator.unwrap(),
             initial_value: self.initial_value.unwrap(),
         }
+        .into()
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::ops::Deref;
+
     use crate::ir::{Add, Evaluator, Mul};
 
     use super::*;
 
     #[test]
     fn test_fold_builder() {
-        let parent = Link::new(Owner::Evaluator(Evaluator::default()));
+        let parent = Link::new(Owner::Evaluator(Evaluator::default().into()));
         let fold = Fold::builder()
             .parent(parent.clone())
-            .iterator(Link::new(Op::Add(Add::default())))
+            .iterator(Link::new(Op::Add(Add::default().into())))
             .operator(FoldOperator::Add)
-            .initial_value(Link::new(Op::Mul(Mul::default())))
+            .initial_value(Link::new(Op::Mul(Mul::default().into())))
             .build();
         assert_eq!(
-            fold,
-            Fold {
+            fold.borrow().deref(),
+            &Fold {
                 parent: parent.clone().into(),
-                iterator: Link::new(Op::Add(Add::default())),
+                iterator: Link::new(Op::Add(Add::default().into())),
                 operator: FoldOperator::Add,
-                initial_value: Link::new(Op::Mul(Mul::default())),
+                initial_value: Link::new(Op::Mul(Mul::default().into())),
             }
         );
     }

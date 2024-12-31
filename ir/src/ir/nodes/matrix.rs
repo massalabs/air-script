@@ -10,34 +10,26 @@ pub struct Matrix {
 }
 
 impl Matrix {
-    pub fn new(elements: Vec<Link<Vector>>) -> Self {
+    pub fn create(elements: Vec<Link<Vector>>) -> Link<Self> {
         let size = elements.len();
         Self {
             size,
             elements: Link::new(elements),
             ..Default::default()
         }
-    }
-    pub fn as_op(self) -> Op {
-        Op::Matrix(self)
-    }
-    pub fn as_owner(self) -> Owner {
-        Owner::Matrix(self)
-    }
-    pub fn as_node(self) -> Node {
-        Node::Matrix(self)
+        .into()
     }
 }
 
 impl Link<Matrix> {
     pub fn as_op(self) -> Link<Op> {
-        Link::new(Op::Matrix(self.borrow().clone()))
+        Op::Matrix(self).into()
     }
     pub fn as_owner(self) -> Link<Owner> {
-        Link::new(Owner::Matrix(self.borrow().clone()))
+        Owner::Matrix(self).into()
     }
     pub fn as_node(self) -> Link<Node> {
-        Link::new(Node::Matrix(self.borrow().clone()))
+        Node::Matrix(self).into()
     }
 }
 
@@ -129,17 +121,20 @@ impl MatrixBuilder<(BackLink<Owner>, usize, Vec<Link<Vector>>)> {
         self.elements.push(elements);
         self
     }
-    pub fn build(self) -> Matrix {
+    pub fn build(self) -> Link<Matrix> {
         Matrix {
             parent: self.parent,
             size: self.size.expect("size not set"),
             elements: Link::new(self.elements),
         }
+        .into()
     }
 }
 
 #[cfg(test)]
 mod tests {
+
+    use std::ops::Deref;
 
     use super::*;
 
@@ -154,8 +149,13 @@ mod tests {
             .elements(a.clone())
             .elements(b.clone())
             .build();
-        assert_eq!(Link::from(matrix.parent), parent.clone());
-        assert_eq!(matrix.size, 2);
-        assert_eq!(matrix.elements, Link::new(vec![a.clone(), b.clone()]));
+        assert_eq!(
+            matrix.borrow().deref(),
+            &Matrix {
+                parent: parent.into(),
+                size: 2,
+                elements: Link::new(vec![a, b]),
+            }
+        );
     }
 }

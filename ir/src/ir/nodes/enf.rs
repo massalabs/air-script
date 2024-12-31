@@ -7,32 +7,24 @@ pub struct Enf {
 }
 
 impl Enf {
-    pub fn new(expr: Link<Op>) -> Self {
+    pub fn create(expr: Link<Op>) -> Link<Self> {
         Self {
             expr,
             ..Default::default()
         }
-    }
-    pub fn as_op(self) -> Op {
-        Op::Enf(self)
-    }
-    pub fn as_owner(self) -> Owner {
-        Owner::Enf(self)
-    }
-    pub fn as_node(self) -> Node {
-        Node::Enf(self)
+        .into()
     }
 }
 
 impl Link<Enf> {
     pub fn as_op(self) -> Link<Op> {
-        Link::new(Op::Enf(self.borrow().clone()))
+        Op::Enf(self).into()
     }
     pub fn as_owner(self) -> Link<Owner> {
-        Link::new(Owner::Enf(self.borrow().clone()))
+        Owner::Enf(self).into()
     }
     pub fn as_node(self) -> Link<Node> {
-        Link::new(Node::Enf(self.borrow().clone()))
+        Node::Enf(self).into()
     }
 }
 
@@ -107,32 +99,35 @@ impl EnfBuilderFull {
         self.expr = Some(expr);
         self
     }
-    pub fn build(self) -> Enf {
+    pub fn build(self) -> Link<Enf> {
         Enf {
             parent: self.parent,
             expr: self.expr.unwrap(),
         }
+        .into()
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::ops::Deref;
+
     use super::*;
     use crate::ir::{Add, Evaluator};
 
     #[test]
     fn test_enf_builder() {
-        let parent = Link::new(Owner::Evaluator(Evaluator::default()));
-        let expr = Link::new(Add::default().as_op().into());
+        let parent = Link::new(Owner::Evaluator(Evaluator::default().into()));
+        let expr = Link::new(Add::default()).as_op();
         let enf = Enf::builder()
             .parent(parent.clone())
             .expr(expr.clone())
             .build();
         assert_eq!(
-            enf,
-            Enf {
+            enf.borrow().deref(),
+            &Enf {
                 parent: parent.into(),
-                expr: expr.into()
+                expr
             }
         );
     }

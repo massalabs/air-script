@@ -9,31 +9,30 @@ pub struct For {
 }
 
 impl For {
-    pub fn new(iterators: Link<Vec<Link<Op>>>, expr: Link<Op>, selector: Link<Op>) -> Self {
+    pub fn create(
+        iterators: Link<Vec<Link<Op>>>,
+        expr: Link<Op>,
+        selector: Link<Op>,
+    ) -> Link<Self> {
         Self {
             iterators,
             expr,
             selector,
             ..Default::default()
         }
-    }
-    pub fn as_op(self) -> Op {
-        Op::For(self)
-    }
-    pub fn as_owner(self) -> Owner {
-        Owner::For(self)
-    }
-    pub fn as_node(self) -> Node {
-        Node::For(self)
+        .into()
     }
 }
 
 impl Link<For> {
     pub fn as_op(self) -> Link<Op> {
-        Link::new(Op::For(self.borrow().clone()))
+        Op::For(self).into()
     }
     pub fn as_owner(self) -> Link<Owner> {
-        Link::new(Owner::For(self.borrow().clone()))
+        Owner::For(self).into()
+    }
+    pub fn as_node(self) -> Link<Node> {
+        Node::For(self).into()
     }
 }
 
@@ -173,29 +172,38 @@ impl ForBuilderFull {
         self.selector = Some(selector);
         self
     }
-    pub fn build(self) -> For {
+    pub fn build(self) -> Link<For> {
         For {
             parent: self.parent,
             iterators: Link::new(self.iterators),
             expr: self.expr.expect("expr"),
             selector: self.selector.expect("selector"),
         }
+        .into()
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::ops::Deref;
+
     use crate::ir::{Add, Evaluator, SpannedMirValue, Sub, Value};
 
     use super::*;
 
     #[test]
     fn test_for_builder() {
-        let parent = Link::new(Owner::Evaluator(Evaluator::default()));
-        let i_a = Link::new(Value::builder().value(SpannedMirValue::default()).build()).as_op();
-        let i_b = Link::new(Value::builder().value(SpannedMirValue::default()).build()).as_op();
-        let expr = Link::new(Op::Add(Add::default()));
-        let selector = Link::new(Op::Sub(Sub::default()));
+        let parent = Link::new(Owner::Evaluator(Evaluator::default().into()));
+        let i_a = Value::builder()
+            .value(SpannedMirValue::default())
+            .build()
+            .as_op();
+        let i_b = Value::builder()
+            .value(SpannedMirValue::default())
+            .build()
+            .as_op();
+        let expr = Link::new(Op::Add(Add::default().into()));
+        let selector = Link::new(Op::Sub(Sub::default().into()));
         let for_op = For::builder()
             .parent(parent.clone())
             .iterators(i_a.clone())
@@ -204,8 +212,8 @@ mod tests {
             .selector(selector.clone())
             .build();
         assert_eq!(
-            for_op,
-            For {
+            for_op.borrow().deref(),
+            &For {
                 parent: parent.clone().into(),
                 iterators: Link::new(vec![i_a.clone(), i_b.clone()]),
                 expr: expr.clone(),

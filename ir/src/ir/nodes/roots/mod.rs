@@ -14,28 +14,19 @@ pub struct Parameter {
 }
 
 impl Parameter {
-    pub fn new(position: usize, ty: MirType) -> Self {
-        Self { position, ty }
-    }
-    pub fn as_leaf(self) -> Leaf {
-        Leaf::Parameter(self)
-    }
-    pub fn as_op(self) -> Op {
-        Op::Parameter(self)
-    }
-    pub fn as_node(self) -> Node {
-        Node::Parameter(self)
+    pub fn create(position: usize, ty: MirType) -> Link<Self> {
+        Self { position, ty }.into()
     }
 }
 
 impl Link<Parameter> {
     pub fn as_leaf(self) -> Link<Leaf> {
-        Link::new(Leaf::Parameter(self.borrow().clone()))
+        Leaf::Parameter(self.clone()).into()
     }
     pub fn as_op(self) -> Link<Op> {
-        Link::new(Op::Parameter(self.borrow().clone()))
+        Op::Parameter(self).into()
     }
     pub fn as_node(self) -> Link<Node> {
-        Link::new(Node::Parameter(self.borrow().clone()))
+        Node::Parameter(self).into()
     }
 }

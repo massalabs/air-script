@@ -9,33 +9,25 @@ pub struct Call {
 }
 
 impl Call {
-    pub fn new(function: Link<Root>, arguments: Vec<Link<Op>>) -> Self {
+    pub fn create(function: Link<Root>, arguments: Vec<Link<Op>>) -> Link<Self> {
         Self {
             function,
             arguments: Link::new(arguments),
             ..Default::default()
         }
-    }
-    pub fn as_op(self) -> Op {
-        Op::Call(self)
-    }
-    pub fn as_owner(self) -> Owner {
-        Owner::Call(self)
-    }
-    pub fn as_node(self) -> Node {
-        Node::Call(self)
+        .into()
     }
 }
 
 impl Link<Call> {
     pub fn as_op(self) -> Link<Op> {
-        Link::new(Op::Call(self.borrow().clone()))
+        Op::Call(self).into()
     }
     pub fn as_owner(self) -> Link<Owner> {
-        Link::new(Owner::Call(self.borrow().clone()))
+        Owner::Call(self).into()
     }
     pub fn as_node(self) -> Link<Node> {
-        Link::new(Node::Call(self.borrow().clone()))
+        Node::Call(self).into()
     }
 }
 
@@ -121,38 +113,41 @@ impl CallBuilderFull {
         self.arguments.push(argument);
         self
     }
-    pub fn build(self) -> Call {
+    pub fn build(self) -> Link<Call> {
         Call {
             parent: self.parent,
             function: self.function.unwrap(),
             arguments: Link::new(self.arguments),
         }
+        .into()
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::ops::Deref;
+
     use super::*;
     use crate::ir::{nodes::value::MirType, Add, Function, Owner, Parameter};
 
     #[test]
     fn test_call_builder() {
-        let parent = Link::new(Owner::Add(Add::default()));
+        let parent = Link::new(Owner::Add(Add::default().into()));
         let function = Link::new(Root::Function(
             Function::builder()
-                .parameters(Parameter::new(0, MirType::Felt).into())
-                .return_type(Parameter::new(1, MirType::Felt).into())
+                .parameters(Parameter::create(0, MirType::Felt).into())
+                .return_type(Parameter::create(1, MirType::Felt).into())
                 .build(),
         ));
-        let arg = Link::new(Op::Add(Add::default()));
+        let arg = Link::new(Op::Add(Add::default().into()));
         let call = Call::builder()
             .parent(parent.clone())
             .function(function.clone())
             .argument(arg.clone())
             .build();
         assert_eq!(
-            call,
-            Call {
+            call.borrow().deref(),
+            &Call {
                 parent: parent.into(),
                 function: function.clone(),
                 arguments: Link::new(vec![arg.clone()])

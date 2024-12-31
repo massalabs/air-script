@@ -65,33 +65,25 @@ impl Hash for Accessor {
 }
 
 impl Accessor {
-    pub fn new(indexable: Link<Op>, access_type: AccessType) -> Self {
+    pub fn create(indexable: Link<Op>, access_type: AccessType) -> Link<Self> {
         Self {
             access_type,
             indexable,
             ..Default::default()
         }
-    }
-    pub fn as_op(self) -> Op {
-        Op::Accessor(self)
-    }
-    pub fn as_owner(self) -> Owner {
-        Owner::Accessor(self)
-    }
-    pub fn as_node(self) -> Node {
-        Node::Accessor(self)
+        .into()
     }
 }
 
 impl Link<Accessor> {
     pub fn as_op(self) -> Link<Op> {
-        Link::new(Op::Accessor(self.borrow().clone()))
+        Op::Accessor(self).into()
     }
     pub fn as_owner(self) -> Link<Owner> {
-        Link::new(Owner::Accessor(self.borrow().clone()))
+        Owner::Accessor(self).into()
     }
     pub fn as_node(self) -> Link<Node> {
-        Link::new(Node::Accessor(self.borrow().clone()))
+        Node::Accessor(self).into()
     }
 }
 
@@ -209,17 +201,20 @@ impl AccessorBuilderFull {
         self.access_type = Some(access_type);
         self
     }
-    pub fn build(self) -> Accessor {
+    pub fn build(self) -> Link<Accessor> {
         Accessor {
             parent: self.parent,
             indexable: self.indexable.unwrap(),
             access_type: self.access_type.unwrap(),
         }
+        .into()
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::ops::Deref;
+
     use super::*;
 
     #[test]
@@ -235,8 +230,8 @@ mod tests {
             .build();
 
         assert_eq!(
-            accessor,
-            Accessor {
+            accessor.borrow().deref(),
+            &Accessor {
                 parent: parent.into(),
                 indexable,
                 access_type

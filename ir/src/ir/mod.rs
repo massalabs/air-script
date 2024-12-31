@@ -107,15 +107,3 @@ pub trait Builder {
     /// and returns a new builder with all fields set to expose all fields
     fn edit(self) -> Self::BuilderFull;
 }
-
-impl<T: Builder + Clone> Builder for Link<T> {
-    type BuilderEmpty = Link<T::BuilderEmpty>;
-    type BuilderFull = Link<T::BuilderFull>;
-    fn builder() -> Self::BuilderEmpty {
-        Link::new(T::builder())
-    }
-    fn edit(self) -> Self::BuilderFull {
-        let full = self.borrow().clone().edit();
-        Link::new(full)
-    }
-}

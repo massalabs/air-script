@@ -2,245 +2,173 @@ use crate::ir::{
     Accessor, Add, Boundary, Call, Enf, Evaluator, Fold, For, Function, If, Link, Matrix, Mul,
     Node, Op, Parent, Sub, Vector,
 };
+use std::ops::Deref;
 
 /// The nodes that can own Op nodes
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub enum Owner {
-    Function(Function),
-    Evaluator(Evaluator),
-    Enf(Enf),
-    Boundary(Boundary),
-    Add(Add),
-    Sub(Sub),
-    Mul(Mul),
-    If(If),
-    For(For),
-    Call(Call),
-    Fold(Fold),
-    Vector(Vector),
-    Matrix(Matrix),
-    Accessor(Accessor),
+    Function(Link<Function>),
+    Evaluator(Link<Evaluator>),
+    Enf(Link<Enf>),
+    Boundary(Link<Boundary>),
+    Add(Link<Add>),
+    Sub(Link<Sub>),
+    Mul(Link<Mul>),
+    If(Link<If>),
+    For(Link<For>),
+    Call(Link<Call>),
+    Fold(Link<Fold>),
+    Vector(Link<Vector>),
+    Matrix(Link<Matrix>),
+    Accessor(Link<Accessor>),
     #[default]
     None,
-}
-
-impl Owner {
-    pub fn as_function(self) -> Option<Function> {
-        match self {
-            Owner::Function(f) => Some(f),
-            _ => None,
-        }
-    }
-    pub fn as_evaluator(self) -> Option<Evaluator> {
-        match self {
-            Owner::Evaluator(e) => Some(e),
-            _ => None,
-        }
-    }
-    pub fn as_enf(self) -> Option<Enf> {
-        match self {
-            Owner::Enf(e) => Some(e),
-            _ => None,
-        }
-    }
-    pub fn as_boundary(self) -> Option<Boundary> {
-        match self {
-            Owner::Boundary(b) => Some(b),
-            _ => None,
-        }
-    }
-    pub fn as_add(self) -> Option<Add> {
-        match self {
-            Owner::Add(a) => Some(a),
-            _ => None,
-        }
-    }
-    pub fn as_sub(self) -> Option<Sub> {
-        match self {
-            Owner::Sub(s) => Some(s),
-            _ => None,
-        }
-    }
-    pub fn as_mul(self) -> Option<Mul> {
-        match self {
-            Owner::Mul(m) => Some(m),
-            _ => None,
-        }
-    }
-    pub fn as_if(self) -> Option<If> {
-        match self {
-            Owner::If(i) => Some(i),
-            _ => None,
-        }
-    }
-    pub fn as_for(self) -> Option<For> {
-        match self {
-            Owner::For(f) => Some(f),
-            _ => None,
-        }
-    }
-    pub fn as_call(self) -> Option<Call> {
-        match self {
-            Owner::Call(c) => Some(c),
-            _ => None,
-        }
-    }
-    pub fn as_fold(self) -> Option<Fold> {
-        match self {
-            Owner::Fold(f) => Some(f),
-            _ => None,
-        }
-    }
-    pub fn as_vector(self) -> Option<Vector> {
-        match self {
-            Owner::Vector(v) => Some(v),
-            _ => None,
-        }
-    }
-    pub fn as_matrix(self) -> Option<Matrix> {
-        match self {
-            Owner::Matrix(m) => Some(m),
-            _ => None,
-        }
-    }
-    pub fn as_accessor(self) -> Option<Accessor> {
-        match self {
-            Owner::Accessor(a) => Some(a),
-            _ => None,
-        }
-    }
-    pub fn as_op(self) -> Option<Op> {
-        match self {
-            Owner::Function(f) => None,
-            Owner::Evaluator(e) => None,
-            Owner::Enf(e) => Some(Op::Enf(e)),
-            Owner::Boundary(b) => Some(Op::Boundary(b)),
-            Owner::Add(a) => Some(Op::Add(a)),
-            Owner::Sub(s) => Some(Op::Sub(s)),
-            Owner::Mul(m) => Some(Op::Mul(m)),
-            Owner::If(i) => Some(Op::If(i)),
-            Owner::For(f) => Some(Op::For(f)),
-            Owner::Call(c) => Some(Op::Call(c)),
-            Owner::Fold(f) => Some(Op::Fold(f)),
-            Owner::Vector(v) => Some(Op::Vector(v)),
-            Owner::Matrix(m) => Some(Op::Matrix(m)),
-            Owner::Accessor(a) => Some(Op::Accessor(a)),
-            Owner::None => None,
-        }
-    }
-    pub fn as_node(self) -> Node {
-        match self {
-            Owner::Function(f) => Node::Function(f),
-            Owner::Evaluator(e) => Node::Evaluator(e),
-            Owner::Enf(e) => Node::Enf(e),
-            Owner::Boundary(b) => Node::Boundary(b),
-            Owner::Add(a) => Node::Add(a),
-            Owner::Sub(s) => Node::Sub(s),
-            Owner::Mul(m) => Node::Mul(m),
-            Owner::If(i) => Node::If(i),
-            Owner::For(f) => Node::For(f),
-            Owner::Call(c) => Node::Call(c),
-            Owner::Fold(f) => Node::Fold(f),
-            Owner::Vector(v) => Node::Vector(v),
-            Owner::Matrix(m) => Node::Matrix(m),
-            Owner::Accessor(a) => Node::Accessor(a),
-            Owner::None => Node::None,
-        }
-    }
-}
-
-impl Link<Owner> {
-    pub fn as_function(self) -> Option<Link<Function>> {
-        self.borrow().clone().as_function().map(|f| f.into())
-    }
-    pub fn as_evaluator(self) -> Option<Link<Evaluator>> {
-        self.borrow().clone().as_evaluator().map(|e| e.into())
-    }
-    pub fn as_enf(self) -> Option<Link<Enf>> {
-        self.borrow().clone().as_enf().map(|e| e.into())
-    }
-    pub fn as_boundary(self) -> Option<Link<Boundary>> {
-        self.borrow().clone().as_boundary().map(|b| b.into())
-    }
-    pub fn as_add(self) -> Option<Link<Add>> {
-        self.borrow().clone().as_add().map(|a| a.into())
-    }
-    pub fn as_sub(self) -> Option<Link<Sub>> {
-        self.borrow().clone().as_sub().map(|s| s.into())
-    }
-    pub fn as_mul(self) -> Option<Link<Mul>> {
-        self.borrow().clone().as_mul().map(|m| m.into())
-    }
-    pub fn as_if(self) -> Option<Link<If>> {
-        self.borrow().clone().as_if().map(|i| i.into())
-    }
-    pub fn as_for(self) -> Option<Link<For>> {
-        self.borrow().clone().as_for().map(|f| f.into())
-    }
-    pub fn as_call(self) -> Option<Link<Call>> {
-        self.borrow().clone().as_call().map(|c| c.into())
-    }
-    pub fn as_fold(self) -> Option<Link<Fold>> {
-        self.borrow().clone().as_fold().map(|f| f.into())
-    }
-    pub fn as_vector(self) -> Option<Link<Vector>> {
-        self.borrow().clone().as_vector().map(|v| v.into())
-    }
-    pub fn as_matrix(self) -> Option<Link<Matrix>> {
-        self.borrow().clone().as_matrix().map(|m| m.into())
-    }
-    pub fn as_accessor(self) -> Option<Link<Accessor>> {
-        self.borrow().clone().as_accessor().map(|a| a.into())
-    }
-    pub fn as_op(self) -> Option<Link<Op>> {
-        self.borrow().clone().as_op().map(|o| o.into())
-    }
-    pub fn as_node(self) -> Link<Node> {
-        self.borrow().clone().as_node().into()
-    }
 }
 
 impl Parent for Owner {
     type Child = Op;
     fn children(&self) -> Link<Vec<Link<Self::Child>>> {
         match self {
-            Owner::Function(function) => function.children(),
-            Owner::Evaluator(evaluator) => evaluator.children(),
-            Owner::Enf(enf) => enf.children(),
-            Owner::Boundary(boundary) => boundary.children(),
-            Owner::Add(add) => add.children(),
-            Owner::Sub(sub) => sub.children(),
-            Owner::Mul(mul) => mul.children(),
-            Owner::If(if_node) => if_node.children(),
-            Owner::For(for_node) => for_node.children(),
-            Owner::Call(call) => call.children(),
-            Owner::Fold(fold) => fold.children(),
-            Owner::Vector(vector) => vector.children(),
-            Owner::Matrix(matrix) => matrix.children(),
-            Owner::Accessor(accessor) => accessor.children(),
-            Owner::None => Link::new(Vec::new()),
+            Owner::Function(f) => f.children(),
+            Owner::Evaluator(e) => e.children(),
+            Owner::Enf(e) => e.children(),
+            Owner::Boundary(b) => b.children(),
+            Owner::Add(a) => a.children(),
+            Owner::Sub(s) => s.children(),
+            Owner::Mul(m) => m.children(),
+            Owner::If(i) => i.children(),
+            Owner::For(f) => f.children(),
+            Owner::Call(c) => c.children(),
+            Owner::Fold(f) => f.children(),
+            Owner::Vector(v) => v.children(),
+            Owner::Matrix(m) => m.children(),
+            Owner::Accessor(a) => a.children(),
+            Owner::None => Link::default(),
         }
     }
-    fn remove_child(&mut self, child: Link<Self::Child>)
-    where
-        Self::Child: PartialEq,
-    {
-        match self {
-            Owner::Function(function) => function.remove_child(child),
-            Owner::Evaluator(evaluator) => evaluator.remove_child(child),
-            Owner::Enf(enf) => enf.remove_child(child),
-            Owner::Boundary(boundary) => boundary.remove_child(child),
-            Owner::Add(add) => add.remove_child(child),
-            Owner::Sub(sub) => sub.remove_child(child),
-            Owner::Mul(mul) => mul.remove_child(child),
-            Owner::If(if_node) => if_node.remove_child(child),
-            Owner::For(for_node) => for_node.remove_child(child),
-            Owner::Call(call) => call.remove_child(child),
-            Owner::Fold(fold) => fold.remove_child(child),
-            Owner::Vector(vector) => vector.remove_child(child),
-            Owner::Matrix(matrix) => matrix.remove_child(child),
-            Owner::Accessor(accessor) => accessor.remove_child(child),
-            Owner::None => {}
+}
+
+impl Link<Owner> {
+    pub fn as_function(self) -> Option<Link<Function>> {
+        match self.borrow().deref() {
+            Owner::Function(f) => Some(f.clone()),
+            _ => None,
+        }
+    }
+    pub fn as_evaluator(self) -> Option<Link<Evaluator>> {
+        match self.borrow().deref() {
+            Owner::Evaluator(e) => Some(e.clone()),
+            _ => None,
+        }
+    }
+    pub fn as_enf(self) -> Option<Link<Enf>> {
+        match self.borrow().deref() {
+            Owner::Enf(e) => Some(e.clone()),
+            _ => None,
+        }
+    }
+    pub fn as_boundary(self) -> Option<Link<Boundary>> {
+        match self.borrow().deref() {
+            Owner::Boundary(b) => Some(b.clone()),
+            _ => None,
+        }
+    }
+    pub fn as_add(self) -> Option<Link<Add>> {
+        match self.borrow().deref() {
+            Owner::Add(a) => Some(a.clone()),
+            _ => None,
+        }
+    }
+    pub fn as_sub(self) -> Option<Link<Sub>> {
+        match self.borrow().deref() {
+            Owner::Sub(s) => Some(s.clone()),
+            _ => None,
+        }
+    }
+    pub fn as_mul(self) -> Option<Link<Mul>> {
+        match self.borrow().deref() {
+            Owner::Mul(m) => Some(m.clone()),
+            _ => None,
+        }
+    }
+    pub fn as_if(self) -> Option<Link<If>> {
+        match self.borrow().deref() {
+            Owner::If(i) => Some(i.clone()),
+            _ => None,
+        }
+    }
+    pub fn as_for(self) -> Option<Link<For>> {
+        match self.borrow().deref() {
+            Owner::For(f) => Some(f.clone()),
+            _ => None,
+        }
+    }
+    pub fn as_call(self) -> Option<Link<Call>> {
+        match self.borrow().deref() {
+            Owner::Call(c) => Some(c.clone()),
+            _ => None,
+        }
+    }
+    pub fn as_fold(self) -> Option<Link<Fold>> {
+        match self.borrow().deref() {
+            Owner::Fold(f) => Some(f.clone()),
+            _ => None,
+        }
+    }
+    pub fn as_vector(self) -> Option<Link<Vector>> {
+        match self.borrow().deref() {
+            Owner::Vector(v) => Some(v.clone()),
+            _ => None,
+        }
+    }
+    pub fn as_matrix(self) -> Option<Link<Matrix>> {
+        match self.borrow().deref() {
+            Owner::Matrix(m) => Some(m.clone()),
+            _ => None,
+        }
+    }
+    pub fn as_accessor(self) -> Option<Link<Accessor>> {
+        match self.borrow().deref() {
+            Owner::Accessor(a) => Some(a.clone()),
+            _ => None,
+        }
+    }
+    pub fn as_op(self) -> Option<Link<Op>> {
+        match self.borrow().deref() {
+            Owner::Function(f) => None,
+            Owner::Evaluator(e) => None,
+            Owner::Enf(e) => Some(Op::Enf(e.clone()).into()),
+            Owner::Boundary(b) => Some(Op::Boundary(b.clone()).into()),
+            Owner::Add(a) => Some(Op::Add(a.clone()).into()),
+            Owner::Sub(s) => Some(Op::Sub(s.clone()).into()),
+            Owner::Mul(m) => Some(Op::Mul(m.clone()).into()),
+            Owner::If(i) => Some(Op::If(i.clone()).into()),
+            Owner::For(f) => Some(Op::For(f.clone()).into()),
+            Owner::Call(c) => Some(Op::Call(c.clone()).into()),
+            Owner::Fold(f) => Some(Op::Fold(f.clone()).into()),
+            Owner::Vector(v) => Some(Op::Vector(v.clone()).into()),
+            Owner::Matrix(m) => Some(Op::Matrix(m.clone()).into()),
+            Owner::Accessor(a) => Some(Op::Accessor(a.clone()).into()),
+            Owner::None => None,
+        }
+    }
+    pub fn as_node(self) -> Link<Node> {
+        match self.borrow().deref() {
+            Owner::Function(f) => Node::Function(f.clone()).into(),
+            Owner::Evaluator(e) => Node::Evaluator(e.clone()).into(),
+            Owner::Enf(e) => Node::Enf(e.clone()).into(),
+            Owner::Boundary(b) => Node::Boundary(b.clone()).into(),
+            Owner::Add(a) => Node::Add(a.clone()).into(),
+            Owner::Sub(s) => Node::Sub(s.clone()).into(),
+            Owner::Mul(m) => Node::Mul(m.clone()).into(),
+            Owner::If(i) => Node::If(i.clone()).into(),
+            Owner::For(f) => Node::For(f.clone()).into(),
+            Owner::Call(c) => Node::Call(c.clone()).into(),
+            Owner::Fold(f) => Node::Fold(f.clone()).into(),
+            Owner::Vector(v) => Node::Vector(v.clone()).into(),
+            Owner::Matrix(m) => Node::Matrix(m.clone()).into(),
+            Owner::Accessor(a) => Node::Accessor(a.clone()).into(),
+            Owner::None => Node::None.into(),
         }
     }
 }

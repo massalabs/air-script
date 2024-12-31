@@ -7,32 +7,24 @@ pub struct Evaluator {
 }
 
 impl Evaluator {
-    pub fn new(parameters: Vec<Link<Parameter>>, body: Vec<Link<Op>>) -> Self {
+    pub fn create(parameters: Vec<Link<Parameter>>, body: Vec<Link<Op>>) -> Link<Self> {
         Self {
             parameters,
             body: Link::new(body),
         }
-    }
-    pub fn as_root(self) -> Root {
-        Root::Evaluator(self)
-    }
-    pub fn as_owner(self) -> Owner {
-        Owner::Evaluator(self)
-    }
-    pub fn as_node(self) -> Node {
-        Node::Evaluator(self)
+        .into()
     }
 }
 
 impl Link<Evaluator> {
     pub fn as_root(self) -> Link<Root> {
-        Link::new(Root::Evaluator(self.borrow().clone()))
+        Root::Evaluator(self).into()
     }
     pub fn as_owner(self) -> Link<Owner> {
-        Link::new(Owner::Evaluator(self.borrow().clone()))
+        Owner::Evaluator(self).into()
     }
     pub fn as_node(self) -> Link<Node> {
-        Link::new(Node::Evaluator(self.borrow().clone()))
+        Node::Evaluator(self).into()
     }
 }
 
@@ -85,31 +77,33 @@ impl EvaluatorBuilderState {
         self.body.push(op);
         self
     }
-    pub fn build(self) -> Evaluator {
-        Evaluator::new(self.parameters, self.body)
+    pub fn build(self) -> Link<Evaluator> {
+        Evaluator::create(self.parameters, self.body)
     }
 }
 
 #[cfg(test)]
 mod tests {
 
+    use std::ops::Deref;
+
     use super::*;
     use crate::ir::{Add, MirType};
 
     #[test]
     fn test_evaluator_builder() {
-        let a = Parameter::new(0, MirType::Felt);
-        let b = Parameter::new(1, MirType::Felt);
+        let a = Parameter::create(0, MirType::Felt);
+        let b = Parameter::create(1, MirType::Felt);
         let ev = Evaluator::builder()
-            .parameters(a.clone().into())
-            .parameters(b.clone().into())
-            .body(Op::Add(Add::default()).into())
+            .parameters(a.clone())
+            .parameters(b.clone())
+            .body(Op::Add(Add::default().into()).into())
             .build();
         assert_eq!(
-            ev,
-            Evaluator {
+            ev.borrow().deref(),
+            &Evaluator {
                 parameters: vec![a.into(), b.into()],
-                body: Link::new(vec![Op::Add(Add::default()).into()]),
+                body: Link::new(vec![Op::Add(Add::default().into()).into()]),
             }
         );
     }

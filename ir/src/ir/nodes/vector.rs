@@ -1,4 +1,4 @@
-use std::{borrow::BorrowMut, marker::PhantomData};
+use std::marker::PhantomData;
 
 use crate::ir::{BackLink, Builder, Child, Link, Node, NotSet, Op, Owner, Parent};
 
@@ -10,34 +10,26 @@ pub struct Vector {
 }
 
 impl Vector {
-    pub fn new(elements: Vec<Link<Op>>) -> Self {
+    pub fn create(elements: Vec<Link<Op>>) -> Link<Self> {
         let size = elements.len();
         Self {
             size,
             elements: Link::new(elements),
             ..Default::default()
         }
-    }
-    pub fn as_op(self) -> Op {
-        Op::Vector(self)
-    }
-    pub fn as_owner(self) -> Owner {
-        Owner::Vector(self)
-    }
-    pub fn as_node(self) -> Node {
-        Node::Vector(self)
+        .into()
     }
 }
 
 impl Link<Vector> {
     pub fn as_op(self) -> Link<Op> {
-        Link::new(Op::Vector(self.borrow().clone()))
+        Op::Vector(self).into()
     }
     pub fn as_owner(self) -> Link<Owner> {
-        Link::new(Owner::Vector(self.borrow().clone()))
+        Owner::Vector(self).into()
     }
     pub fn as_node(self) -> Link<Node> {
-        Link::new(Node::Vector(self.borrow().clone()))
+        Node::Vector(self).into()
     }
 }
 
@@ -123,17 +115,20 @@ impl VectorBuilder<(BackLink<Owner>, usize, Link<Vec<Link<Op>>>)> {
         self.elements.borrow_mut().push(elements);
         self
     }
-    pub fn build(self) -> Vector {
+    pub fn build(self) -> Link<Vector> {
         Vector {
             parent: self.parent,
             size: self.size.expect("size not set"),
             elements: self.elements,
         }
+        .into()
     }
 }
 
 #[cfg(test)]
 mod tests {
+
+    use std::ops::Deref;
 
     use super::*;
 
@@ -148,8 +143,13 @@ mod tests {
             .elements(a.clone())
             .elements(b.clone())
             .build();
-        assert_eq!(Link::from(vector.parent), parent.clone());
-        assert_eq!(vector.size, 2);
-        assert_eq!(vector.elements, Link::new(vec![a.clone(), b.clone()]));
+        assert_eq!(
+            vector.borrow().deref(),
+            &Vector {
+                parent: parent.into(),
+                size: 2,
+                elements: vec![a, b].into(),
+            }
+        );
     }
 }

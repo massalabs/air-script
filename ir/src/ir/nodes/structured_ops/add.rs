@@ -8,33 +8,25 @@ pub struct Add {
 }
 
 impl Add {
-    pub fn new(lhs: Link<Op>, rhs: Link<Op>) -> Self {
+    pub fn create(lhs: Link<Op>, rhs: Link<Op>) -> Link<Self> {
         Self {
             lhs,
             rhs,
             ..Default::default()
         }
-    }
-    pub fn as_op(self) -> Op {
-        Op::Add(self)
-    }
-    pub fn as_owner(self) -> Owner {
-        Owner::Add(self)
-    }
-    pub fn as_node(self) -> Node {
-        Node::Add(self)
+        .into()
     }
 }
 
 impl Link<Add> {
     pub fn as_op(self) -> Link<Op> {
-        Link::new(Op::Add(self.borrow().clone()))
+        Op::Add(self).into()
     }
     pub fn as_owner(self) -> Link<Owner> {
-        Link::new(Owner::Add(self.borrow().clone()))
+        Owner::Add(self).into()
     }
     pub fn as_node(self) -> Link<Node> {
-        Link::new(Node::Add(self.borrow().clone()))
+        Node::Add(self).into()
     }
 }
 
@@ -152,23 +144,26 @@ impl AddBuilderFull {
         self.rhs = Some(rhs);
         self
     }
-    pub fn build(self) -> Add {
+    pub fn build(self) -> Link<Add> {
         Add {
             parent: self.parent,
             lhs: self.lhs.unwrap(),
             rhs: self.rhs.unwrap(),
         }
+        .into()
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::ops::Deref;
+
     use super::*;
     use crate::ir::{Evaluator, Owner};
 
     #[test]
     fn test_add_builder() {
-        let parent = Link::new(Owner::Evaluator(Evaluator::default()));
+        let parent = Link::new(Owner::Evaluator(Evaluator::default().into()));
         let lhs = Link::new(Op::default());
         let rhs = Link::new(Op::default());
         let add = Add::builder()
@@ -177,8 +172,8 @@ mod tests {
             .rhs(rhs.clone())
             .build();
         assert_eq!(
-            add,
-            Add {
+            add.borrow().deref(),
+            &Add {
                 parent: parent.into(),
                 lhs,
                 rhs,

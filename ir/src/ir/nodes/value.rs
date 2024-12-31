@@ -128,32 +128,24 @@ pub struct Value {
 }
 
 impl Value {
-    pub fn new(value: SpannedMirValue) -> Self {
+    pub fn create(value: SpannedMirValue) -> Link<Self> {
         Self {
             value,
             ..Default::default()
         }
-    }
-    pub fn as_leaf(self) -> Leaf {
-        Leaf::Value(self)
-    }
-    pub fn as_op(self) -> Op {
-        Op::Value(self)
-    }
-    pub fn as_node(self) -> Node {
-        Node::Value(self)
+        .into()
     }
 }
 
 impl Link<Value> {
     pub fn as_leaf(self) -> Link<Leaf> {
-        Link::new(Leaf::Value(self.borrow().clone()))
+        Leaf::Value(self).into()
     }
     pub fn as_op(self) -> Link<Op> {
-        Link::new(Op::Value(self.borrow().clone()))
+        Op::Value(self).into()
     }
     pub fn as_node(self) -> Link<Node> {
-        Link::new(Node::Value(self.borrow().clone()))
+        Node::Value(self).into()
     }
 }
 
@@ -221,27 +213,35 @@ impl ValueBuilderFull {
         self.parent = parent.into();
         self
     }
-    pub fn build(self) -> Value {
+    pub fn build(self) -> Link<Value> {
         Value {
             parent: self.parent,
             value: self.value.expect("value not set"),
         }
+        .into()
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::ops::Deref;
+
     use super::*;
     use crate::ir::{Add, Owner};
 
     #[test]
     fn test_value_builder() {
-        let parent = Link::new(Owner::Add(Add::default()));
+        let parent = Link::new(Owner::Add(Add::default().into()));
         let value = Value::builder()
             .parent(parent.clone())
             .value(SpannedMirValue::default())
             .build();
-        assert_eq!(Link::from(value.parent), parent.clone());
-        assert_eq!(value.value, SpannedMirValue::default());
+        assert_eq!(
+            value.borrow().deref(),
+            &Value {
+                parent: parent.into(),
+                value: SpannedMirValue::default()
+            }
+        );
     }
 }

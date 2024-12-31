@@ -8,37 +8,29 @@ pub struct Function {
 }
 
 impl Function {
-    pub fn new(
+    pub fn create(
         parameters: Vec<Link<Parameter>>,
         return_type: Link<Parameter>,
         body: Vec<Link<Op>>,
-    ) -> Self {
+    ) -> Link<Self> {
         Self {
             parameters,
             return_type,
             body: Link::new(body),
         }
-    }
-    pub fn as_root(self) -> Root {
-        Root::Function(self)
-    }
-    pub fn as_owner(self) -> Owner {
-        Owner::Function(self)
-    }
-    pub fn as_node(self) -> Node {
-        Node::Function(self)
+        .into()
     }
 }
 
 impl Link<Function> {
     pub fn as_root(self) -> Link<Root> {
-        Link::new(Root::Function(self.borrow().clone()))
+        Root::Function(self).into()
     }
     pub fn as_owner(self) -> Link<Owner> {
-        Link::new(Owner::Function(self.borrow().clone()))
+        Owner::Function(self).into()
     }
     pub fn as_node(self) -> Link<Node> {
-        Link::new(Node::Function(self.borrow().clone()))
+        Node::Function(self).into()
     }
 }
 
@@ -114,31 +106,36 @@ impl FunctionBuilderFull {
         self.body.push(op);
         self
     }
-    pub fn build(self) -> Function {
-        Function::new(self.parameters, self.return_type.unwrap(), self.body)
+    pub fn build(self) -> Link<Function> {
+        Function::create(self.parameters, self.return_type.unwrap(), self.body)
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::ops::Deref;
+
     use super::*;
     use crate::ir::{nodes::value::MirType, Add};
 
     #[test]
     fn test_function_builder() {
-        let a = Link::new(Parameter::new(0, MirType::Felt));
-        let b = Link::new(Parameter::new(1, MirType::Felt));
-        let return_type = Link::new(Parameter::new(2, MirType::Felt));
+        let a = Parameter::create(0, MirType::Felt);
+        let b = Parameter::create(1, MirType::Felt);
+        let return_type = Parameter::create(2, MirType::Felt);
         let func = Function::builder()
             .parameters(a.clone())
             .parameters(b.clone())
             .return_type(return_type.clone())
-            .body(Op::Add(Add::default()).into())
+            .body(Op::Add(Add::default().into()).into())
             .build();
-        assert_eq!(func.parameters.len(), 2);
-        assert_eq!(func.parameters[0].clone(), a.clone().into());
-        assert_eq!(func.parameters[1].clone(), b.clone().into());
-        assert_eq!(func.return_type.clone(), return_type.clone().into());
-        assert_eq!(func.body.borrow().len(), 1);
+        assert_eq!(
+            func.borrow().deref(),
+            &Function {
+                parameters: vec![a.into(), b.into()],
+                return_type: return_type.into(),
+                body: vec![Op::Add(Add::default().into()).into()].into(),
+            }
+        );
     }
 }

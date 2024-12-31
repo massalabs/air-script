@@ -32,33 +32,25 @@ impl Hash for Boundary {
 }
 
 impl Boundary {
-    pub fn new(expr: Link<Op>, kind: BoundaryKind) -> Self {
+    pub fn create(expr: Link<Op>, kind: BoundaryKind) -> Link<Self> {
         Self {
             expr,
             kind,
             ..Default::default()
         }
-    }
-    pub fn as_op(self) -> Op {
-        Op::Boundary(self)
-    }
-    pub fn as_owner(self) -> Owner {
-        Owner::Boundary(self)
-    }
-    pub fn as_node(self) -> Node {
-        Node::Boundary(self)
+        .into()
     }
 }
 
 impl Link<Boundary> {
     pub fn as_op(self) -> Link<Op> {
-        Link::new(Op::Boundary(self.borrow().clone()))
+        Op::Boundary(self).into()
     }
     pub fn as_owner(self) -> Link<Owner> {
-        Link::new(Owner::Boundary(self.borrow().clone()))
+        Owner::Boundary(self).into()
     }
     pub fn as_node(self) -> Link<Node> {
-        Link::new(Node::Boundary(self.borrow().clone()))
+        Node::Boundary(self).into()
     }
 }
 
@@ -176,24 +168,27 @@ impl BoundaryBuilderFull {
         self.expr = Some(expr);
         self
     }
-    pub fn build(self) -> Boundary {
+    pub fn build(self) -> Link<Boundary> {
         Boundary {
             parent: self.parent,
             kind: self.kind.unwrap(),
             expr: self.expr.unwrap(),
         }
+        .into()
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::ops::Deref;
+
     use crate::ir::Evaluator;
 
     use super::*;
 
     #[test]
     fn test_boundary() {
-        let parent = Link::new(Owner::Evaluator(Evaluator::default()));
+        let parent = Link::new(Owner::Evaluator(Evaluator::default().into()));
         let expr = Link::new(Op::default());
         let boundary = Boundary::builder()
             .parent(parent.clone())
@@ -201,8 +196,8 @@ mod tests {
             .expr(expr.clone())
             .build();
         assert_eq!(
-            boundary,
-            Boundary {
+            boundary.borrow().deref(),
+            &Boundary {
                 parent: parent.into(),
                 kind: BoundaryKind::Last,
                 expr: expr.clone()

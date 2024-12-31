@@ -8,33 +8,25 @@ pub struct Mul {
 }
 
 impl Mul {
-    pub fn new(lhs: Link<Op>, rhs: Link<Op>) -> Self {
+    pub fn create(lhs: Link<Op>, rhs: Link<Op>) -> Link<Self> {
         Self {
             lhs,
             rhs,
             ..Default::default()
         }
-    }
-    pub fn as_op(self) -> Op {
-        Op::Mul(self)
-    }
-    pub fn as_owner(self) -> Owner {
-        Owner::Mul(self)
-    }
-    pub fn as_node(self) -> Node {
-        Node::Mul(self)
+        .into()
     }
 }
 
 impl Link<Mul> {
     pub fn as_op(self) -> Link<Op> {
-        Link::new(Op::Mul(self.borrow().clone()))
+        Op::Mul(self).into()
     }
     pub fn as_owner(self) -> Link<Owner> {
-        Link::new(Owner::Mul(self.borrow().clone()))
+        Owner::Mul(self).into()
     }
     pub fn as_node(self) -> Link<Node> {
-        Link::new(Node::Mul(self.borrow().clone()))
+        Node::Mul(self).into()
     }
 }
 
@@ -152,23 +144,26 @@ impl MulBuilderFull {
         self.rhs = Some(rhs);
         self
     }
-    pub fn build(self) -> Mul {
+    pub fn build(self) -> Link<Mul> {
         Mul {
             parent: self.parent,
             lhs: self.lhs.unwrap(),
             rhs: self.rhs.unwrap(),
         }
+        .into()
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::ops::Deref;
+
     use super::*;
     use crate::ir::{Evaluator, Owner};
 
     #[test]
     fn test_mul_builder() {
-        let parent = Link::new(Owner::Evaluator(Evaluator::default()));
+        let parent = Link::new(Owner::Evaluator(Evaluator::default().into()));
         let lhs = Link::new(Op::default());
         let rhs = Link::new(Op::default());
         let mul = Mul::builder()
@@ -177,8 +172,8 @@ mod tests {
             .rhs(rhs.clone())
             .build();
         assert_eq!(
-            mul,
-            Mul {
+            mul.borrow().deref(),
+            &Mul {
                 parent: parent.into(),
                 lhs,
                 rhs,
