@@ -1,8 +1,8 @@
 use std::ops::Deref;
 
 use crate::ir::{
-    Accessor, Add, Boundary, Call, Enf, Fold, For, If, Link, Matrix, Mul, Owner, Parameter, Parent,
-    Sub, Value, Vector,
+    Accessor, Add, BackLink, Boundary, Call, Child, Enf, Fold, For, If, Link, Matrix, Mul, Owner,
+    Parameter, Parent, Sub, Value, Vector,
 };
 
 use super::Node;
@@ -44,9 +44,51 @@ impl Parent for Op {
             Op::Vector(v) => v.children(),
             Op::Matrix(m) => m.children(),
             Op::Accessor(a) => a.children(),
-            Op::Parameter(p) => vec![].into(),
-            Op::Value(v) => vec![].into(),
+            Op::Parameter(p) => Link::default(),
+            Op::Value(v) => Link::default(),
             Op::None => Link::default(),
+        }
+    }
+}
+
+impl Child for Op {
+    type Parent = Owner;
+    fn get_parent(&self) -> BackLink<Self::Parent> {
+        match self {
+            Op::Enf(e) => e.get_parent(),
+            Op::Boundary(b) => b.get_parent(),
+            Op::Add(a) => a.get_parent(),
+            Op::Sub(s) => s.get_parent(),
+            Op::Mul(m) => m.get_parent(),
+            Op::If(i) => i.get_parent(),
+            Op::For(f) => f.get_parent(),
+            Op::Call(c) => c.get_parent(),
+            Op::Fold(f) => f.get_parent(),
+            Op::Vector(v) => v.get_parent(),
+            Op::Matrix(m) => m.get_parent(),
+            Op::Accessor(a) => a.get_parent(),
+            Op::Parameter(p) => p.get_parent(),
+            Op::Value(v) => v.get_parent(),
+            Op::None => BackLink::default(),
+        }
+    }
+    fn set_parent(&mut self, parent: Link<Self::Parent>) {
+        match self {
+            Op::Enf(e) => e.set_parent(parent),
+            Op::Boundary(b) => b.set_parent(parent),
+            Op::Add(a) => a.set_parent(parent),
+            Op::Sub(s) => s.set_parent(parent),
+            Op::Mul(m) => m.set_parent(parent),
+            Op::If(i) => i.set_parent(parent),
+            Op::For(f) => f.set_parent(parent),
+            Op::Call(c) => c.set_parent(parent),
+            Op::Fold(f) => f.set_parent(parent),
+            Op::Vector(v) => v.set_parent(parent),
+            Op::Matrix(m) => m.set_parent(parent),
+            Op::Accessor(a) => a.set_parent(parent),
+            Op::Parameter(p) => p.set_parent(parent),
+            Op::Value(v) => v.set_parent(parent),
+            Op::None => {}
         }
     }
 }

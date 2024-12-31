@@ -1,6 +1,6 @@
 use std::ops::Deref;
 
-use crate::ir::{Link, Op, Parameter, Value};
+use crate::ir::{BackLink, Child, Link, Op, Owner, Parameter, Value};
 
 use super::Node;
 
@@ -12,6 +12,24 @@ pub enum Leaf {
     Value(Link<Value>),
     #[default]
     None,
+}
+
+impl Child for Leaf {
+    type Parent = Owner;
+    fn get_parent(&self) -> BackLink<Self::Parent> {
+        match self {
+            Leaf::Parameter(p) => p.get_parent(),
+            Leaf::Value(v) => v.get_parent(),
+            Leaf::None => BackLink::default(),
+        }
+    }
+    fn set_parent(&mut self, parent: Link<Self::Parent>) {
+        match self {
+            Leaf::Parameter(p) => p.set_parent(parent),
+            Leaf::Value(v) => v.set_parent(parent),
+            Leaf::None => (),
+        }
+    }
 }
 
 impl Link<Leaf> {

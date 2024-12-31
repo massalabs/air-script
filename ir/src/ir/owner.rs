@@ -1,6 +1,6 @@
 use crate::ir::{
-    Accessor, Add, Boundary, Call, Enf, Evaluator, Fold, For, Function, If, Link, Matrix, Mul,
-    Node, Op, Parent, Sub, Vector,
+    Accessor, Add, BackLink, Boundary, Call, Child, Enf, Evaluator, Fold, For, Function, If, Link,
+    Matrix, Mul, Node, Op, Parent, Sub, Vector,
 };
 use std::ops::Deref;
 
@@ -44,6 +44,48 @@ impl Parent for Owner {
             Owner::Matrix(m) => m.children(),
             Owner::Accessor(a) => a.children(),
             Owner::None => Link::default(),
+        }
+    }
+}
+
+impl Child for Owner {
+    type Parent = Owner;
+    fn get_parent(&self) -> BackLink<Self::Parent> {
+        match self {
+            Owner::Function(f) => BackLink::default(),
+            Owner::Evaluator(e) => BackLink::default(),
+            Owner::Enf(e) => e.get_parent(),
+            Owner::Boundary(b) => b.get_parent(),
+            Owner::Add(a) => a.get_parent(),
+            Owner::Sub(s) => s.get_parent(),
+            Owner::Mul(m) => m.get_parent(),
+            Owner::If(i) => i.get_parent(),
+            Owner::For(f) => f.get_parent(),
+            Owner::Call(c) => c.get_parent(),
+            Owner::Fold(f) => f.get_parent(),
+            Owner::Vector(v) => v.get_parent(),
+            Owner::Matrix(m) => m.get_parent(),
+            Owner::Accessor(a) => a.get_parent(),
+            Owner::None => BackLink::default(),
+        }
+    }
+    fn set_parent(&mut self, parent: Link<Self::Parent>) {
+        match self {
+            Owner::Function(f) => (),
+            Owner::Evaluator(e) => (),
+            Owner::Enf(e) => e.set_parent(parent),
+            Owner::Boundary(b) => b.set_parent(parent),
+            Owner::Add(a) => a.set_parent(parent),
+            Owner::Sub(s) => s.set_parent(parent),
+            Owner::Mul(m) => m.set_parent(parent),
+            Owner::If(i) => i.set_parent(parent),
+            Owner::For(f) => f.set_parent(parent),
+            Owner::Call(c) => c.set_parent(parent),
+            Owner::Fold(f) => f.set_parent(parent),
+            Owner::Vector(v) => v.set_parent(parent),
+            Owner::Matrix(m) => m.set_parent(parent),
+            Owner::Accessor(a) => a.set_parent(parent),
+            Owner::None => (),
         }
     }
 }

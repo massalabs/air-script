@@ -1,8 +1,6 @@
 use std::ops::Deref;
 
-use crate::ir::{Evaluator, Function, Link, Owner};
-
-use super::Node;
+use crate::ir::{Evaluator, Function, Link, Node, Op, Owner, Parent};
 
 /// The root nodes of the MIR Graph
 /// These represent the top level functions and evaluators
@@ -12,6 +10,17 @@ pub enum Root {
     Evaluator(Link<Evaluator>),
     #[default]
     None,
+}
+
+impl Parent for Root {
+    type Child = Op;
+    fn children(&self) -> Link<Vec<Link<Self::Child>>> {
+        match self {
+            Root::Function(f) => f.children(),
+            Root::Evaluator(e) => e.children(),
+            Root::None => Link::default(),
+        }
+    }
 }
 
 impl Link<Root> {
