@@ -52,8 +52,8 @@ impl Child for Owner {
     type Parent = Owner;
     fn get_parents(&self) -> Vec<BackLink<Self::Parent>> {
         match self {
-            Owner::Function(f) => Vec::default(),
-            Owner::Evaluator(e) => Vec::default(),
+            Owner::Function(_f) => Vec::default(),
+            Owner::Evaluator(_e) => Vec::default(),
             Owner::Enf(e) => e.get_parents(),
             Owner::Boundary(b) => b.get_parents(),
             Owner::Add(a) => a.get_parents(),
@@ -71,8 +71,8 @@ impl Child for Owner {
     }
     fn add_parent(&mut self, parent: Link<Self::Parent>) {
         match self {
-            Owner::Function(f) => (),
-            Owner::Evaluator(e) => (),
+            Owner::Function(_f) => (),
+            Owner::Evaluator(_e) => (),
             Owner::Enf(e) => e.add_parent(parent),
             Owner::Boundary(b) => b.add_parent(parent),
             Owner::Add(a) => a.add_parent(parent),
@@ -90,8 +90,8 @@ impl Child for Owner {
     }
     fn remove_parent(&mut self, parent: Link<Self::Parent>) {
         match self {
-            Owner::Function(f) => (),
-            Owner::Evaluator(e) => (),
+            Owner::Function(_f) => (),
+            Owner::Evaluator(_e) => (),
             Owner::Enf(e) => e.remove_parent(parent),
             Owner::Boundary(b) => b.remove_parent(parent),
             Owner::Add(a) => a.remove_parent(parent),
@@ -196,8 +196,8 @@ impl Link<Owner> {
     }
     pub fn as_op(self) -> Option<Link<Op>> {
         match self.borrow().deref() {
-            Owner::Function(f) => None,
-            Owner::Evaluator(e) => None,
+            Owner::Function(_f) => None,
+            Owner::Evaluator(_e) => None,
             Owner::Enf(e) => Some(Op::Enf(e.clone()).into()),
             Owner::Boundary(b) => Some(Op::Boundary(b.clone()).into()),
             Owner::Add(a) => Some(Op::Add(a.clone()).into()),

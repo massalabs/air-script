@@ -47,8 +47,8 @@ impl Parent for Node {
             Node::Vector(v) => v.children(),
             Node::Matrix(m) => m.children(),
             Node::Accessor(a) => a.children(),
-            Node::Parameter(p) => Link::default(),
-            Node::Value(v) => Link::default(),
+            Node::Parameter(_p) => Link::default(),
+            Node::Value(_v) => Link::default(),
             Node::None => Link::default(),
         }
     }
@@ -58,8 +58,8 @@ impl Child for Node {
     type Parent = Owner;
     fn get_parents(&self) -> Vec<BackLink<Self::Parent>> {
         match self {
-            Node::Function(f) => Vec::default(),
-            Node::Evaluator(e) => Vec::default(),
+            Node::Function(_f) => Vec::default(),
+            Node::Evaluator(_e) => Vec::default(),
             Node::Enf(e) => e.get_parents(),
             Node::Boundary(b) => b.get_parents(),
             Node::Add(a) => a.get_parents(),
@@ -79,8 +79,8 @@ impl Child for Node {
     }
     fn add_parent(&mut self, parent: Link<Self::Parent>) {
         match self {
-            Node::Function(f) => (),
-            Node::Evaluator(e) => (),
+            Node::Function(_f) => (),
+            Node::Evaluator(_e) => (),
             Node::Enf(e) => e.add_parent(parent),
             Node::Boundary(b) => b.add_parent(parent),
             Node::Add(a) => a.add_parent(parent),
@@ -100,8 +100,8 @@ impl Child for Node {
     }
     fn remove_parent(&mut self, parent: Link<Self::Parent>) {
         match self {
-            Node::Function(f) => (),
-            Node::Evaluator(e) => (),
+            Node::Function(_f) => (),
+            Node::Evaluator(_e) => (),
             Node::Enf(e) => e.remove_parent(parent),
             Node::Boundary(b) => b.remove_parent(parent),
             Node::Add(a) => a.remove_parent(parent),
@@ -220,8 +220,8 @@ impl Link<Node> {
     }
     pub fn as_op(self) -> Option<Link<Op>> {
         match self.borrow().deref() {
-            Node::Function(f) => None,
-            Node::Evaluator(e) => None,
+            Node::Function(_f) => None,
+            Node::Evaluator(_e) => None,
             Node::Enf(e) => Some(Op::Enf(e.clone()).into()),
             Node::Boundary(b) => Some(Op::Boundary(b.clone()).into()),
             Node::Add(a) => Some(Op::Add(a.clone()).into()),
@@ -255,8 +255,8 @@ impl Link<Node> {
             Node::Vector(v) => Some(Owner::Vector(v.clone()).into()),
             Node::Matrix(m) => Some(Owner::Matrix(m.clone()).into()),
             Node::Accessor(a) => Some(Owner::Accessor(a.clone()).into()),
-            Node::Parameter(p) => None,
-            Node::Value(v) => None,
+            Node::Parameter(_p) => None,
+            Node::Value(_v) => None,
             Node::None => None,
         }
     }

@@ -44,8 +44,8 @@ impl Parent for Op {
             Op::Vector(v) => v.children(),
             Op::Matrix(m) => m.children(),
             Op::Accessor(a) => a.children(),
-            Op::Parameter(p) => Link::default(),
-            Op::Value(v) => Link::default(),
+            Op::Parameter(_p) => Link::default(),
+            Op::Value(_v) => Link::default(),
             Op::None => Link::default(),
         }
     }
@@ -211,8 +211,8 @@ impl Link<Op> {
             Op::Vector(v) => Some(Owner::Vector(v.clone()).into()),
             Op::Matrix(m) => Some(Owner::Matrix(m.clone()).into()),
             Op::Accessor(a) => Some(Owner::Accessor(a.clone()).into()),
-            Op::Parameter(p) => None,
-            Op::Value(v) => None,
+            Op::Parameter(_p) => None,
+            Op::Value(_v) => None,
             Op::None => None,
         }
     }
