@@ -2,7 +2,7 @@ use crate::ir::{BackLink, Builder, Child, Link, Node, NotSet, Op, Owner, Parent}
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Fold {
-    pub parent: BackLink<Owner>,
+    pub parents: Vec<BackLink<Owner>>,
     pub iterator: Link<Op>,
     pub operator: FoldOperator,
     pub initial_value: Link<Op>,
@@ -53,17 +53,20 @@ impl Parent for Fold {
 
 impl Child for Fold {
     type Parent = Owner;
-    fn get_parent(&self) -> BackLink<Self::Parent> {
-        self.parent.clone()
+    fn get_parents(&self) -> Vec<BackLink<Self::Parent>> {
+        self.parents.clone()
     }
-    fn set_parent(&mut self, parent: Link<Self::Parent>) {
-        self.parent = parent.into();
+    fn add_parent(&mut self, parent: Link<Self::Parent>) {
+        self.parents.push(parent.into());
+    }
+    fn remove_parent(&mut self, parent: Link<Self::Parent>) {
+        self.parents.retain(|p| *p != parent.clone().into());
     }
 }
 
 pub struct FoldBuilder<State> {
     _state: std::marker::PhantomData<State>,
-    parent: BackLink<Owner>,
+    parents: Vec<BackLink<Owner>>,
     iterator: Option<Link<Op>>,
     operator: Option<FoldOperator>,
     initial_value: Option<Link<Op>>,
@@ -90,7 +93,7 @@ impl Default for FoldBuilderEmpty {
     fn default() -> Self {
         Self {
             _state: std::marker::PhantomData,
-            parent: BackLink::default(),
+            parents: Vec::default(),
             iterator: None,
             operator: None,
             initial_value: None,
@@ -100,7 +103,7 @@ impl Default for FoldBuilderEmpty {
 
 impl FoldBuilderEmpty {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parent = parent.into();
+        self.parents.push(parent.into());
         self
     }
     pub fn iterator(mut self, iterator: Link<Op>) -> FoldBuilderA {
@@ -119,7 +122,7 @@ impl FoldBuilderEmpty {
 
 impl FoldBuilderA {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parent = parent.into();
+        self.parents.push(parent.into());
         self
     }
     pub fn iterator(mut self, iterator: Link<Op>) -> Self {
@@ -138,7 +141,7 @@ impl FoldBuilderA {
 
 impl FoldBuilderB {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parent = parent.into();
+        self.parents.push(parent.into());
         self
     }
     pub fn iterator(mut self, iterator: Link<Op>) -> FoldBuilderAB {
@@ -157,7 +160,7 @@ impl FoldBuilderB {
 
 impl FoldBuilderC {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parent = parent.into();
+        self.parents.push(parent.into());
         self
     }
     pub fn iterator(mut self, iterator: Link<Op>) -> FoldBuilderAC {
@@ -176,7 +179,7 @@ impl FoldBuilderC {
 
 impl FoldBuilderAB {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parent = parent.into();
+        self.parents.push(parent.into());
         self
     }
     pub fn iterator(mut self, iterator: Link<Op>) -> Self {
@@ -195,7 +198,7 @@ impl FoldBuilderAB {
 
 impl FoldBuilderAC {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parent = parent.into();
+        self.parents.push(parent.into());
         self
     }
     pub fn iterator(mut self, iterator: Link<Op>) -> Self {
@@ -214,7 +217,7 @@ impl FoldBuilderAC {
 
 impl FoldBuilderBC {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parent = parent.into();
+        self.parents.push(parent.into());
         self
     }
     pub fn iterator(mut self, iterator: Link<Op>) -> FoldBuilderFull {
@@ -233,7 +236,7 @@ impl FoldBuilderBC {
 
 impl FoldBuilderFull {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parent = parent.into();
+        self.parents.push(parent.into());
         self
     }
     pub fn iterator(mut self, iterator: Link<Op>) -> Self {
@@ -250,7 +253,7 @@ impl FoldBuilderFull {
     }
     pub fn build(self) -> Link<Fold> {
         Fold {
-            parent: self.parent,
+            parents: self.parents,
             iterator: self.iterator.unwrap(),
             operator: self.operator.unwrap(),
             initial_value: self.initial_value.unwrap(),
@@ -279,7 +282,7 @@ mod tests {
         assert_eq!(
             fold.borrow().deref(),
             &Fold {
-                parent: parent.clone().into(),
+                parents: vec![parent.clone().into()],
                 iterator: Link::new(Op::Add(Add::default().into())),
                 operator: FoldOperator::Add,
                 initial_value: Link::new(Op::Mul(Mul::default().into())),

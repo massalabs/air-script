@@ -56,45 +56,66 @@ impl Parent for Node {
 
 impl Child for Node {
     type Parent = Owner;
-    fn get_parent(&self) -> BackLink<Self::Parent> {
+    fn get_parents(&self) -> Vec<BackLink<Self::Parent>> {
         match self {
-            Node::Function(f) => BackLink::default(),
-            Node::Evaluator(e) => BackLink::default(),
-            Node::Enf(e) => e.get_parent(),
-            Node::Boundary(b) => b.get_parent(),
-            Node::Add(a) => a.get_parent(),
-            Node::Sub(s) => s.get_parent(),
-            Node::Mul(m) => m.get_parent(),
-            Node::If(i) => i.get_parent(),
-            Node::For(f) => f.get_parent(),
-            Node::Call(c) => c.get_parent(),
-            Node::Fold(f) => f.get_parent(),
-            Node::Vector(v) => v.get_parent(),
-            Node::Matrix(m) => m.get_parent(),
-            Node::Accessor(a) => a.get_parent(),
-            Node::Parameter(p) => p.get_parent(),
-            Node::Value(v) => v.get_parent(),
-            Node::None => BackLink::default(),
+            Node::Function(f) => Vec::default(),
+            Node::Evaluator(e) => Vec::default(),
+            Node::Enf(e) => e.get_parents(),
+            Node::Boundary(b) => b.get_parents(),
+            Node::Add(a) => a.get_parents(),
+            Node::Sub(s) => s.get_parents(),
+            Node::Mul(m) => m.get_parents(),
+            Node::If(i) => i.get_parents(),
+            Node::For(f) => f.get_parents(),
+            Node::Call(c) => c.get_parents(),
+            Node::Fold(f) => f.get_parents(),
+            Node::Vector(v) => v.get_parents(),
+            Node::Matrix(m) => m.get_parents(),
+            Node::Accessor(a) => a.get_parents(),
+            Node::Parameter(p) => p.get_parents(),
+            Node::Value(v) => v.get_parents(),
+            Node::None => Vec::default(),
         }
     }
-    fn set_parent(&mut self, parent: Link<Self::Parent>) {
+    fn add_parent(&mut self, parent: Link<Self::Parent>) {
         match self {
             Node::Function(f) => (),
             Node::Evaluator(e) => (),
-            Node::Enf(e) => e.set_parent(parent),
-            Node::Boundary(b) => b.set_parent(parent),
-            Node::Add(a) => a.set_parent(parent),
-            Node::Sub(s) => s.set_parent(parent),
-            Node::Mul(m) => m.set_parent(parent),
-            Node::If(i) => i.set_parent(parent),
-            Node::For(f) => f.set_parent(parent),
-            Node::Call(c) => c.set_parent(parent),
-            Node::Fold(f) => f.set_parent(parent),
-            Node::Vector(v) => v.set_parent(parent),
-            Node::Matrix(m) => m.set_parent(parent),
-            Node::Accessor(a) => a.set_parent(parent),
-            Node::Parameter(p) => p.set_parent(parent),
-            Node::Value(v) => v.set_parent(parent),
+            Node::Enf(e) => e.add_parent(parent),
+            Node::Boundary(b) => b.add_parent(parent),
+            Node::Add(a) => a.add_parent(parent),
+            Node::Sub(s) => s.add_parent(parent),
+            Node::Mul(m) => m.add_parent(parent),
+            Node::If(i) => i.add_parent(parent),
+            Node::For(f) => f.add_parent(parent),
+            Node::Call(c) => c.add_parent(parent),
+            Node::Fold(f) => f.add_parent(parent),
+            Node::Vector(v) => v.add_parent(parent),
+            Node::Matrix(m) => m.add_parent(parent),
+            Node::Accessor(a) => a.add_parent(parent),
+            Node::Parameter(p) => p.add_parent(parent),
+            Node::Value(v) => v.add_parent(parent),
+            Node::None => {}
+        }
+    }
+    fn remove_parent(&mut self, parent: Link<Self::Parent>) {
+        match self {
+            Node::Function(f) => (),
+            Node::Evaluator(e) => (),
+            Node::Enf(e) => e.remove_parent(parent),
+            Node::Boundary(b) => b.remove_parent(parent),
+            Node::Add(a) => a.remove_parent(parent),
+            Node::Sub(s) => s.remove_parent(parent),
+            Node::Mul(m) => m.remove_parent(parent),
+            Node::If(i) => i.remove_parent(parent),
+            Node::For(f) => f.remove_parent(parent),
+            Node::Call(c) => c.remove_parent(parent),
+            Node::Fold(f) => f.remove_parent(parent),
+            Node::Vector(v) => v.remove_parent(parent),
+            Node::Matrix(m) => m.remove_parent(parent),
+            Node::Accessor(a) => a.remove_parent(parent),
+            Node::Parameter(p) => p.remove_parent(parent),
+            Node::Value(v) => v.remove_parent(parent),
             Node::None => {}
         }
     }

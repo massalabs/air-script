@@ -9,7 +9,7 @@ use crate::ir::{BackLink, Child, Leaf, Link, Node, Op, Owner};
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Parameter {
-    parent: BackLink<Owner>,
+    parents: Vec<BackLink<Owner>>,
     pub position: usize,
     pub ty: MirType,
 }
@@ -17,7 +17,7 @@ pub struct Parameter {
 impl Parameter {
     pub fn create(position: usize, ty: MirType) -> Link<Self> {
         Self {
-            parent: BackLink::default(),
+            parents: Vec::default(),
             position,
             ty,
         }
@@ -27,11 +27,14 @@ impl Parameter {
 
 impl Child for Parameter {
     type Parent = Owner;
-    fn get_parent(&self) -> BackLink<Self::Parent> {
-        self.parent.clone()
+    fn get_parents(&self) -> Vec<BackLink<Self::Parent>> {
+        self.parents.clone()
     }
-    fn set_parent(&mut self, parent: Link<Self::Parent>) {
-        self.parent = parent.into();
+    fn add_parent(&mut self, parent: Link<Self::Parent>) {
+        self.parents.push(parent.into());
+    }
+    fn remove_parent(&mut self, parent: Link<Self::Parent>) {
+        self.parents.retain(|p| *p != parent.clone().into());
     }
 }
 

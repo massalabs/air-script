@@ -2,7 +2,7 @@ use crate::ir::{BackLink, Builder, Child, Link, Node, NotSet, Op, Owner, Parent}
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Mul {
-    pub parent: BackLink<Owner>,
+    pub parents: Vec<BackLink<Owner>>,
     pub lhs: Link<Op>,
     pub rhs: Link<Op>,
 }
@@ -39,17 +39,20 @@ impl Parent for Mul {
 
 impl Child for Mul {
     type Parent = Owner;
-    fn get_parent(&self) -> BackLink<Self::Parent> {
-        self.parent.clone()
+    fn get_parents(&self) -> Vec<BackLink<Self::Parent>> {
+        self.parents.clone()
     }
-    fn set_parent(&mut self, parent: Link<Self::Parent>) {
-        self.parent = parent.into();
+    fn add_parent(&mut self, parent: Link<Self::Parent>) {
+        self.parents.push(parent.into());
+    }
+    fn remove_parent(&mut self, parent: Link<Self::Parent>) {
+        self.parents.retain(|p| *p != parent.clone().into());
     }
 }
 
 pub struct MulBuilder<State> {
     _state: std::marker::PhantomData<State>,
-    parent: BackLink<Owner>,
+    parents: Vec<BackLink<Owner>>,
     lhs: Option<Link<Op>>,
     rhs: Option<Link<Op>>,
 }
@@ -71,7 +74,7 @@ impl Default for MulBuilderEmpty {
     fn default() -> Self {
         Self {
             _state: std::marker::PhantomData,
-            parent: BackLink::default(),
+            parents: Vec::default(),
             lhs: None,
             rhs: None,
         }
@@ -80,7 +83,7 @@ impl Default for MulBuilderEmpty {
 
 impl MulBuilderEmpty {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parent = parent.into();
+        self.parents.push(parent.into());
         self
     }
     pub fn lhs(mut self, lhs: Link<Op>) -> MulBuilderA {
@@ -95,7 +98,7 @@ impl MulBuilderEmpty {
 
 impl MulBuilderA {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parent = parent.into();
+        self.parents.push(parent.into());
         self
     }
     pub fn lhs(mut self, lhs: Link<Op>) -> Self {
@@ -110,7 +113,7 @@ impl MulBuilderA {
 
 impl MulBuilderB {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parent = parent.into();
+        self.parents.push(parent.into());
         self
     }
     pub fn lhs(mut self, lhs: Link<Op>) -> MulBuilderFull {
@@ -125,7 +128,7 @@ impl MulBuilderB {
 
 impl MulBuilderFull {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parent = parent.into();
+        self.parents.push(parent.into());
         self
     }
     pub fn lhs(mut self, lhs: Link<Op>) -> Self {
@@ -138,7 +141,7 @@ impl MulBuilderFull {
     }
     pub fn build(self) -> Link<Mul> {
         Mul {
-            parent: self.parent,
+            parents: self.parents,
             lhs: self.lhs.unwrap(),
             rhs: self.rhs.unwrap(),
         }
@@ -166,7 +169,7 @@ mod tests {
         assert_eq!(
             mul.borrow().deref(),
             &Mul {
-                parent: parent.into(),
+                parents: vec![parent.into()],
                 lhs,
                 rhs,
             }

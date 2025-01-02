@@ -16,17 +16,24 @@ pub enum Leaf {
 
 impl Child for Leaf {
     type Parent = Owner;
-    fn get_parent(&self) -> BackLink<Self::Parent> {
+    fn get_parents(&self) -> Vec<BackLink<Self::Parent>> {
         match self {
-            Leaf::Parameter(p) => p.get_parent(),
-            Leaf::Value(v) => v.get_parent(),
-            Leaf::None => BackLink::default(),
+            Leaf::Parameter(p) => p.get_parents(),
+            Leaf::Value(v) => v.get_parents(),
+            Leaf::None => vec![],
         }
     }
-    fn set_parent(&mut self, parent: Link<Self::Parent>) {
+    fn add_parent(&mut self, parent: Link<Self::Parent>) {
         match self {
-            Leaf::Parameter(p) => p.set_parent(parent),
-            Leaf::Value(v) => v.set_parent(parent),
+            Leaf::Parameter(p) => p.add_parent(parent),
+            Leaf::Value(v) => v.add_parent(parent),
+            Leaf::None => (),
+        }
+    }
+    fn remove_parent(&mut self, parent: Link<Self::Parent>) {
+        match self {
+            Leaf::Parameter(p) => p.remove_parent(parent),
+            Leaf::Value(v) => v.remove_parent(parent),
             Leaf::None => (),
         }
     }

@@ -123,7 +123,7 @@ impl Default for SpannedMirValue {
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Value {
-    pub parent: BackLink<Owner>,
+    pub parents: Vec<BackLink<Owner>>,
     pub value: SpannedMirValue,
 }
 
@@ -151,17 +151,20 @@ impl Link<Value> {
 
 impl Child for Value {
     type Parent = Owner;
-    fn get_parent(&self) -> BackLink<Self::Parent> {
-        self.parent.clone()
+    fn get_parents(&self) -> Vec<BackLink<Self::Parent>> {
+        self.parents.clone()
     }
-    fn set_parent(&mut self, parent: Link<Self::Parent>) {
-        self.parent = parent.into();
+    fn add_parent(&mut self, parent: Link<Self::Parent>) {
+        self.parents.push(parent.into());
+    }
+    fn remove_parent(&mut self, parent: Link<Self::Parent>) {
+        self.parents.retain(|p| *p != parent.clone().into());
     }
 }
 
 pub struct ValueBuilder<State> {
     _state: PhantomData<State>,
-    parent: BackLink<Owner>,
+    parents: Vec<BackLink<Owner>>,
     value: Option<SpannedMirValue>,
 }
 
@@ -180,7 +183,7 @@ impl Default for ValueBuilderEmpty {
     fn default() -> Self {
         Self {
             _state: PhantomData,
-            parent: BackLink::default(),
+            parents: Vec::default(),
             value: None,
         }
     }
@@ -188,7 +191,7 @@ impl Default for ValueBuilderEmpty {
 
 impl ValueBuilderEmpty {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parent = parent.into();
+        self.parents.push(parent.into());
         self
     }
     pub fn value(mut self, value: SpannedMirValue) -> ValueBuilderFull {
@@ -203,12 +206,12 @@ impl ValueBuilderFull {
         self
     }
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parent = parent.into();
+        self.parents.push(parent.into());
         self
     }
     pub fn build(self) -> Link<Value> {
         Value {
-            parent: self.parent,
+            parents: self.parents,
             value: self.value.expect("value not set"),
         }
         .into()
@@ -232,7 +235,7 @@ mod tests {
         assert_eq!(
             value.borrow().deref(),
             &Value {
-                parent: parent.into(),
+                parents: vec![parent.into()],
                 value: SpannedMirValue::default()
             }
         );

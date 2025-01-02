@@ -6,7 +6,7 @@ use air_parser::ast::Boundary as BoundaryKind;
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Boundary {
-    pub parent: BackLink<Owner>,
+    pub parents: Vec<BackLink<Owner>>,
     pub kind: BoundaryKind,
     pub expr: Link<Op>,
 }
@@ -14,7 +14,7 @@ pub struct Boundary {
 impl Default for Boundary {
     fn default() -> Self {
         Self {
-            parent: BackLink::default(),
+            parents: Vec::default(),
             kind: BoundaryKind::First,
             expr: Link::default(),
         }
@@ -63,17 +63,20 @@ impl Parent for Boundary {
 
 impl Child for Boundary {
     type Parent = Owner;
-    fn get_parent(&self) -> BackLink<Self::Parent> {
-        self.parent.clone()
+    fn get_parents(&self) -> Vec<BackLink<Self::Parent>> {
+        self.parents.clone()
     }
-    fn set_parent(&mut self, parent: Link<Self::Parent>) {
-        self.parent = parent.into();
+    fn add_parent(&mut self, parent: Link<Self::Parent>) {
+        self.parents.push(parent.into());
+    }
+    fn remove_parent(&mut self, parent: Link<Self::Parent>) {
+        self.parents.retain(|p| *p != parent.clone().into());
     }
 }
 
 pub struct BoundaryBuilder<State> {
     _state: std::marker::PhantomData<State>,
-    parent: BackLink<Owner>,
+    parents: Vec<BackLink<Owner>>,
     kind: Option<BoundaryKind>,
     expr: Option<Link<Op>>,
 }
@@ -95,7 +98,7 @@ impl Default for BoundaryBuilderEmpty {
     fn default() -> Self {
         Self {
             _state: std::marker::PhantomData,
-            parent: BackLink::default(),
+            parents: Vec::default(),
             kind: None,
             expr: None,
         }
@@ -104,7 +107,7 @@ impl Default for BoundaryBuilderEmpty {
 
 impl BoundaryBuilderEmpty {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parent = parent.into();
+        self.parents.push(parent.into());
         self
     }
     pub fn kind(mut self, kind: BoundaryKind) -> BoundaryBuilderA {
@@ -119,7 +122,7 @@ impl BoundaryBuilderEmpty {
 
 impl BoundaryBuilderA {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parent = parent.into();
+        self.parents.push(parent.into());
         self
     }
     pub fn kind(mut self, kind: BoundaryKind) -> Self {
@@ -134,7 +137,7 @@ impl BoundaryBuilderA {
 
 impl BoundaryBuilderB {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parent = parent.into();
+        self.parents.push(parent.into());
         self
     }
     pub fn kind(mut self, kind: BoundaryKind) -> BoundaryBuilderFull {
@@ -149,7 +152,7 @@ impl BoundaryBuilderB {
 
 impl BoundaryBuilderFull {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parent = parent.into();
+        self.parents.push(parent.into());
         self
     }
     pub fn kind(mut self, kind: BoundaryKind) -> Self {
@@ -162,7 +165,7 @@ impl BoundaryBuilderFull {
     }
     pub fn build(self) -> Link<Boundary> {
         Boundary {
-            parent: self.parent,
+            parents: self.parents,
             kind: self.kind.unwrap(),
             expr: self.expr.unwrap(),
         }
@@ -190,7 +193,7 @@ mod tests {
         assert_eq!(
             boundary.borrow().deref(),
             &Boundary {
-                parent: parent.into(),
+                parents: vec![parent.into()],
                 kind: BoundaryKind::Last,
                 expr: expr.clone()
             }

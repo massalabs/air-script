@@ -2,7 +2,7 @@ use crate::ir::{BackLink, Builder, Child, Link, Node, NotSet, Op, Owner, Parent,
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Call {
-    pub parent: BackLink<Owner>,
+    pub parents: Vec<BackLink<Owner>>,
     pub function: Link<Root>,
     /// Parent::children only contains the arguments
     pub arguments: Link<Vec<Link<Op>>>,
@@ -40,17 +40,20 @@ impl Parent for Call {
 
 impl Child for Call {
     type Parent = Owner;
-    fn get_parent(&self) -> BackLink<Self::Parent> {
-        self.parent.clone()
+    fn get_parents(&self) -> Vec<BackLink<Self::Parent>> {
+        self.parents.clone()
     }
-    fn set_parent(&mut self, parent: Link<Self::Parent>) {
-        self.parent = parent.into();
+    fn add_parent(&mut self, parent: Link<Self::Parent>) {
+        self.parents.push(parent.into());
+    }
+    fn remove_parent(&mut self, parent: Link<Self::Parent>) {
+        self.parents.retain(|p| *p != parent.clone().into());
     }
 }
 
 pub struct CallBuilder<State> {
     _state: std::marker::PhantomData<State>,
-    parent: BackLink<Owner>,
+    parents: Vec<BackLink<Owner>>,
     function: Option<Link<Root>>,
     arguments: Vec<Link<Op>>,
 }
@@ -70,7 +73,7 @@ impl Default for CallBuilderEmpty {
     fn default() -> Self {
         Self {
             _state: std::marker::PhantomData,
-            parent: BackLink::default(),
+            parents: Vec::default(),
             function: None,
             arguments: Vec::new(),
         }
@@ -79,7 +82,7 @@ impl Default for CallBuilderEmpty {
 
 impl CallBuilderEmpty {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parent = parent.into();
+        self.parents.push(parent.into());
         self
     }
     pub fn function(mut self, function: Link<Root>) -> CallBuilderFull {
@@ -94,7 +97,7 @@ impl CallBuilderEmpty {
 
 impl CallBuilderFull {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parent = parent.into();
+        self.parents.push(parent.into());
         self
     }
     pub fn function(mut self, function: Link<Root>) -> Self {
@@ -107,7 +110,7 @@ impl CallBuilderFull {
     }
     pub fn build(self) -> Link<Call> {
         Call {
-            parent: self.parent,
+            parents: self.parents,
             function: self.function.unwrap(),
             arguments: Link::new(self.arguments),
         }
@@ -140,7 +143,7 @@ mod tests {
         assert_eq!(
             call.borrow().deref(),
             &Call {
-                parent: parent.into(),
+                parents: vec![parent.into()],
                 function: function.clone(),
                 arguments: Link::new(vec![arg.clone()])
             }

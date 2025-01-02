@@ -50,41 +50,60 @@ impl Parent for Owner {
 
 impl Child for Owner {
     type Parent = Owner;
-    fn get_parent(&self) -> BackLink<Self::Parent> {
+    fn get_parents(&self) -> Vec<BackLink<Self::Parent>> {
         match self {
-            Owner::Function(f) => BackLink::default(),
-            Owner::Evaluator(e) => BackLink::default(),
-            Owner::Enf(e) => e.get_parent(),
-            Owner::Boundary(b) => b.get_parent(),
-            Owner::Add(a) => a.get_parent(),
-            Owner::Sub(s) => s.get_parent(),
-            Owner::Mul(m) => m.get_parent(),
-            Owner::If(i) => i.get_parent(),
-            Owner::For(f) => f.get_parent(),
-            Owner::Call(c) => c.get_parent(),
-            Owner::Fold(f) => f.get_parent(),
-            Owner::Vector(v) => v.get_parent(),
-            Owner::Matrix(m) => m.get_parent(),
-            Owner::Accessor(a) => a.get_parent(),
-            Owner::None => BackLink::default(),
+            Owner::Function(f) => Vec::default(),
+            Owner::Evaluator(e) => Vec::default(),
+            Owner::Enf(e) => e.get_parents(),
+            Owner::Boundary(b) => b.get_parents(),
+            Owner::Add(a) => a.get_parents(),
+            Owner::Sub(s) => s.get_parents(),
+            Owner::Mul(m) => m.get_parents(),
+            Owner::If(i) => i.get_parents(),
+            Owner::For(f) => f.get_parents(),
+            Owner::Call(c) => c.get_parents(),
+            Owner::Fold(f) => f.get_parents(),
+            Owner::Vector(v) => v.get_parents(),
+            Owner::Matrix(m) => m.get_parents(),
+            Owner::Accessor(a) => a.get_parents(),
+            Owner::None => Vec::default(),
         }
     }
-    fn set_parent(&mut self, parent: Link<Self::Parent>) {
+    fn add_parent(&mut self, parent: Link<Self::Parent>) {
         match self {
             Owner::Function(f) => (),
             Owner::Evaluator(e) => (),
-            Owner::Enf(e) => e.set_parent(parent),
-            Owner::Boundary(b) => b.set_parent(parent),
-            Owner::Add(a) => a.set_parent(parent),
-            Owner::Sub(s) => s.set_parent(parent),
-            Owner::Mul(m) => m.set_parent(parent),
-            Owner::If(i) => i.set_parent(parent),
-            Owner::For(f) => f.set_parent(parent),
-            Owner::Call(c) => c.set_parent(parent),
-            Owner::Fold(f) => f.set_parent(parent),
-            Owner::Vector(v) => v.set_parent(parent),
-            Owner::Matrix(m) => m.set_parent(parent),
-            Owner::Accessor(a) => a.set_parent(parent),
+            Owner::Enf(e) => e.add_parent(parent),
+            Owner::Boundary(b) => b.add_parent(parent),
+            Owner::Add(a) => a.add_parent(parent),
+            Owner::Sub(s) => s.add_parent(parent),
+            Owner::Mul(m) => m.add_parent(parent),
+            Owner::If(i) => i.add_parent(parent),
+            Owner::For(f) => f.add_parent(parent),
+            Owner::Call(c) => c.add_parent(parent),
+            Owner::Fold(f) => f.add_parent(parent),
+            Owner::Vector(v) => v.add_parent(parent),
+            Owner::Matrix(m) => m.add_parent(parent),
+            Owner::Accessor(a) => a.add_parent(parent),
+            Owner::None => (),
+        }
+    }
+    fn remove_parent(&mut self, parent: Link<Self::Parent>) {
+        match self {
+            Owner::Function(f) => (),
+            Owner::Evaluator(e) => (),
+            Owner::Enf(e) => e.remove_parent(parent),
+            Owner::Boundary(b) => b.remove_parent(parent),
+            Owner::Add(a) => a.remove_parent(parent),
+            Owner::Sub(s) => s.remove_parent(parent),
+            Owner::Mul(m) => m.remove_parent(parent),
+            Owner::If(i) => i.remove_parent(parent),
+            Owner::For(f) => f.remove_parent(parent),
+            Owner::Call(c) => c.remove_parent(parent),
+            Owner::Fold(f) => f.remove_parent(parent),
+            Owner::Vector(v) => v.remove_parent(parent),
+            Owner::Matrix(m) => m.remove_parent(parent),
+            Owner::Accessor(a) => a.remove_parent(parent),
             Owner::None => (),
         }
     }

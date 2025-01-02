@@ -58,26 +58,16 @@ where
 /// This is used with the Parent trait to allow for easy traversal and manipulation of the graph
 pub trait Child: Clone + Into<Link<Self>> + PartialEq {
     type Parent;
-    fn get_parent(&self) -> BackLink<Self::Parent>;
-    fn set_parent(&mut self, parent: Link<Self::Parent>);
-    fn swap_parent(&mut self, new_parent: Link<Self::Parent>)
+    fn get_parents(&self) -> Vec<BackLink<Self::Parent>>;
+    fn add_parent(&mut self, parent: Link<Self::Parent>);
+    fn remove_parent(&mut self, parent: Link<Self::Parent>);
+    /*fn swap_parent(&mut self, old_parent: Link<Self::Parent>, new_parent: Link<Self::Parent>)
     where
         Self::Parent: PartialEq + Parent<Child = Self>,
     {
-        // Grab the old parent before we change it
-        let old_parent = self.get_parent().to_link();
-        // Remove self from the old parent's children
-        if let Some(parent) = old_parent {
-            if parent != new_parent {
-                parent
-                    .borrow_mut()
-                    .deref_mut()
-                    .remove_child(self.clone().into());
-            }
-        }
-        // Change the parent
-        self.set_parent(new_parent);
-    }
+        self.remove_parent(old_parent);
+        self.add_parent(new_parent);
+    }*/
 }
 
 impl<T> Child for Link<T>
@@ -85,12 +75,19 @@ where
     T: Child,
 {
     type Parent = T::Parent;
-    fn get_parent(&self) -> BackLink<Self::Parent> {
-        self.borrow().get_parent()
+
+    fn get_parents(&self) -> Vec<BackLink<Self::Parent>> {
+        self.borrow().get_parents()
     }
-    fn set_parent(&mut self, parent: Link<Self::Parent>) {
-        self.borrow_mut().set_parent(parent);
+    fn add_parent(&mut self, parent: Link<Self::Parent>) {
+        self.borrow_mut().add_parent(parent)
     }
+    fn remove_parent(&mut self, parent: Link<Self::Parent>) {
+        self.borrow_mut().remove_parent(parent)
+    }
+    /*fn swap_parent(&mut self, old_parent: Link<Self::Parent>, new_parent: Link<Self::Parent>) {
+        self.borrow_mut().swap_parent(old_parent, new_parent)
+    }*/
 }
 
 /// A helper struct used with the Builder trait to indicate that a field has not been set

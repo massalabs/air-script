@@ -2,7 +2,7 @@ use crate::ir::{BackLink, Builder, Child, Link, Node, NotSet, Op, Owner, Parent}
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct If {
-    pub parent: BackLink<Owner>,
+    pub parents: Vec<BackLink<Owner>>,
     pub condition: Link<Op>,
     pub then_branch: Link<Op>,
     pub else_branch: Link<Op>,
@@ -45,17 +45,20 @@ impl Parent for If {
 
 impl Child for If {
     type Parent = Owner;
-    fn get_parent(&self) -> BackLink<Self::Parent> {
-        self.parent.clone()
+    fn get_parents(&self) -> Vec<BackLink<Self::Parent>> {
+        self.parents.clone()
     }
-    fn set_parent(&mut self, parent: Link<Self::Parent>) {
-        self.parent = parent.into();
+    fn add_parent(&mut self, parent: Link<Self::Parent>) {
+        self.parents.push(parent.into());
+    }
+    fn remove_parent(&mut self, parent: Link<Self::Parent>) {
+        self.parents.retain(|p| *p != parent.clone().into());
     }
 }
 
 pub struct IfBuilder<State> {
     _state: std::marker::PhantomData<State>,
-    parent: BackLink<Owner>,
+    parents: Vec<BackLink<Owner>>,
     condition: Option<Link<Op>>,
     then_branch: Option<Link<Op>>,
     else_branch: Option<Link<Op>>,
@@ -82,7 +85,7 @@ impl Default for IfBuilderEmpty {
     fn default() -> Self {
         Self {
             _state: std::marker::PhantomData,
-            parent: BackLink::default(),
+            parents: Vec::default(),
             condition: None,
             then_branch: None,
             else_branch: None,
@@ -92,7 +95,7 @@ impl Default for IfBuilderEmpty {
 
 impl IfBuilderEmpty {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parent = parent.into();
+        self.parents.push(parent.into());
         self
     }
     pub fn condition(mut self, condition: Link<Op>) -> IfBuilderA {
@@ -111,7 +114,7 @@ impl IfBuilderEmpty {
 
 impl IfBuilderA {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parent = parent.into();
+        self.parents.push(parent.into());
         self
     }
     pub fn condition(mut self, condition: Link<Op>) -> Self {
@@ -130,7 +133,7 @@ impl IfBuilderA {
 
 impl IfBuilderB {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parent = parent.into();
+        self.parents.push(parent.into());
         self
     }
     pub fn condition(mut self, condition: Link<Op>) -> IfBuilderAB {
@@ -149,7 +152,7 @@ impl IfBuilderB {
 
 impl IfBuilderC {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parent = parent.into();
+        self.parents.push(parent.into());
         self
     }
     pub fn condition(mut self, condition: Link<Op>) -> IfBuilderAC {
@@ -168,7 +171,7 @@ impl IfBuilderC {
 
 impl IfBuilderAB {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parent = parent.into();
+        self.parents.push(parent.into());
         self
     }
     pub fn condition(mut self, condition: Link<Op>) -> Self {
@@ -187,7 +190,7 @@ impl IfBuilderAB {
 
 impl IfBuilderAC {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parent = parent.into();
+        self.parents.push(parent.into());
         self
     }
     pub fn condition(mut self, condition: Link<Op>) -> Self {
@@ -206,7 +209,7 @@ impl IfBuilderAC {
 
 impl IfBuilderBC {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parent = parent.into();
+        self.parents.push(parent.into());
         self
     }
     pub fn condition(mut self, condition: Link<Op>) -> IfBuilderFull {
@@ -225,7 +228,7 @@ impl IfBuilderBC {
 
 impl IfBuilderFull {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parent = parent.into();
+        self.parents.push(parent.into());
         self
     }
     pub fn condition(mut self, condition: Link<Op>) -> Self {
@@ -242,7 +245,7 @@ impl IfBuilderFull {
     }
     pub fn build(self) -> Link<If> {
         If {
-            parent: self.parent,
+            parents: self.parents,
             condition: self.condition.unwrap(),
             then_branch: self.then_branch.unwrap(),
             else_branch: self.else_branch.unwrap(),
@@ -273,7 +276,7 @@ mod tests {
         assert_eq!(
             if_op.borrow().deref(),
             &If {
-                parent: parent.into(),
+                parents: vec![parent.into()],
                 condition,
                 then_branch,
                 else_branch,

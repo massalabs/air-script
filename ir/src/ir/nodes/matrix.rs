@@ -4,7 +4,7 @@ use crate::ir::{BackLink, Builder, Child, Link, Node, NotSet, Op, Owner, Parent,
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Matrix {
-    pub parent: BackLink<Owner>,
+    pub parents: Vec<BackLink<Owner>>,
     pub size: usize,
     pub elements: Link<Vec<Link<Vector>>>,
 }
@@ -48,17 +48,20 @@ impl Parent for Matrix {
 
 impl Child for Matrix {
     type Parent = Owner;
-    fn get_parent(&self) -> BackLink<Self::Parent> {
-        self.parent.clone()
+    fn get_parents(&self) -> Vec<BackLink<Self::Parent>> {
+        self.parents.clone()
     }
-    fn set_parent(&mut self, parent: Link<Self::Parent>) {
-        self.parent = parent.into();
+    fn add_parent(&mut self, parent: Link<Self::Parent>) {
+        self.parents.push(parent.into());
+    }
+    fn remove_parent(&mut self, parent: Link<Self::Parent>) {
+        self.parents.retain(|p| *p != parent.clone().into());
     }
 }
 
 pub struct MatrixBuilder<State> {
     _state: PhantomData<State>,
-    parent: BackLink<Owner>,
+    parents: Vec<BackLink<Owner>>,
     size: Option<usize>,
     elements: Vec<Link<Vector>>,
 }
@@ -75,7 +78,7 @@ impl Default for MatrixBuilder<(BackLink<Owner>, NotSet, Vec<Link<Vector>>)> {
     fn default() -> Self {
         Self {
             _state: PhantomData,
-            parent: BackLink::default(),
+            parents: Vec::default(),
             size: None,
             elements: Vec::new(),
         }
@@ -84,7 +87,7 @@ impl Default for MatrixBuilder<(BackLink<Owner>, NotSet, Vec<Link<Vector>>)> {
 
 impl MatrixBuilder<(BackLink<Owner>, NotSet, Vec<Link<Vector>>)> {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parent = parent.into();
+        self.parents.push(parent.into());
         self
     }
     pub fn size(
@@ -102,7 +105,7 @@ impl MatrixBuilder<(BackLink<Owner>, NotSet, Vec<Link<Vector>>)> {
 
 impl MatrixBuilder<(BackLink<Owner>, usize, Vec<Link<Vector>>)> {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parent = parent.into();
+        self.parents.push(parent.into());
         self
     }
     pub fn size(mut self, size: usize) -> Self {
@@ -115,7 +118,7 @@ impl MatrixBuilder<(BackLink<Owner>, usize, Vec<Link<Vector>>)> {
     }
     pub fn build(self) -> Link<Matrix> {
         Matrix {
-            parent: self.parent,
+            parents: self.parents,
             size: self.size.expect("size not set"),
             elements: Link::new(self.elements),
         }
@@ -144,7 +147,7 @@ mod tests {
         assert_eq!(
             matrix.borrow().deref(),
             &Matrix {
-                parent: parent.into(),
+                parents: vec![parent.into()],
                 size: 2,
                 elements: Link::new(vec![a, b]),
             }

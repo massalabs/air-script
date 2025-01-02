@@ -4,7 +4,7 @@ use crate::ir::{BackLink, Builder, Child, Link, Node, NotSet, Op, Owner, Parent}
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Vector {
-    pub parent: BackLink<Owner>,
+    pub parents: Vec<BackLink<Owner>>,
     pub size: usize,
     pub elements: Link<Vec<Link<Op>>>,
 }
@@ -42,17 +42,20 @@ impl Parent for Vector {
 
 impl Child for Vector {
     type Parent = Owner;
-    fn get_parent(&self) -> BackLink<Self::Parent> {
-        self.parent.clone()
+    fn get_parents(&self) -> Vec<BackLink<Self::Parent>> {
+        self.parents.clone()
     }
-    fn set_parent(&mut self, parent: Link<Self::Parent>) {
-        self.parent = parent.into();
+    fn add_parent(&mut self, parent: Link<Self::Parent>) {
+        self.parents.push(parent.into());
+    }
+    fn remove_parent(&mut self, parent: Link<Self::Parent>) {
+        self.parents.retain(|p| *p != parent.clone().into());
     }
 }
 
 pub struct VectorBuilder<State> {
     _state: PhantomData<State>,
-    parent: BackLink<Owner>,
+    parents: Vec<BackLink<Owner>>,
     size: Option<usize>,
     elements: Link<Vec<Link<Op>>>,
 }
@@ -69,7 +72,7 @@ impl Default for VectorBuilder<(BackLink<Owner>, NotSet, Link<Vec<Link<Op>>>)> {
     fn default() -> Self {
         Self {
             _state: PhantomData,
-            parent: BackLink::default(),
+            parents: Vec::default(),
             size: None,
             elements: Vec::new().into(),
         }
@@ -78,7 +81,7 @@ impl Default for VectorBuilder<(BackLink<Owner>, NotSet, Link<Vec<Link<Op>>>)> {
 
 impl VectorBuilder<(BackLink<Owner>, NotSet, Link<Vec<Link<Op>>>)> {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parent = parent.into();
+        self.parents.push(parent.into());
         self
     }
     pub fn size(
@@ -96,7 +99,7 @@ impl VectorBuilder<(BackLink<Owner>, NotSet, Link<Vec<Link<Op>>>)> {
 
 impl VectorBuilder<(BackLink<Owner>, usize, Link<Vec<Link<Op>>>)> {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parent = parent.into();
+        self.parents.push(parent.into());
         self
     }
     pub fn size(mut self, size: usize) -> Self {
@@ -109,7 +112,7 @@ impl VectorBuilder<(BackLink<Owner>, usize, Link<Vec<Link<Op>>>)> {
     }
     pub fn build(self) -> Link<Vector> {
         Vector {
-            parent: self.parent,
+            parents: self.parents,
             size: self.size.expect("size not set"),
             elements: self.elements,
         }
@@ -138,7 +141,7 @@ mod tests {
         assert_eq!(
             vector.borrow().deref(),
             &Vector {
-                parent: parent.into(),
+                parents: vec![parent.into()],
                 size: 2,
                 elements: vec![a, b].into(),
             }

@@ -6,7 +6,7 @@ use crate::ir::{BackLink, Builder, Child, Link, Node, NotSet, Op, Owner, Parent}
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Accessor {
-    pub parent: BackLink<Owner>,
+    pub parents: Vec<BackLink<Owner>>,
     pub indexable: Link<Op>,
     pub access_type: AccessType,
 }
@@ -14,7 +14,7 @@ pub struct Accessor {
 impl Default for Accessor {
     fn default() -> Self {
         Self {
-            parent: BackLink::default(),
+            parents: Vec::default(),
             indexable: Link::default(),
             access_type: AccessType::Default,
         }
@@ -96,17 +96,20 @@ impl Parent for Accessor {
 
 impl Child for Accessor {
     type Parent = Owner;
-    fn get_parent(&self) -> BackLink<Self::Parent> {
-        self.parent.clone()
+    fn get_parents(&self) -> Vec<BackLink<Self::Parent>> {
+        self.parents.clone()
     }
-    fn set_parent(&mut self, parent: Link<Self::Parent>) {
-        self.parent = parent.into();
+    fn add_parent(&mut self, parent: Link<Self::Parent>) {
+        self.parents.push(parent.into());
+    }
+    fn remove_parent(&mut self, parent: Link<Self::Parent>) {
+        self.parents.retain(|p| *p != parent.clone().into());
     }
 }
 
 pub struct AccessorBuilder<State> {
     _state: std::marker::PhantomData<State>,
-    parent: BackLink<Owner>,
+    parents: Vec<BackLink<Owner>>,
     indexable: Option<Link<Op>>,
     access_type: Option<AccessType>,
 }
@@ -128,7 +131,7 @@ impl Default for AccessorBuilderEmpty {
     fn default() -> Self {
         Self {
             _state: std::marker::PhantomData,
-            parent: BackLink::default(),
+            parents: Vec::default(),
             indexable: None,
             access_type: None,
         }
@@ -137,7 +140,7 @@ impl Default for AccessorBuilderEmpty {
 
 impl AccessorBuilderEmpty {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parent = parent.into();
+        self.parents.push(parent.into());
         self
     }
     pub fn indexable(mut self, indexable: Link<Op>) -> AccessorBuilderA {
@@ -152,7 +155,7 @@ impl AccessorBuilderEmpty {
 
 impl AccessorBuilderA {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parent = parent.into();
+        self.parents.push(parent.into());
         self
     }
     pub fn indexable(mut self, indexable: Link<Op>) -> Self {
@@ -167,7 +170,7 @@ impl AccessorBuilderA {
 
 impl AccessorBuilderB {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parent = parent.into();
+        self.parents.push(parent.into());
         self
     }
     pub fn indexable(mut self, indexable: Link<Op>) -> AccessorBuilderFull {
@@ -182,7 +185,7 @@ impl AccessorBuilderB {
 
 impl AccessorBuilderFull {
     pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parent = parent.into();
+        self.parents.push(parent.into());
         self
     }
     pub fn indexable(mut self, indexable: Link<Op>) -> Self {
@@ -195,7 +198,7 @@ impl AccessorBuilderFull {
     }
     pub fn build(self) -> Link<Accessor> {
         Accessor {
-            parent: self.parent,
+            parents: self.parents,
             indexable: self.indexable.unwrap(),
             access_type: self.access_type.unwrap(),
         }
@@ -224,7 +227,7 @@ mod tests {
         assert_eq!(
             accessor.borrow().deref(),
             &Accessor {
-                parent: parent.into(),
+                parents: vec![parent.into()],
                 indexable,
                 access_type
             }
