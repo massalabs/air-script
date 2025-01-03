@@ -277,7 +277,7 @@ impl<'a> MirBuilder<'a> {
 
     fn translate_body(
         &mut self,
-        ident: &ast::QualifiedIdentifier,
+        _ident: &ast::QualifiedIdentifier,
         func: Link<Root>,
         body: &'a Vec<ast::Statement>,
     ) -> Result<Link<Root>, CompileError> {
@@ -296,19 +296,6 @@ impl<'a> MirBuilder<'a> {
             self.root = func.clone();
         }
         self.bindings.exit();
-        match func.borrow().deref() {
-            Root::Function(_) => self
-                .mir
-                .constraint_graph_mut()
-                .insert_function(*ident, func.clone().as_function().unwrap().clone()),
-            Root::Evaluator(_) => self
-                .mir
-                .constraint_graph_mut()
-                .insert_evaluator(*ident, func.clone().as_evaluator().unwrap().clone()),
-            Root::None => {
-                unreachable!("expected function or evaluator, got None")
-            }
-        }
         Ok(func)
     }
 

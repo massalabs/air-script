@@ -101,20 +101,28 @@ impl Pass for Inlining {
 
 impl Inlining {
 
-    fn print_function(&self, k: &Link<Root>, v: &Vec<Link<Root>>) {
+    /*fn print_function(&self, k: &Link<Root>, v: &Vec<Link<Root>>) {
         if let Some(f) = k.clone().as_function() {
             println!("Function of {:?} parameters, Value len: {:?}", f.borrow().parameters.len(), v.len());
+
+            if f.borrow().parameters.len() == 12 {
+                println!("Function of 12 parameters : {:?}", f);
+            }
         } else if let Some(e) = k.clone().as_evaluator() {
             println!("Evaluator of {:?} parameters, Value len: {:?}", e.borrow().parameters.len(), v.len());
         }
         for callee in v {
             if let Some(f) = callee.clone().as_function() {
                 println!("    Function of {:?} parameters", f.borrow().parameters.len());
+                
+                if f.borrow().parameters.len() == 12 {
+                    println!("    Function of 12 parameters : {:?}", f);
+                }
             } else if let Some(e) = callee.clone().as_evaluator() {
                 println!("    Evaluator of {:?} parameters", e.borrow().parameters.len());
             }
         }
-    }
+    }*/
 
     fn create_inlining_order(&mut self) -> Vec<Link<Root>> {
         let mut func_eval_inlining_order = Vec::new();
@@ -122,12 +130,11 @@ impl Inlining {
 
         // Note: we remove an element at each iteration (or raise diag), so this will terminate
         while !func_eval_dependency_graph.is_empty() {
-            println!("");
-            println!("Current dependancy graph has len: {:?}", func_eval_dependency_graph.len());
+            //println!("Current dependancy graph has len: {:?}", func_eval_dependency_graph.len());
 
-            for (k,v) in func_eval_dependency_graph.iter() {
+            /*for (k,v) in func_eval_dependency_graph.iter() {
                 self.print_function(k, v);
-            }
+            }*/
 
             // Find a function without dependency
             match func_eval_dependency_graph
@@ -140,39 +147,24 @@ impl Inlining {
                     func_eval_dependency_graph.remove(f);
                 }
                 _ => {
-                    println!("Circular dependency detected!");
-                    // Circular dep?, raise diag
-                    panic!("Circular dependency detected!");
+                    panic!("Circular dependency detected!"); // Circular dep?, raise diag
                 }
             }
 
             let removed_fn = func_eval_inlining_order.last().unwrap();
 
-            if let Some(f) = removed_fn.clone().as_function() {
-                println!("Removing function from dependancy graph: Function of {:?} parameters, Value len", f.borrow().parameters.len());
+            /*if let Some(f) = removed_fn.clone().as_function() {
+                println!("Removing function from dependency graph: Function of {:?} parameters, Value len", f.borrow().parameters.len());
             } else if let Some(e) = removed_fn.clone().as_evaluator() {
-                println!("Removing evaluator from dependancy graph: Evaluator of {:?} parameters, Value len", e.borrow().parameters.len());
-            }
+                println!("Removing evaluator from dependency graph: Evaluator of {:?} parameters, Value len", e.borrow().parameters.len());
+            }*/
 
-            for (_k, v) in func_eval_dependency_graph.iter_mut() {
-                let mut new_v = vec![];
-                for callee in v.iter() {
-                    if callee != removed_fn {
-                        new_v.push(callee.clone());
-                        println!("NOT Removing callee from dependancy graph");
-                    } else {
-                        println!("Removing callee from dependancy graph");
-                    }
-                }
-                *v = new_v;
-            }
-
-            // Remove the function from the dependancy graph
-            /*func_eval_dependency_graph
+            // Remove the function from the dependency graph
+            func_eval_dependency_graph
                 .iter_mut()
                 .for_each(|(_k, v)| {
                     v.retain(|x| x != removed_fn);
-                });*/
+                });
         }
         func_eval_inlining_order
     }
