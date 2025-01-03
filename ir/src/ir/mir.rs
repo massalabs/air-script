@@ -14,15 +14,6 @@ pub use air_parser::{
     Symbol,
 };
 
-/// The default segment against which a constraint is applied is the main trace segment.
-pub const DEFAULT_SEGMENT: TraceSegmentId = 0;
-/// The auxiliary trace segment.
-pub const AUX_SEGMENT: TraceSegmentId = 1;
-/// The offset of the "current" row during constraint evaluation.
-pub const CURRENT_ROW: usize = 0;
-/// The minimum cycle length of a periodic column
-pub const MIN_CYCLE_LENGTH: usize = 2;
-
 use std::collections::BTreeMap;
 
 use miden_diagnostics::{SourceSpan, Spanned};

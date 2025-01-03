@@ -9,7 +9,7 @@ use air_pass::Pass;
 
 use crate::{ir::*, CompileError};
 
-use super::{duplicate_node_or_replace, Visit, VisitContext, VisitOrder};
+use super::{duplicate_node_or_replace, Visit, VisitContext};
 
 //pub struct Unrolling<'a> {
 //     #[allow(unused)]
@@ -56,7 +56,7 @@ impl VisitContext for Unrolling {
 
     type Graph = Graph;
 
-    fn boundary_roots(&self, graph: &Self::Graph) -> Link<Vec<Link<Node>>> {
+    fn root_nodes_to_visit(&self, graph: &Self::Graph) -> Link<Vec<Link<Node>>> {
         if self.during_first_pass {
             return graph
                 .boundary_constraints_roots
@@ -65,7 +65,14 @@ impl VisitContext for Unrolling {
                 .iter()
                 .cloned()
                 .map(|bc| bc.as_node())
-                .collect::<Vec<_>>()
+                .chain(graph
+                    .integrity_constraints_roots
+                    .borrow()
+                    .deref()
+                    .iter()
+                    .cloned()
+                    .map(|ic| ic.as_node())
+                ).collect::<Vec<_>>()
                 .into();
         } else {
             return self
@@ -76,30 +83,6 @@ impl VisitContext for Unrolling {
                 .map(|op| op.as_node())
                 .collect::<Vec<_>>()
                 .into();
-        }
-    }
-
-    fn integrity_roots(&self, graph: &Self::Graph) -> Link<Vec<Link<Node>>> {
-        if self.during_first_pass {
-            return graph
-                .integrity_constraints_roots
-                .borrow()
-                .deref()
-                .iter()
-                .cloned()
-                .map(|bc| bc.as_node())
-                .collect::<Vec<_>>()
-                .into();
-        } else {
-            return Link::new(vec![]);
-        }
-    }
-
-    fn visit_order(&self) -> super::VisitOrder {
-        if self.during_first_pass {
-            return super::VisitOrder::PostOrder;
-        } else {
-            return super::VisitOrder::PostOrder;
         }
     }
 }
@@ -122,22 +105,14 @@ impl Visit for Unrolling {
     fn run(&mut self, graph: &mut Self::Graph) {
         // First pass, unroll all nodes fully, except for For nodes
         self.during_first_pass = true;
-        match self.visit_order() {
-            VisitOrder::Manual => self.visit_manual(graph),
-            VisitOrder::PostOrder => self.visit_postorder(graph),
-            VisitOrder::DepthFirst => self.visit_depthfirst(graph),
-        }
+        self.visit_postorder(graph);
         while let Some(node) = self.next_node() {
             self.visit(graph, node);
         }
 
         // Second pass, inline For nodes
         self.during_first_pass = false;
-        match self.visit_order() {
-            VisitOrder::Manual => self.visit_manual(graph),
-            VisitOrder::PostOrder => self.visit_postorder(graph),
-            VisitOrder::DepthFirst => self.visit_depthfirst(graph),
-        }
+        self.visit_postorder(graph);
         while let Some(node) = self.next_node() {
             self.visit(graph, node);
         }

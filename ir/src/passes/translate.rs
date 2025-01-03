@@ -127,9 +127,9 @@ impl<'a> MirBuilder<'a> {
         let mut ev = Evaluator::builder();
         let mut i = 0;
         for trace_segment in &ast_eval.params {
-            println!("trace_segment: {:#?}", trace_segment);
+    //        println!("trace_segment: {:#?}", trace_segment);
             for binding in &trace_segment.bindings {
-                println!("binding: {:#?}", binding);
+    //            println!("binding: {:#?}", binding);
                 let params =
                     self.translate_params(ident, binding.name.as_ref(), &binding.ty, &mut i);
                 for param in params {
@@ -244,7 +244,7 @@ impl<'a> MirBuilder<'a> {
 
     fn translate_params(
         &mut self,
-        func_ident: &'a ast::QualifiedIdentifier,
+        _func_ident: &'a ast::QualifiedIdentifier,
         name: Option<&'a ast::Identifier>,
         ty: &ast::Type,
         i: &mut usize,
@@ -356,8 +356,8 @@ impl<'a> MirBuilder<'a> {
 
     fn translate_enforce_if(
         &mut self,
-        enf: &ast::ScalarExpr,
-        cond: &ast::ScalarExpr,
+        _enf: &ast::ScalarExpr,
+        _cond: &ast::ScalarExpr,
     ) -> Result<Link<Op>, CompileError> {
         unreachable!("all EnforceIf should have been transformed into EnforceAll")
     }
@@ -519,7 +519,7 @@ impl<'a> MirBuilder<'a> {
                 self.translate_symbol_access_global_or_local(&ident, &access)
             }
             // These should have been eliminated by previous compiler passes
-            ast::ResolvableIdentifier::Unresolved(ident) => {
+            ast::ResolvableIdentifier::Unresolved(_ident) => {
                 unreachable!(
                     "expected fully-qualified or global reference, got `{:?}` instead",
                     &access.name
