@@ -1,8 +1,8 @@
 use std::ops::Deref;
 
 use crate::ir::{
-    Accessor, Add, Boundary, Call, Enf, Evaluator, Fold, For, Function, Graph, If, Leaf, Link,
-    Matrix, Mul, Node, Owner, Parent, Sub, Vector,
+    Accessor, Add, Boundary, Call, Enf, Evaluator, Fold, For, Function, Graph, If, Link, Matrix,
+    Mul, Node, Parameter, Parent, Sub, Value, Vector,
 };
 
 pub trait Visitor {
@@ -25,35 +25,26 @@ pub trait Visitor {
         }
     }
     fn visit_node(&mut self, graph: &mut Graph, node: Link<Node>) {
-        //eprintln!("Visiting node {:?}", node);
-        if let Some(owner) = node.clone().as_owner() {
-            self.visit_owner(graph, owner.clone());
-        } else if let Some(op) = node.clone().as_leaf() {
-            self.visit_leaf(graph, op.clone());
+        match node.borrow().deref() {
+            Node::Function(f) => self.visit_function(graph, f.clone()),
+            Node::Evaluator(e) => self.visit_evaluator(graph, e.clone()),
+            Node::Enf(e) => self.visit_enf(graph, e.clone()),
+            Node::Boundary(b) => self.visit_boundary(graph, b.clone()),
+            Node::Add(a) => self.visit_add(graph, a.clone()),
+            Node::Sub(s) => self.visit_sub(graph, s.clone()),
+            Node::Mul(m) => self.visit_mul(graph, m.clone()),
+            Node::If(i) => self.visit_if(graph, i.clone()),
+            Node::For(f) => self.visit_for(graph, f.clone()),
+            Node::Call(c) => self.visit_call(graph, c.clone()),
+            Node::Fold(f) => self.visit_fold(graph, f.clone()),
+            Node::Vector(v) => self.visit_vector(graph, v.clone()),
+            Node::Matrix(m) => self.visit_matrix(graph, m.clone()),
+            Node::Accessor(a) => self.visit_accessor(graph, a.clone()),
+            Node::Parameter(p) => self.visit_parameter(graph, p.clone()),
+            Node::Value(v) => self.visit_value(graph, v.clone()),
+            Node::None => {}
         }
     }
-    fn visit_owner(&mut self, graph: &mut Graph, owner: Link<Owner>) {
-        match owner.borrow().deref() {
-            Owner::Function(_) => self.visit_function(graph, owner.clone().as_function().unwrap()),
-            Owner::Evaluator(_) => {
-                self.visit_evaluator(graph, owner.clone().as_evaluator().unwrap())
-            }
-            Owner::Enf(_) => self.visit_enf(graph, owner.clone().as_enf().unwrap()),
-            Owner::Boundary(_) => self.visit_boundary(graph, owner.clone().as_boundary().unwrap()),
-            Owner::Add(_) => self.visit_add(graph, owner.clone().as_add().unwrap()),
-            Owner::Sub(_) => self.visit_sub(graph, owner.clone().as_sub().unwrap()),
-            Owner::Mul(_) => self.visit_mul(graph, owner.clone().as_mul().unwrap()),
-            Owner::If(_) => self.visit_if(graph, owner.clone().as_if().unwrap()),
-            Owner::For(_) => self.visit_for(graph, owner.clone().as_for().unwrap()),
-            Owner::Call(_) => self.visit_call(graph, owner.clone().as_call().unwrap()),
-            Owner::Fold(_) => self.visit_fold(graph, owner.clone().as_fold().unwrap()),
-            Owner::Vector(_) => self.visit_vector(graph, owner.clone().as_vector().unwrap()),
-            Owner::Matrix(_) => self.visit_matrix(graph, owner.clone().as_matrix().unwrap()),
-            Owner::Accessor(_) => self.visit_accessor(graph, owner.clone().as_accessor().unwrap()),
-            Owner::None => {}
-        }
-    }
-    fn visit_leaf(&mut self, _graph: &mut Graph, _op: Link<Leaf>) {}
     fn visit_function(&mut self, _graph: &mut Graph, _function: Link<Function>) {}
     fn visit_evaluator(&mut self, _graph: &mut Graph, _evaluator: Link<Evaluator>) {}
     fn visit_enf(&mut self, _graph: &mut Graph, _enf: Link<Enf>) {}
@@ -68,4 +59,6 @@ pub trait Visitor {
     fn visit_vector(&mut self, _graph: &mut Graph, _vector: Link<Vector>) {}
     fn visit_matrix(&mut self, _graph: &mut Graph, _matrix: Link<Matrix>) {}
     fn visit_accessor(&mut self, _graph: &mut Graph, _accessor: Link<Accessor>) {}
+    fn visit_parameter(&mut self, _graph: &mut Graph, _parameter: Link<Parameter>) {}
+    fn visit_value(&mut self, _graph: &mut Graph, _value: Link<Value>) {}
 }

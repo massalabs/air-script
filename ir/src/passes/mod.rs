@@ -16,14 +16,14 @@ pub use self::visitor_old::{Graph, VisitContextOld, VisitOld, VisitOrderOld};*/
 //mod inlining;
 mod inlining2;
 mod translate;
-mod unrolling;
+//mod unrolling;
 mod visitor;
 mod visitor2;
 // pub use self::inlining::Inlining;
 pub use self::inlining2::Inlining;
 //pub use self::translate::AstToMir;
 pub use self::translate::AstToMir;
-pub use self::unrolling::Unrolling;
+//pub use self::unrolling::Unrolling;
 pub use self::visitor::{Visit, VisitContext};
 
 use std::collections::HashMap;
