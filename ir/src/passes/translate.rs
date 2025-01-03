@@ -127,9 +127,9 @@ impl<'a> MirBuilder<'a> {
         let mut ev = Evaluator::builder();
         let mut i = 0;
         for trace_segment in &ast_eval.params {
-    //        println!("trace_segment: {:#?}", trace_segment);
+            //        println!("trace_segment: {:#?}", trace_segment);
             for binding in &trace_segment.bindings {
-    //            println!("binding: {:#?}", binding);
+                //            println!("binding: {:#?}", binding);
                 let params =
                     self.translate_params(ident, binding.name.as_ref(), &binding.ty, &mut i);
                 for param in params {

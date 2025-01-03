@@ -1,4 +1,7 @@
-use std::{collections::HashMap, ops::{Deref, DerefMut}};
+use std::{
+    collections::HashMap,
+    ops::{Deref, DerefMut},
+};
 
 use air_pass::Pass;
 //use miden_diagnostics::DiagnosticsHandler;
@@ -42,7 +45,6 @@ pub struct InliningFirstPass {
     func_eval_dependency_graph: HashMap<Link<Root>, Vec<Link<Root>>>,
     // HashMap<Definition, Call nodes where called, along with context>
     func_eval_nodes_where_called: HashMap<Link<Root>, Vec<CallInliningContext>>,
-
 }
 impl InliningFirstPass {
     pub fn new() -> Self {
@@ -63,7 +65,7 @@ pub struct InliningSecondPass {
     // context for second pass
     call_inlining_context: Option<CallInliningContext>,
     nodes_to_replace: HashMap<Link<Op>, Link<Op>>,
-    
+
     // HashMap<Definition, Call nodes where called, along with context>
     func_eval_nodes_where_called: HashMap<Link<Root>, Vec<CallInliningContext>>,
 }
@@ -100,7 +102,6 @@ impl Pass for Inlining {
 }
 
 impl Inlining {
-
     /*fn print_function(&self, k: &Link<Root>, v: &Vec<Link<Root>>) {
         if let Some(f) = k.clone().as_function() {
             println!("Function of {:?} parameters, Value len: {:?}", f.borrow().parameters.len(), v.len());
@@ -114,7 +115,7 @@ impl Inlining {
         for callee in v {
             if let Some(f) = callee.clone().as_function() {
                 println!("    Function of {:?} parameters", f.borrow().parameters.len());
-                
+
                 if f.borrow().parameters.len() == 12 {
                     println!("    Function of 12 parameters : {:?}", f);
                 }
@@ -160,11 +161,9 @@ impl Inlining {
             }*/
 
             // Remove the function from the dependency graph
-            func_eval_dependency_graph
-                .iter_mut()
-                .for_each(|(_k, v)| {
-                    v.retain(|x| x != removed_fn);
-                });
+            func_eval_dependency_graph.iter_mut().for_each(|(_k, v)| {
+                v.retain(|x| x != removed_fn);
+            });
         }
         func_eval_inlining_order
     }
@@ -180,18 +179,24 @@ impl Visitor for InliningFirstPass {
         let boundary_constraints_roots_ref = graph.boundary_constraints_roots.borrow();
         let integrity_constraints_roots_ref = graph.integrity_constraints_roots.borrow();
 
-        let combined_roots = boundary_constraints_roots_ref.clone().into_iter().map(|bc| bc.as_node())
-            .chain(integrity_constraints_roots_ref.clone().into_iter().map(|ic| ic.as_node()))
+        let combined_roots = boundary_constraints_roots_ref
+            .clone()
+            .into_iter()
+            .map(|bc| bc.as_node())
+            .chain(
+                integrity_constraints_roots_ref
+                    .clone()
+                    .into_iter()
+                    .map(|ic| ic.as_node()),
+            )
             .chain(evaluators.into_iter().map(|e| e.as_node()))
             .chain(functions.into_iter().map(|f| f.as_node()));
         combined_roots.collect()
     }
     fn visit_function(&mut self, _graph: &mut Graph, function: Link<crate::ir::Function>) {
         println!("Currently in NEW body of function");
-        self.func_eval_dependency_graph.insert(
-            function.as_root(),
-            self.current_callees_encountered.clone(),
-        );
+        self.func_eval_dependency_graph
+            .insert(function.as_root(), self.current_callees_encountered.clone());
         self.current_callees_encountered.clear();
     }
     fn visit_evaluator(&mut self, _graph: &mut Graph, evaluator: Link<crate::ir::Evaluator>) {
@@ -258,7 +263,6 @@ impl Visitor for InliningSecondPass {
         return callee_nodes_to_inline_in_order;
     }
     fn visit_node(&mut self, graph: &mut Graph, node: Link<Node>) {
-
         // First, check if it's a known Call to inline,
         // if so, set the context and visit the body
         let mut new_call_inlining_context = None;
