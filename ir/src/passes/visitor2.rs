@@ -20,8 +20,8 @@ pub trait Visitor {
         self.work_stack().push(node.clone());
         if let Some(_owner) = node.clone().as_owner() {
             for child in node.children().borrow().iter() {
-                self.work_stack().push(child.clone().as_node());
-            }  
+                self.scan_node(_graph, child.clone().as_node());
+            }
         }
     }
     fn visit_node(&mut self, graph: &mut Graph, node: Link<Node>) {

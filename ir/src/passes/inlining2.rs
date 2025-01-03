@@ -85,29 +85,50 @@ impl Pass for Inlining {
     type Error = CompileError;
 
     fn run<'a>(&mut self, mut ir: Self::Input<'a>) -> Result<Self::Output<'a>, Self::Error> {
-        let mut pass = Inlining::new();
         // The first pass only identifies the call graph dependencies and the needed calls to inline
-        Visitor::run(&mut pass.first_pass, ir.constraint_graph_mut());
+        Visitor::run(&mut self.first_pass, ir.constraint_graph_mut());
 
         let func_eval_inlining_order = self.create_inlining_order();
-        pass.second_pass.func_eval_inlining_order = func_eval_inlining_order.clone();
+        self.second_pass.func_eval_inlining_order = func_eval_inlining_order.clone();
+
         println!("func_eval_inlining_order: {:?}", func_eval_inlining_order);
 
         // The second pass actually inlines the calls
-        Visitor::run(&mut pass.second_pass, ir.constraint_graph_mut());
+        Visitor::run(&mut self.second_pass, ir.constraint_graph_mut());
         Ok(ir)
     }
 }
 
 impl Inlining {
 
+    fn print_function(&self, k: &Link<Root>, v: &Vec<Link<Root>>) {
+        if let Some(f) = k.clone().as_function() {
+            println!("Function of {:?} parameters, Value len: {:?}", f.borrow().parameters.len(), v.len());
+        } else if let Some(e) = k.clone().as_evaluator() {
+            println!("Evaluator of {:?} parameters, Value len: {:?}", e.borrow().parameters.len(), v.len());
+        }
+        for callee in v {
+            if let Some(f) = callee.clone().as_function() {
+                println!("    Function of {:?} parameters", f.borrow().parameters.len());
+            } else if let Some(e) = callee.clone().as_evaluator() {
+                println!("    Evaluator of {:?} parameters", e.borrow().parameters.len());
+            }
+        }
+    }
+
     fn create_inlining_order(&mut self) -> Vec<Link<Root>> {
         let mut func_eval_inlining_order = Vec::new();
         let mut func_eval_dependency_graph = self.first_pass.func_eval_dependency_graph.clone();
+
         // Note: we remove an element at each iteration (or raise diag), so this will terminate
         while !func_eval_dependency_graph.is_empty() {
-            println!("dependancy graph has len: {:?}", func_eval_dependency_graph.len());
-            println!("dependancy graph: {:?}", func_eval_dependency_graph);
+            println!("");
+            println!("Current dependancy graph has len: {:?}", func_eval_dependency_graph.len());
+
+            for (k,v) in func_eval_dependency_graph.iter() {
+                self.print_function(k, v);
+            }
+
             // Find a function without dependency
             match func_eval_dependency_graph
                 .clone()
@@ -121,17 +142,37 @@ impl Inlining {
                 _ => {
                     println!("Circular dependency detected!");
                     // Circular dep?, raise diag
+                    panic!("Circular dependency detected!");
                 }
             }
 
             let removed_fn = func_eval_inlining_order.last().unwrap();
 
+            if let Some(f) = removed_fn.clone().as_function() {
+                println!("Removing function from dependancy graph: Function of {:?} parameters, Value len", f.borrow().parameters.len());
+            } else if let Some(e) = removed_fn.clone().as_evaluator() {
+                println!("Removing evaluator from dependancy graph: Evaluator of {:?} parameters, Value len", e.borrow().parameters.len());
+            }
+
+            for (_k, v) in func_eval_dependency_graph.iter_mut() {
+                let mut new_v = vec![];
+                for callee in v.iter() {
+                    if callee != removed_fn {
+                        new_v.push(callee.clone());
+                        println!("NOT Removing callee from dependancy graph");
+                    } else {
+                        println!("Removing callee from dependancy graph");
+                    }
+                }
+                *v = new_v;
+            }
+
             // Remove the function from the dependancy graph
-            func_eval_dependency_graph
+            /*func_eval_dependency_graph
                 .iter_mut()
                 .for_each(|(_k, v)| {
                     v.retain(|x| x != removed_fn);
-                });
+                });*/
         }
         func_eval_inlining_order
     }
@@ -147,12 +188,10 @@ impl Visitor for InliningFirstPass {
         let boundary_constraints_roots_ref = graph.boundary_constraints_roots.borrow();
         let integrity_constraints_roots_ref = graph.integrity_constraints_roots.borrow();
 
-        let combined_roots = functions
-            .into_iter()
-            .map(|f| f.as_node())
+        let combined_roots = boundary_constraints_roots_ref.clone().into_iter().map(|bc| bc.as_node())
+            .chain(integrity_constraints_roots_ref.clone().into_iter().map(|ic| ic.as_node()))
             .chain(evaluators.into_iter().map(|e| e.as_node()))
-            .chain(boundary_constraints_roots_ref.clone().into_iter().map(|bc| bc.as_node()))
-            .chain(integrity_constraints_roots_ref.clone().into_iter().map(|ic| ic.as_node()));
+            .chain(functions.into_iter().map(|f| f.as_node()));
         combined_roots.collect()
     }
     fn visit_function(&mut self, _graph: &mut Graph, function: Link<crate::ir::Function>) {
