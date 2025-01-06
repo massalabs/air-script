@@ -13,12 +13,12 @@ use super::{duplicate_node_or_replace, visitor2::Visitor};
 
 /// This pass follows a similar approach as the Inlining pass.
 /// It requires that this Inlining pass has already been done.
-/// 
+///
 /// * In the first step, we visit the graph, unrolling each node type except For nodes.
 ///   Instead, for these node types we gather the context to inline them in the second pass.
 /// * In the second pass, we inline the bodies of For nodes.
-/// 
-/// TODO: 
+///
+/// TODO:
 /// - [ ] Implement diagnostics for better error handling
 
 #[derive(Clone)]
@@ -80,7 +80,6 @@ impl Pass for Unrolling {
     type Error = CompileError;
 
     fn run<'a>(&mut self, mut ir: Self::Input<'a>) -> Result<Self::Output<'a>, Self::Error> {
-
         let graph = ir.constraint_graph();
         let functions = graph.get_function_nodes();
         let evaluators = graph.get_evaluator_nodes();
@@ -554,8 +553,7 @@ impl Visitor for UnrollingSecondPass {
         match node_index {
             Some(index) => {
                 // A new body to inline, we should replace the op with the corresponding iteration in the body
-                self.for_inlining_context =
-                    Some(self.bodies_to_inline.remove(index).clone().1);
+                self.for_inlining_context = Some(self.bodies_to_inline.remove(index).clone().1);
                 self.nodes_to_replace.clear();
                 self.scan_node(
                     graph,
@@ -566,7 +564,6 @@ impl Visitor for UnrollingSecondPass {
                         .clone()
                         .as_node(),
                 );
-                
             }
             None => {
                 // Normal visit, insert in the graph the same instruction

@@ -17,14 +17,14 @@ use crate::{
 };
 
 /// This pass transforms a given [ast::Program] into a Middle Intermediate Representation ([Mir])
-/// 
+///
 /// This pass assumes that the input program:
 /// * has been semantically validated
 /// * has had constant propagation already applied
-/// 
+///
 /// Notes:
 /// * During this step, we unpack parameters and arguments of evaluators, in order to make it easier to inline them
-/// 
+///
 /// TODO:
 /// - [ ] Implement diagnostics for better error handling
 

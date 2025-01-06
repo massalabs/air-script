@@ -14,7 +14,7 @@ use crate::{
 use super::{duplicate_node_or_replace, visitor2::Visitor};
 
 /// This pass handles inlining of Call nodes at there call sites.
-/// 
+///
 /// It works in three steps:
 /// * Firstly, we visit the graph to build the call dependency graph.
 /// * This dependency graph is then used to compute the wanted inlining order
@@ -22,7 +22,7 @@ use super::{duplicate_node_or_replace, visitor2::Visitor};
 ///   If it is not possible create this order, this means there is a circular dependency.
 /// * Then, we visit the graph again at each Call nodes, building a duplicate of the body
 ///   (with Parameter replaced by call arguments), and replacing the Call node by this duplicate body.
-/// 
+///
 /// TODO:
 /// - [ ] Implement diagnostics for better error handling
 ///  
@@ -96,17 +96,20 @@ impl Pass for Inlining {
     type Error = CompileError;
 
     fn run<'a>(&mut self, mut ir: Self::Input<'a>) -> Result<Self::Output<'a>, Self::Error> {
-        
         let mut first_pass = InliningFirstPass::new();
 
         // The first pass only identifies the call graph dependencies and the needed calls to inline
         Visitor::run(&mut first_pass, ir.constraint_graph_mut());
 
-        let func_eval_inlining_order = create_inlining_order(first_pass.func_eval_dependency_graph.clone());
+        let func_eval_inlining_order =
+            create_inlining_order(first_pass.func_eval_dependency_graph.clone());
 
         println!("func_eval_inlining_order: {:?}", func_eval_inlining_order);
 
-       let mut second_pass = InliningSecondPass::new(func_eval_inlining_order.clone(), first_pass.func_eval_nodes_where_called.clone());
+        let mut second_pass = InliningSecondPass::new(
+            func_eval_inlining_order.clone(),
+            first_pass.func_eval_nodes_where_called.clone(),
+        );
 
         // The second pass actually inlines the calls
         Visitor::run(&mut second_pass, ir.constraint_graph_mut());
@@ -114,7 +117,9 @@ impl Pass for Inlining {
     }
 }
 
-fn create_inlining_order(mut func_eval_dependency_graph: HashMap<Link<Root>, Vec<Link<Root>>>) -> Vec<Link<Root>> {
+fn create_inlining_order(
+    mut func_eval_dependency_graph: HashMap<Link<Root>, Vec<Link<Root>>>,
+) -> Vec<Link<Root>> {
     let mut func_eval_inlining_order = Vec::new();
 
     // Note: we remove an element at each iteration (or raise diag), so this will terminate
@@ -310,7 +315,10 @@ impl Visitor for InliningSecondPass {
                 if context.pure_function {
                     // Instead of scanning all the body, we only scan the last node,
                     // which represents the return value of the function
-                    self.scan_node(graph, context.body.borrow().last().unwrap().clone().as_node());
+                    self.scan_node(
+                        graph,
+                        context.body.borrow().last().unwrap().clone().as_node(),
+                    );
                 } else {
                     // We scan all the nodes related to the body
                     for body_node in context.body.borrow().iter() {
@@ -358,7 +366,13 @@ impl Visitor for InliningSecondPass {
                         } else {
                             // We have finished inlining the body, we can now replace the Call node with all the body
                             let mut new_nodes = Vec::new();
-                            for body_node in self.call_inlining_context.clone().unwrap().body.borrow().iter()
+                            for body_node in self
+                                .call_inlining_context
+                                .clone()
+                                .unwrap()
+                                .body
+                                .borrow()
+                                .iter()
                             {
                                 // FIXME: Maybe we should only push nodes that are Enf()?
                                 // Depends if additional nodes change things (e.g. the Vector size..)
