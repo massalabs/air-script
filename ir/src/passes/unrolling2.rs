@@ -32,17 +32,10 @@ pub struct ForInliningContext {
 
 impl ForInliningContext {}
 
-pub struct Unrolling {
-    // context for each pass
-    first_pass: UnrollingFirstPass,
-    second_pass: UnrollingSecondPass,
-}
+pub struct Unrolling {}
 impl Unrolling {
     pub fn new() -> Self {
-        Self {
-            first_pass: UnrollingFirstPass::new(),
-            second_pass: UnrollingSecondPass::new(),
-        }
+        Self {}
     }
 }
 
@@ -71,10 +64,10 @@ pub struct UnrollingSecondPass {
     nodes_to_replace: HashMap<Link<Op>, Link<Op>>,
 }
 impl UnrollingSecondPass {
-    pub fn new() -> Self {
+    pub fn new(bodies_to_inline: Vec<(Link<Op>, ForInliningContext)>) -> Self {
         Self {
             work_stack: vec![],
-            bodies_to_inline: vec![],
+            bodies_to_inline,
             for_inlining_context: None,
             nodes_to_replace: HashMap::new(),
         }
@@ -87,13 +80,20 @@ impl Pass for Unrolling {
     type Error = CompileError;
 
     fn run<'a>(&mut self, mut ir: Self::Input<'a>) -> Result<Self::Output<'a>, Self::Error> {
-        // The first pass unrolls all nodes fully, except for For nodes
-        Visitor::run(&mut self.first_pass, ir.constraint_graph_mut());
 
-        self.second_pass.bodies_to_inline = self.first_pass.bodies_to_inline.clone();
+        let graph = ir.constraint_graph();
+        let functions = graph.get_function_nodes();
+        let evaluators = graph.get_evaluator_nodes();
+        let bc = graph.boundary_constraints_roots.borrow().deref().clone();
+        let ic = graph.integrity_constraints_roots.borrow().deref().clone();
+
+        // The first pass unrolls all nodes fully, except for For nodes
+        let mut first_pass = UnrollingFirstPass::new();
+        Visitor::run(&mut first_pass, ir.constraint_graph_mut());
 
         // The second pass actually inlines the For nodes
-        Visitor::run(&mut self.second_pass, ir.constraint_graph_mut());
+        let mut second_pass = UnrollingSecondPass::new(first_pass.bodies_to_inline.clone());
+        Visitor::run(&mut second_pass, ir.constraint_graph_mut());
         Ok(ir)
     }
 }
@@ -503,7 +503,7 @@ impl Visitor for UnrollingFirstPass {
             };
 
             self.bodies_to_inline.push((
-                new_node,
+                for_node.clone().as_op(),
                 ForInliningContext {
                     body: expr.clone(),
                     iterators: iterators_i,
@@ -515,6 +515,18 @@ impl Visitor for UnrollingFirstPass {
         }
         *for_node.as_node().borrow_mut().deref_mut() =
             Vector::create(new_vec).as_node().borrow().clone();
+    }
+
+    fn visit_call(&mut self, _graph: &mut Graph, _call: Link<Call>) {
+        unreachable!("Calls should have been inlined before this pass");
+    }
+
+    fn visit_function(&mut self, _graph: &mut Graph, _function: Link<Function>) {
+        unreachable!("Functions should have been inlined before this pass");
+    }
+
+    fn visit_evaluator(&mut self, _graph: &mut Graph, _evaluator: Link<Evaluator>) {
+        unreachable!("Evaluators should have been inlined before this pass");
     }
 }
 
@@ -532,6 +544,9 @@ impl Visitor for UnrollingSecondPass {
             .into()
     }
     fn visit_node(&mut self, graph: &mut Graph, node: Link<Node>) {
+        if node.borrow().deref() == &Node::None {
+            return;
+        }
         let node_index = self
             .bodies_to_inline
             .iter()
@@ -540,7 +555,7 @@ impl Visitor for UnrollingSecondPass {
             Some(index) => {
                 // A new body to inline, we should replace the op with the corresponding iteration in the body
                 self.for_inlining_context =
-                    Some(self.bodies_to_inline.get(index).unwrap().clone().1);
+                    Some(self.bodies_to_inline.remove(index).clone().1);
                 self.nodes_to_replace.clear();
                 self.scan_node(
                     graph,
@@ -551,6 +566,7 @@ impl Visitor for UnrollingSecondPass {
                         .clone()
                         .as_node(),
                 );
+                
             }
             None => {
                 // Normal visit, insert in the graph the same instruction
