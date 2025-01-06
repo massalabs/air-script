@@ -8,6 +8,11 @@ use mir::ir::*;
 
 use crate::{graph::NodeIndex, ir::*, CompileError};
 
+/// This pass creates the [Air] from the [Mir].
+///  
+/// We mainly directly transform Mir operations to Air operations,
+/// as after the Inlining and Unrolling the nodes correspond 1 to 1.
+
 pub struct MirToAir<'a> {
     diagnostics: &'a DiagnosticsHandler,
 }
