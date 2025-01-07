@@ -148,6 +148,10 @@ impl<'a> MirBuilder<'a> {
                     ev = ev.parameters(param.clone());
                 }
             }
+
+            // TRANSLATE TODO:
+            // ev.parameters should be a Vec<> to differentiate trace segment
+
         }
         let ev = ev.build();
         if known_signature {
@@ -208,6 +212,9 @@ impl<'a> MirBuilder<'a> {
         let mut i = 0;
         for (param_ident, ty) in ast_func.params.iter() {
             let name = Some(param_ident);
+            
+            // TRANSLATE TODO:
+            // Update translate_params to differentiate between functions and evaluators
             let params = self.translate_params(ident, name, ty, &mut i);
             for param in params {
                 func = func.parameters(param.clone());
@@ -613,6 +620,11 @@ impl<'a> MirBuilder<'a> {
                     .collect()
             } else if let Some(callee) = self.mir.constraint_graph().get_evaluator(&resolved_callee)
             {
+                
+                // TRANSLATE TODO:
+                // - For Evaluators, we need to: 
+                // - differentiate between trace segments
+                // - unpack arguments for each trace segment (entirely flatten)
                 callee_node = callee.clone().as_root();
                 arg_nodes = Vec::new();
                 for arg in call.args.iter() {

@@ -281,6 +281,11 @@ impl Visitor for InliningSecondPass {
     }
 
     fn scan_node(&mut self, _graph: &Graph, node: Link<Node>) {
+
+        // INLINING TODO:
+        // - If we scan a Call node, set the context
+        // - Check assumptions (e.g. we should never encounter a new Call node before fully finishing the current call's inlining) 
+
         self.work_stack().push(node.clone());
         if let Some(_owner) = node.clone().as_owner() {
             if let Some(_call) = _owner.as_call() {
@@ -328,6 +333,17 @@ impl Visitor for InliningSecondPass {
             }
             None => {
                 // Normal visit, insert in the graph the same instruction
+
+                // INLINING TODO:
+                // - For evaluators, we need to flatten the arguments for main and aux to construct the replace_parameters_list,
+                // see below
+                /*if !context.pure_function {
+                    let mut args = [];
+                    for args in self.call_inlining_context.clone().unwrap().arguments.iter() {
+                        args.push(args.clone().as_node());
+                    } 
+                }*/
+
                 duplicate_node_or_replace(
                     &mut self.nodes_to_replace,
                     node.clone().as_op().unwrap(),
