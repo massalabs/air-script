@@ -52,9 +52,9 @@ type FunctionBuilderEmpty = FunctionBuilder<(Vec<Link<Parameter>>, NotSet, Vec<L
 type FunctionBuilderFull = FunctionBuilder<(Vec<Link<Parameter>>, Link<Parameter>, Vec<Link<Op>>)>;
 
 impl Builder for Function {
-    type BuilderEmpty = FunctionBuilderEmpty;
-    type BuilderFull = FunctionBuilderFull;
-    fn builder() -> Self::BuilderEmpty {
+    type Empty = FunctionBuilderEmpty;
+    type Full = FunctionBuilderFull;
+    fn builder() -> Self::Empty {
         FunctionBuilder::default()
     }
 }

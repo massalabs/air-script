@@ -73,9 +73,9 @@ type ForBuilderB = ForBuilder<(BackLink<Owner>, Vec<Link<Op>>, NotSet, Link<Op>)
 type ForBuilderFull = ForBuilder<(BackLink<Owner>, Vec<Link<Op>>, Link<Op>, Link<Op>)>;
 
 impl Builder for For {
-    type BuilderEmpty = ForBuilderEmpty;
-    type BuilderFull = ForBuilderFull;
-    fn builder() -> Self::BuilderEmpty {
+    type Empty = ForBuilderEmpty;
+    type Full = ForBuilderFull;
+    fn builder() -> Self::Empty {
         ForBuilder::default()
     }
 }

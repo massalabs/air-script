@@ -120,9 +120,9 @@ type AccessorBuilderB = AccessorBuilder<(BackLink<Owner>, NotSet, AccessType)>;
 type AccessorBuilderFull = AccessorBuilder<(BackLink<Owner>, Link<Op>, AccessType)>;
 
 impl Builder for Accessor {
-    type BuilderEmpty = AccessorBuilderEmpty;
-    type BuilderFull = AccessorBuilderFull;
-    fn builder() -> Self::BuilderEmpty {
+    type Empty = AccessorBuilderEmpty;
+    type Full = AccessorBuilderFull;
+    fn builder() -> Self::Empty {
         AccessorBuilder::default()
     }
 }

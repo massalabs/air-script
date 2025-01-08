@@ -9,10 +9,12 @@ mod op;
 mod owner;
 mod root;
 mod trace;
+pub extern crate derive_ir;
 
 use std::ops::DerefMut;
 
 pub use constraints::ConstraintError;
+pub use derive_ir::Builder;
 pub use graph::Graph;
 pub use leaf::Leaf;
 pub use link::{BackLink, Link};
@@ -96,8 +98,8 @@ pub struct NotSet;
 /// A trait implemented by all nodes.
 /// Will be derivable later. The implementation and type-safe builder is currently manual while we tweak the design
 pub trait Builder {
-    type BuilderEmpty;
-    type BuilderFull;
+    type Empty;
+    type Full;
     /// Create a new empty builder that exposes all fields
-    fn builder() -> Self::BuilderEmpty;
+    fn builder() -> Self::Empty;
 }

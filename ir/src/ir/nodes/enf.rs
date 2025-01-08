@@ -58,9 +58,9 @@ type EnfBuilderEmpty = EnfBuilder<(BackLink<Owner>, NotSet)>;
 type EnfBuilderFull = EnfBuilder<(BackLink<Owner>, Link<Op>)>;
 
 impl Builder for Enf {
-    type BuilderEmpty = EnfBuilderEmpty;
-    type BuilderFull = EnfBuilderFull;
-    fn builder() -> Self::BuilderEmpty {
+    type Empty = EnfBuilderEmpty;
+    type Full = EnfBuilderFull;
+    fn builder() -> Self::Empty {
         EnfBuilder::default()
     }
 }

@@ -74,9 +74,9 @@ type IfBuilderBC = IfBuilder<(BackLink<Owner>, NotSet, Link<Op>, Link<Op>)>;
 type IfBuilderFull = IfBuilder<(BackLink<Owner>, Link<Op>, Link<Op>, Link<Op>)>;
 
 impl Builder for If {
-    type BuilderEmpty = IfBuilderEmpty;
-    type BuilderFull = IfBuilderFull;
-    fn builder() -> Self::BuilderEmpty {
+    type Empty = IfBuilderEmpty;
+    type Full = IfBuilderFull;
+    fn builder() -> Self::Empty {
         IfBuilder::default()
     }
 }

@@ -67,9 +67,9 @@ pub struct MatrixBuilder<State> {
 }
 
 impl Builder for Matrix {
-    type BuilderEmpty = MatrixBuilder<(BackLink<Owner>, NotSet, Vec<Link<Vector>>)>;
-    type BuilderFull = MatrixBuilder<(BackLink<Owner>, NotSet, Vec<Link<Vector>>)>;
-    fn builder() -> Self::BuilderEmpty {
+    type Empty = MatrixBuilder<(BackLink<Owner>, NotSet, Vec<Link<Vector>>)>;
+    type Full = MatrixBuilder<(BackLink<Owner>, NotSet, Vec<Link<Vector>>)>;
+    fn builder() -> Self::Empty {
         MatrixBuilder::default()
     }
 }

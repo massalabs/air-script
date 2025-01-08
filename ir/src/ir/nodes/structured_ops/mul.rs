@@ -63,9 +63,9 @@ type MulBuilderB = MulBuilder<(BackLink<Owner>, NotSet, Link<Op>)>;
 type MulBuilderFull = MulBuilder<(BackLink<Owner>, Link<Op>, Link<Op>)>;
 
 impl Builder for Mul {
-    type BuilderEmpty = MulBuilderEmpty;
-    type BuilderFull = MulBuilderFull;
-    fn builder() -> Self::BuilderEmpty {
+    type Empty = MulBuilderEmpty;
+    type Full = MulBuilderFull;
+    fn builder() -> Self::Empty {
         MulBuilder::default()
     }
 }

@@ -188,7 +188,7 @@ fn make_builder_struct_fields<'a>(fields: &[(&'a syn::Ident, &'a syn::Type)]) ->
                         *ident,
                         *ty,
                         quote! {#ident: #ty},
-                        quote! {#ident: Link<#second_ty>},
+                        quote! {self, value: crate::ir::Link<#second_ty>},
                         quote! {self.#ident = value.into();},
                         quote! {#ident: self.#ident.clone()},
                     )
@@ -199,7 +199,7 @@ fn make_builder_struct_fields<'a>(fields: &[(&'a syn::Ident, &'a syn::Type)]) ->
                         *ident,
                         *ty,
                         quote! {#ident: #ty},
-                        quote! {#ident: #second_ty},
+                        quote! {mut self, value: #second_ty},
                         quote! {self.#ident.push(value);},
                         quote! {#ident: self.#ident.clone()},
                     )
@@ -212,8 +212,10 @@ fn make_builder_struct_fields<'a>(fields: &[(&'a syn::Ident, &'a syn::Type)]) ->
                         *ident,
                         *ty,
                         quote! {#ident: #ty},
-                        quote! {#ident: #third_ty},
-                        quote! {self.#ident.borrow_mut().push(value);},
+                        quote! {self, value: #third_ty},
+                        quote! {
+                            core::ops::DerefMut::deref_mut(&mut self.#ident.borrow_mut()).push(value);
+                        },
                         quote! {#ident: self.#ident.clone()},
                     )
                 }
@@ -223,7 +225,7 @@ fn make_builder_struct_fields<'a>(fields: &[(&'a syn::Ident, &'a syn::Type)]) ->
                         *ident,
                         *ty,
                         quote! {#ident: Option<#ty>},
-                        quote! {#ident: #ty},
+                        quote! {self, value: #ty},
                         quote! {self.#ident = Some(value);},
                         quote! {#ident: self.#ident.clone().unwrap()},
                     )
@@ -291,7 +293,7 @@ fn make_builder_struct<'a>(
     let builder_struct_name = format_ident!("{}Builder", name);
     let struct_fields = fields.iter().map(|(_, _, field, _, _, _)| field);
     let builder_struct = quote! {
-        struct #builder_struct_name<State> {
+        pub struct #builder_struct_name<State> {
             _builder_state: std::marker::PhantomData<State>,
             #(#struct_fields),*
         }
@@ -307,7 +309,10 @@ fn make_builder_aliases<'a>(
     yes_name: &'a syn::Ident,
     no_name: &'a syn::Ident,
 ) -> (syn::Ident, syn::Ident, proc_macro2::TokenStream) {
-    let (yes, no) = (quote! { struct #yes_name; }, quote! { struct #no_name; });
+    let (yes, no) = (
+        quote! { pub struct #yes_name; },
+        quote! { pub struct #no_name; },
+    );
     let builder_struct_name = format_ident!("{}Builder", name);
     let mut alias_names = vec![];
     let mut builder_aliases = vec![yes, no];
@@ -316,7 +321,7 @@ fn make_builder_aliases<'a>(
             .iter()
             .enumerate()
             .map(|(i, state)| {
-                let state_name = format_ident!("State{}", i);
+                let state_name = format_ident!("{}BuilderState{}", name, i);
                 alias_names.push(state_name.clone());
                 let state_fields = state.iter().map(|b| {
                     if *b {
@@ -358,7 +363,7 @@ fn make_builder_impls<'a>(
     let state_names = states
         .iter()
         .enumerate()
-        .map(|(i, _)| format_ident!("State{}", i))
+        .map(|(i, _)| format_ident!("{}BuilderState{}", name, i))
         .collect::<Vec<_>>();
     let empty_state = state_names.first().unwrap();
     let impls = states.iter().enumerate().map(|(i, _)| {
@@ -376,7 +381,7 @@ fn make_builder_impls<'a>(
                     )
                 };
                 quote! {
-                    fn #ident(&mut self, #arg) -> #ret {
+                    pub fn #ident(#arg) -> #ret {
                         #set_field
                         #body_ret
                     }
@@ -386,10 +391,10 @@ fn make_builder_impls<'a>(
         if i == states.len() - 1 {
             let builder = fields.iter().map(|(_, _, _, _, _, builder)| builder);
             methods.push(quote! {
-                fn build(&self) -> #name {
+                pub fn build(&self) -> crate::ir::Link<#name> {
                     #name {
                         #(#builder),*
-                    }
+                    }.into()
                 }
             });
         };
@@ -446,7 +451,7 @@ mod tests {
             }
         };
         let expected = quote! {
-            struct FooBuilder<State> {
+            pub struct FooBuilder<State> {
                 _builder_state: std::marker::PhantomData<State>,
                 parent: BackLink<Owner>,
                 a: Option<Link<Node>>,
@@ -454,21 +459,21 @@ mod tests {
                 cs: Vec<Link<Op>>,
                 count: Option<i32>
             }
-            struct #y;
-            struct #n;
-            type State0 = FooBuilder<(#y, #n, #y, #y, #n)>;
-            type State1 = FooBuilder<(#y, #y, #y, #y, #n)>;
-            type State2 = FooBuilder<(#y, #n, #y, #y, #y)>;
-            type State3 = FooBuilder<(#y, #y, #y, #y, #y)>;
+            pub struct #y;
+            pub struct #n;
+            type FooBuilderState0 = FooBuilder<(#y, #n, #y, #y, #n)>;
+            type FooBuilderState1 = FooBuilder<(#y, #y, #y, #y, #n)>;
+            type FooBuilderState2 = FooBuilder<(#y, #n, #y, #y, #y)>;
+            type FooBuilderState3 = FooBuilder<(#y, #y, #y, #y, #y)>;
             impl Builder for Foo {
-                type Empty = State0;
-                type Full = State3;
+                type Empty = FooBuilderState0;
+                type Full = FooBuilderState3;
                 fn builder() -> Self::Empty {
                     Self::Empty::default()
                 }
             }
 
-            impl Default for State0 {
+            impl Default for FooBuilderState0 {
                 fn default() -> Self {
                     Self {
                         _builder_state: std::marker::PhantomData,
@@ -476,101 +481,101 @@ mod tests {
                     }
                 }
             }
-            impl State0 {
-                fn parent(&mut self, parent: Link<Owner>) -> Self {
+            impl FooBuilderState0 {
+                pub fn parent(self, value: crate::ir::Link<Owner>) -> Self {
                     self.parent = value.into();
                     self
                 }
-                fn a(&mut self, a: Link<Node>) -> State0 {
+                pub fn a(self, value: Link<Node>) -> FooBuilderState0 {
                     self.a = Some(value);
                     unsafe { std::mem::transmute(self) }
                 }
-                fn bs(&mut self, bs: Link<Op>) -> Self {
-                    self.bs.borrow_mut().push(value);
+                pub fn bs(self, value: Link<Op>) -> Self {
+                    core::ops::DerefMut::deref_mut(&mut self.bs.borrow_mut()).push(value);
                     self
                 }
-                fn cs(&mut self, cs: Link<Op>) -> Self {
+                pub fn cs(mut self, value: Link<Op>) -> Self {
                     self.cs.push(value);
                     self
                 }
-                fn count(&mut self, count: i32) -> State0 {
+                pub fn count(self, value: i32) -> FooBuilderState0 {
                     self.count = Some(value);
                     unsafe { std::mem::transmute(self) }
                 }
             }
-            impl State1 {
-                fn parent(&mut self, parent: Link<Owner>) -> Self {
+            impl FooBuilderState1 {
+                pub fn parent(self, value: crate::ir::Link<Owner>) -> Self {
                     self.parent = value.into();
                     self
                 }
-                fn a(&mut self, a: Link<Node>) -> Self {
+                pub fn a(self, value: Link<Node>) -> Self {
                     self.a = Some(value);
                     self
                 }
-                fn bs(&mut self, bs: Link<Op>) -> Self {
-                    self.bs.borrow_mut().push(value);
+                pub fn bs(self, value: Link<Op>) -> Self {
+                    core::ops::DerefMut::deref_mut(&mut self.bs.borrow_mut()).push(value);
                     self
                 }
-                fn cs(&mut self, cs: Link<Op>) -> Self {
+                pub fn cs(mut self, value: Link<Op>) -> Self {
                     self.cs.push(value);
                     self
                 }
-                fn count(&mut self, count: i32) -> State1 {
+                pub fn count(self, value: i32) -> FooBuilderState1 {
                     self.count = Some(value);
                     unsafe { std::mem::transmute(self) }
                 }
             }
-            impl State2 {
-                fn parent(&mut self, parent: Link<Owner>) -> Self {
+            impl FooBuilderState2 {
+                pub fn parent(self, value: crate::ir::Link<Owner>) -> Self {
                     self.parent = value.into();
                     self
                 }
-                fn a(&mut self, a: Link<Node>) -> State2 {
+                pub fn a(self, value: Link<Node>) -> FooBuilderState2 {
                     self.a = Some(value);
                     unsafe { std::mem::transmute(self) }
                 }
-                fn bs(&mut self, bs: Link<Op>) -> Self {
-                    self.bs.borrow_mut().push(value);
+                pub fn bs(self, value: Link<Op>) -> Self {
+                    core::ops::DerefMut::deref_mut(&mut self.bs.borrow_mut()).push(value);
                     self
                 }
-                fn cs(&mut self, cs: Link<Op>) -> Self {
+                pub fn cs(mut self, value: Link<Op>) -> Self {
                     self.cs.push(value);
                     self
                 }
-                fn count(&mut self, count: i32) -> Self {
+                pub fn count(self, value: i32) -> Self {
                     self.count = Some(value);
                     self
                 }
             }
-            impl State3 {
-                fn parent(&mut self, parent: Link<Owner>) -> Self {
+            impl FooBuilderState3 {
+                pub fn parent(self, value: crate::ir::Link<Owner>) -> Self {
                     self.parent = value.into();
                     self
                 }
-                fn a(&mut self, a: Link<Node>) -> Self {
+                pub fn a(self, value: Link<Node>) -> Self {
                     self.a = Some(value);
                     self
                 }
-                fn bs(&mut self, bs: Link<Op>) -> Self {
-                    self.bs.borrow_mut().push(value);
+                pub fn bs(self, value: Link<Op>) -> Self {
+                    core::ops::DerefMut::deref_mut(&mut self.bs.borrow_mut()).push(value);
                     self
                 }
-                fn cs(&mut self, cs: Link<Op>) -> Self {
+                pub fn cs(mut self, value: Link<Op>) -> Self {
                     self.cs.push(value);
                     self
                 }
-                fn count(&mut self, count: i32) -> Self {
+                pub fn count(self, value: i32) -> Self {
                     self.count = Some(value);
                     self
                 }
-                fn build(&self) -> Foo {
+                pub fn build(&self) -> crate::ir::Link<Foo> {
                     Foo {
                         parent: self.parent.clone(),
                         a: self.a.clone().unwrap(),
                         bs: self.bs.clone(),
                         cs: self.cs.clone(),
                         count: self.count.clone().unwrap(),
-                    }
+                    }.into()
                 }
             }
         };

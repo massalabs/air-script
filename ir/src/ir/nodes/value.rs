@@ -172,9 +172,9 @@ type ValueBuilderEmpty = ValueBuilder<(BackLink<Owner>, NotSet)>;
 type ValueBuilderFull = ValueBuilder<(BackLink<Owner>, SpannedMirValue)>;
 
 impl Builder for Value {
-    type BuilderEmpty = ValueBuilderEmpty;
-    type BuilderFull = ValueBuilderFull;
-    fn builder() -> Self::BuilderEmpty {
+    type Empty = ValueBuilderEmpty;
+    type Full = ValueBuilderFull;
+    fn builder() -> Self::Empty {
         ValueBuilder::default()
     }
 }

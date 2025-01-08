@@ -63,9 +63,9 @@ type AddBuilderB = AddBuilder<(BackLink<Owner>, NotSet, Link<Op>)>;
 type AddBuilderFull = AddBuilder<(BackLink<Owner>, Link<Op>, Link<Op>)>;
 
 impl Builder for Add {
-    type BuilderEmpty = AddBuilderEmpty;
-    type BuilderFull = AddBuilderFull;
-    fn builder() -> Self::BuilderEmpty {
+    type Empty = AddBuilderEmpty;
+    type Full = AddBuilderFull;
+    fn builder() -> Self::Empty {
         AddBuilder::default()
     }
 }

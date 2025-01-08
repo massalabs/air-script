@@ -82,9 +82,9 @@ type FoldBuilderBC = FoldBuilder<(BackLink<Owner>, NotSet, FoldOperator, Link<Op
 type FoldBuilderFull = FoldBuilder<(BackLink<Owner>, Link<Op>, FoldOperator, Link<Op>)>;
 
 impl Builder for Fold {
-    type BuilderEmpty = FoldBuilderEmpty;
-    type BuilderFull = FoldBuilderFull;
-    fn builder() -> Self::BuilderEmpty {
+    type Empty = FoldBuilderEmpty;
+    type Full = FoldBuilderFull;
+    fn builder() -> Self::Empty {
         FoldBuilder::default()
     }
 }

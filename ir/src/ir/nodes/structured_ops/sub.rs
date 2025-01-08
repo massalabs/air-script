@@ -63,9 +63,9 @@ type SubBuilderB = SubBuilder<(BackLink<Owner>, NotSet, Link<Op>)>;
 type SubBuilderFull = SubBuilder<(BackLink<Owner>, Link<Op>, Link<Op>)>;
 
 impl Builder for Sub {
-    type BuilderEmpty = SubBuilderEmpty;
-    type BuilderFull = SubBuilderFull;
-    fn builder() -> Self::BuilderEmpty {
+    type Empty = SubBuilderEmpty;
+    type Full = SubBuilderFull;
+    fn builder() -> Self::Empty {
         SubBuilder::default()
     }
 }

@@ -87,9 +87,9 @@ type BoundaryBuilderB = BoundaryBuilder<(BackLink<Owner>, NotSet, Link<Op>)>;
 type BoundaryBuilderFull = BoundaryBuilder<(BackLink<Owner>, BoundaryKind, Link<Op>)>;
 
 impl Builder for Boundary {
-    type BuilderEmpty = BoundaryBuilderEmpty;
-    type BuilderFull = BoundaryBuilderFull;
-    fn builder() -> Self::BuilderEmpty {
+    type Empty = BoundaryBuilderEmpty;
+    type Full = BoundaryBuilderFull;
+    fn builder() -> Self::Empty {
         BoundaryBuilder::default()
     }
 }

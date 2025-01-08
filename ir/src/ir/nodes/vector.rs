@@ -61,9 +61,9 @@ pub struct VectorBuilder<State> {
 }
 
 impl Builder for Vector {
-    type BuilderEmpty = VectorBuilder<(BackLink<Owner>, NotSet, Link<Vec<Link<Op>>>)>;
-    type BuilderFull = VectorBuilder<(BackLink<Owner>, NotSet, Link<Vec<Link<Op>>>)>;
-    fn builder() -> Self::BuilderEmpty {
+    type Empty = VectorBuilder<(BackLink<Owner>, NotSet, Link<Vec<Link<Op>>>)>;
+    type Full = VectorBuilder<(BackLink<Owner>, NotSet, Link<Vec<Link<Op>>>)>;
+    fn builder() -> Self::Empty {
         VectorBuilder::default()
     }
 }

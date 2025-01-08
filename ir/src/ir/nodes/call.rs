@@ -62,9 +62,9 @@ type CallBuilderEmpty = CallBuilder<(BackLink<Owner>, NotSet, Vec<Link<Op>>)>;
 type CallBuilderFull = CallBuilder<(BackLink<Owner>, Link<Root>, Vec<Link<Op>>)>;
 
 impl Builder for Call {
-    type BuilderEmpty = CallBuilderEmpty;
-    type BuilderFull = CallBuilderFull;
-    fn builder() -> Self::BuilderEmpty {
+    type Empty = CallBuilderEmpty;
+    type Full = CallBuilderFull;
+    fn builder() -> Self::Empty {
         CallBuilder::default()
     }
 }

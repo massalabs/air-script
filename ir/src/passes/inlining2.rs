@@ -281,10 +281,9 @@ impl Visitor for InliningSecondPass {
     }
 
     fn scan_node(&mut self, _graph: &Graph, node: Link<Node>) {
-
         // INLINING TODO:
         // - If we scan a Call node, set the context
-        // - Check assumptions (e.g. we should never encounter a new Call node before fully finishing the current call's inlining) 
+        // - Check assumptions (e.g. we should never encounter a new Call node before fully finishing the current call's inlining)
 
         self.work_stack().push(node.clone());
         if let Some(_owner) = node.clone().as_owner() {
@@ -341,7 +340,7 @@ impl Visitor for InliningSecondPass {
                     let mut args = [];
                     for args in self.call_inlining_context.clone().unwrap().arguments.iter() {
                         args.push(args.clone().as_node());
-                    } 
+                    }
                 }*/
 
                 duplicate_node_or_replace(
@@ -410,5 +409,9 @@ impl Visitor for InliningSecondPass {
                 }
             }
         }
+        //        core::cell::RefMut::deref_mut(&mut Link::new(0).borrow_mut());
+        //        Link::new(0).borrow_mut().deref_mut();
+        let obj = Link::new(vec![1, 2, 3]);
+        core::cell::RefMut::deref_mut(&mut obj.borrow_mut());
     }
 }
