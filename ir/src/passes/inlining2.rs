@@ -409,9 +409,5 @@ impl Visitor for InliningSecondPass {
                 }
             }
         }
-        //        core::cell::RefMut::deref_mut(&mut Link::new(0).borrow_mut());
-        //        Link::new(0).borrow_mut().deref_mut();
-        let obj = Link::new(vec![1, 2, 3]);
-        core::cell::RefMut::deref_mut(&mut obj.borrow_mut());
     }
 }

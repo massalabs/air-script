@@ -404,12 +404,13 @@ fn make_builder_impls<'a>(
             }
         }
     });
+    let field_names = fields.iter().map(|(ident, _, _, _, _, _)| ident);
     quote! {
         impl Default for #empty_state {
             fn default() -> Self {
                 Self {
                     _builder_state: std::marker::PhantomData,
-                    ..Default::default()
+                    #(#field_names: Default::default()),*
                 }
             }
         }
@@ -477,7 +478,11 @@ mod tests {
                 fn default() -> Self {
                     Self {
                         _builder_state: std::marker::PhantomData,
-                        ..Default::default()
+                        parent: Default::default(),
+                        a: Default::default(),
+                        bs: Default::default(),
+                        cs: Default::default(),
+                        count: Default::default(),
                     }
                 }
             }
