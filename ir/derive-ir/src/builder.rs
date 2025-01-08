@@ -225,7 +225,7 @@ fn make_builder_struct_fields<'a>(fields: &[(&'a syn::Ident, &'a syn::Type)]) ->
                         *ident,
                         *ty,
                         quote! {#ident: Option<#ty>},
-                        quote! {self, value: #ty},
+                        quote! {mut self, value: #ty},
                         quote! {self.#ident = Some(value);},
                         quote! {#ident: self.#ident.clone().unwrap()},
                     )
@@ -375,8 +375,9 @@ fn make_builder_impls<'a>(
                 let (ret, body_ret) = if &state_names[transition_table[i][j]] == state_name {
                     (quote! { Self }, quote! { self })
                 } else {
+                    let next_state_name = &state_names[transition_table[i][j]];
                     (
-                        quote! { #state_name },
+                        quote! { #next_state_name },
                         quote! { unsafe { std::mem::transmute(self) } },
                     )
                 };
@@ -491,7 +492,7 @@ mod tests {
                     self.parent = value.into();
                     self
                 }
-                pub fn a(self, value: Link<Node>) -> FooBuilderState0 {
+                pub fn a(mut self, value: Link<Node>) -> FooBuilderState1 {
                     self.a = Some(value);
                     unsafe { std::mem::transmute(self) }
                 }
@@ -503,7 +504,7 @@ mod tests {
                     self.cs.push(value);
                     self
                 }
-                pub fn count(self, value: i32) -> FooBuilderState0 {
+                pub fn count(mut self, value: i32) -> FooBuilderState2 {
                     self.count = Some(value);
                     unsafe { std::mem::transmute(self) }
                 }
@@ -513,7 +514,7 @@ mod tests {
                     self.parent = value.into();
                     self
                 }
-                pub fn a(self, value: Link<Node>) -> Self {
+                pub fn a(mut self, value: Link<Node>) -> Self {
                     self.a = Some(value);
                     self
                 }
@@ -525,7 +526,7 @@ mod tests {
                     self.cs.push(value);
                     self
                 }
-                pub fn count(self, value: i32) -> FooBuilderState1 {
+                pub fn count(mut self, value: i32) -> FooBuilderState3 {
                     self.count = Some(value);
                     unsafe { std::mem::transmute(self) }
                 }
@@ -535,7 +536,7 @@ mod tests {
                     self.parent = value.into();
                     self
                 }
-                pub fn a(self, value: Link<Node>) -> FooBuilderState2 {
+                pub fn a(mut self, value: Link<Node>) -> FooBuilderState3 {
                     self.a = Some(value);
                     unsafe { std::mem::transmute(self) }
                 }
@@ -547,7 +548,7 @@ mod tests {
                     self.cs.push(value);
                     self
                 }
-                pub fn count(self, value: i32) -> Self {
+                pub fn count(mut self, value: i32) -> Self {
                     self.count = Some(value);
                     self
                 }
@@ -557,7 +558,7 @@ mod tests {
                     self.parent = value.into();
                     self
                 }
-                pub fn a(self, value: Link<Node>) -> Self {
+                pub fn a(mut self, value: Link<Node>) -> Self {
                     self.a = Some(value);
                     self
                 }
@@ -569,7 +570,7 @@ mod tests {
                     self.cs.push(value);
                     self
                 }
-                pub fn count(self, value: i32) -> Self {
+                pub fn count(mut self, value: i32) -> Self {
                     self.count = Some(value);
                     self
                 }

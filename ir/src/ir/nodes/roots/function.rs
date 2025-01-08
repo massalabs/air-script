@@ -1,6 +1,6 @@
 use crate::ir::{Builder, Link, Node, NotSet, Op, Owner, Parameter, Parent, Root};
 
-#[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
+#[derive(Default, Clone, PartialEq, Eq, Debug, Hash, Builder)]
 pub struct Function {
     pub parameters: Vec<Link<Parameter>>,
     pub return_type: Link<Parameter>,
@@ -38,68 +38,6 @@ impl Parent for Function {
     type Child = Op;
     fn children(&self) -> Link<Vec<Link<Self::Child>>> {
         self.body.clone()
-    }
-}
-
-pub struct FunctionBuilder<State> {
-    _state: std::marker::PhantomData<State>,
-    parameters: Vec<Link<Parameter>>,
-    return_type: Option<Link<Parameter>>,
-    body: Vec<Link<Op>>,
-}
-
-type FunctionBuilderEmpty = FunctionBuilder<(Vec<Link<Parameter>>, NotSet, Vec<Link<Op>>)>;
-type FunctionBuilderFull = FunctionBuilder<(Vec<Link<Parameter>>, Link<Parameter>, Vec<Link<Op>>)>;
-
-impl Builder for Function {
-    type Empty = FunctionBuilderEmpty;
-    type Full = FunctionBuilderFull;
-    fn builder() -> Self::Empty {
-        FunctionBuilder::default()
-    }
-}
-
-impl Default for FunctionBuilderEmpty {
-    fn default() -> Self {
-        Self {
-            _state: std::marker::PhantomData,
-            parameters: Vec::new(),
-            return_type: None,
-            body: Vec::new(),
-        }
-    }
-}
-
-impl FunctionBuilderEmpty {
-    pub fn parameters(mut self, parameter: Link<Parameter>) -> Self {
-        self.parameters.push(parameter);
-        self
-    }
-    pub fn return_type(mut self, return_type: Link<Parameter>) -> FunctionBuilderFull {
-        self.return_type = Some(return_type);
-        unsafe { std::mem::transmute(self) }
-    }
-    pub fn body(&mut self, op: Link<Op>) -> &mut Self {
-        self.body.push(op);
-        self
-    }
-}
-
-impl FunctionBuilderFull {
-    pub fn parameters(mut self, parameter: Link<Parameter>) -> Self {
-        self.parameters.push(parameter);
-        self
-    }
-    pub fn return_type(mut self, return_type: Link<Parameter>) -> Self {
-        self.return_type = Some(return_type);
-        self
-    }
-    pub fn body(mut self, op: Link<Op>) -> Self {
-        self.body.push(op);
-        self
-    }
-    pub fn build(self) -> Link<Function> {
-        Function::create(self.parameters, self.return_type.unwrap(), self.body)
     }
 }
 
