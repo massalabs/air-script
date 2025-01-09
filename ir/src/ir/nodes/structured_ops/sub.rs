@@ -1,6 +1,6 @@
-use crate::ir::{BackLink, Builder, Child, Link, Node, NotSet, Op, Owner, Parent};
+use crate::ir::{BackLink, Builder, Child, Link, Node, Op, Owner, Parent};
 
-#[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
+#[derive(Default, Clone, PartialEq, Eq, Debug, Hash, Builder)]
 pub struct Sub {
     pub parents: Vec<BackLink<Owner>>,
     pub lhs: Link<Op>,
@@ -50,105 +50,6 @@ impl Child for Sub {
     }
 }
 
-pub struct SubBuilder<State> {
-    _state: std::marker::PhantomData<State>,
-    parents: Vec<BackLink<Owner>>,
-    lhs: Option<Link<Op>>,
-    rhs: Option<Link<Op>>,
-}
-
-type SubBuilderEmpty = SubBuilder<(BackLink<Owner>, NotSet, NotSet)>;
-type SubBuilderA = SubBuilder<(BackLink<Owner>, Link<Op>, NotSet)>;
-type SubBuilderB = SubBuilder<(BackLink<Owner>, NotSet, Link<Op>)>;
-type SubBuilderFull = SubBuilder<(BackLink<Owner>, Link<Op>, Link<Op>)>;
-
-impl Builder for Sub {
-    type Empty = SubBuilderEmpty;
-    type Full = SubBuilderFull;
-    fn builder() -> Self::Empty {
-        SubBuilder::default()
-    }
-}
-
-impl Default for SubBuilderEmpty {
-    fn default() -> Self {
-        Self {
-            _state: std::marker::PhantomData,
-            parents: Vec::default(),
-            lhs: None,
-            rhs: None,
-        }
-    }
-}
-
-impl SubBuilderEmpty {
-    pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parents.push(parent.into());
-        self
-    }
-    pub fn lhs(mut self, lhs: Link<Op>) -> SubBuilderA {
-        self.lhs = Some(lhs);
-        unsafe { std::mem::transmute(self) }
-    }
-    pub fn rhs(mut self, rhs: Link<Op>) -> SubBuilderB {
-        self.rhs = Some(rhs);
-        unsafe { std::mem::transmute(self) }
-    }
-}
-
-impl SubBuilderA {
-    pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parents.push(parent.into());
-        self
-    }
-    pub fn lhs(mut self, lhs: Link<Op>) -> Self {
-        self.lhs = Some(lhs);
-        self
-    }
-    pub fn rhs(mut self, rhs: Link<Op>) -> SubBuilderFull {
-        self.rhs = Some(rhs);
-        unsafe { std::mem::transmute(self) }
-    }
-}
-
-impl SubBuilderB {
-    pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parents.push(parent.into());
-        self
-    }
-    pub fn lhs(mut self, lhs: Link<Op>) -> SubBuilderFull {
-        self.lhs = Some(lhs);
-        unsafe { std::mem::transmute(self) }
-    }
-    pub fn rhs(mut self, rhs: Link<Op>) -> Self {
-        self.rhs = Some(rhs);
-        self
-    }
-}
-
-impl SubBuilderFull {
-    pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parents.push(parent.into());
-        self
-    }
-    pub fn lhs(mut self, lhs: Link<Op>) -> Self {
-        self.lhs = Some(lhs);
-        self
-    }
-    pub fn rhs(mut self, rhs: Link<Op>) -> Self {
-        self.rhs = Some(rhs);
-        self
-    }
-    pub fn build(self) -> Link<Sub> {
-        Sub {
-            parents: self.parents,
-            lhs: self.lhs.unwrap(),
-            rhs: self.rhs.unwrap(),
-        }
-        .into()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::ops::Deref;
@@ -162,7 +63,7 @@ mod tests {
         let lhs = Link::new(Op::default());
         let rhs = Link::new(Op::default());
         let sub = Sub::builder()
-            .parent(parent.clone())
+            .parents(parent.clone())
             .lhs(lhs.clone())
             .rhs(rhs.clone())
             .build();

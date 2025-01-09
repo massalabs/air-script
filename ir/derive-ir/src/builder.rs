@@ -193,6 +193,19 @@ fn make_builder_struct_fields<'a>(fields: &[(&'a syn::Ident, &'a syn::Type)]) ->
                         quote! {#ident: self.#ident.clone()},
                     )
                 }
+                ("Vec", "BackLink") => {
+                    let maybe_third_ty = next_ty(second_ty);
+                    let third_ty = maybe_third_ty.as_ref().unwrap();
+                    initial_state[i] = true;
+                    (
+                        *ident,
+                        *ty,
+                        quote! {#ident: #ty},
+                        quote! {mut self, value: crate::ir::Link<#third_ty>},
+                        quote! {self.#ident.push(value.into());},
+                        quote! {#ident: self.#ident.clone()},
+                    )
+                }
                 ("Vec", _) => {
                     initial_state[i] = true;
                     (
