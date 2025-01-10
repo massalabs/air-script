@@ -11,8 +11,6 @@ mod root;
 mod trace;
 pub extern crate derive_ir;
 
-use std::ops::DerefMut;
-
 pub use constraints::ConstraintError;
 pub use derive_ir::Builder;
 pub use graph::Graph;
@@ -31,13 +29,6 @@ pub use trace::TraceAccess;
 pub trait Parent {
     type Child;
     fn children(&self) -> Link<Vec<Link<Self::Child>>>;
-    fn remove_child(&mut self, child: Link<Self::Child>)
-    where
-        Self::Child: PartialEq,
-    {
-        let children = self.children();
-        children.borrow_mut().deref_mut().retain(|c| c != &child);
-    }
 }
 
 impl<T> Parent for Link<T>
@@ -47,12 +38,6 @@ where
     type Child = T::Child;
     fn children(&self) -> Link<Vec<Link<Self::Child>>> {
         self.borrow().children()
-    }
-    fn remove_child(&mut self, child: Link<Self::Child>)
-    where
-        Self::Child: PartialEq,
-    {
-        self.borrow_mut().remove_child(child);
     }
 }
 
