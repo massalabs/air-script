@@ -1,6 +1,6 @@
-use crate::ir::{BackLink, Builder, Child, Link, Node, NotSet, Op, Owner, Parent};
+use crate::ir::{BackLink, Builder, Child, Link, Node, Op, Owner, Parent};
 
-#[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
+#[derive(Default, Clone, PartialEq, Eq, Debug, Hash, Builder)]
 pub struct Enf {
     pub parents: Vec<BackLink<Owner>>,
     pub expr: Link<Op>,
@@ -48,62 +48,6 @@ impl Child for Enf {
     }
 }
 
-pub struct EnfBuilder<State> {
-    _state: std::marker::PhantomData<State>,
-    parents: Vec<BackLink<Owner>>,
-    expr: Option<Link<Op>>,
-}
-
-type EnfBuilderEmpty = EnfBuilder<(BackLink<Owner>, NotSet)>;
-type EnfBuilderFull = EnfBuilder<(BackLink<Owner>, Link<Op>)>;
-
-impl Builder for Enf {
-    type Empty = EnfBuilderEmpty;
-    type Full = EnfBuilderFull;
-    fn builder() -> Self::Empty {
-        EnfBuilder::default()
-    }
-}
-
-impl Default for EnfBuilderEmpty {
-    fn default() -> Self {
-        Self {
-            _state: std::marker::PhantomData,
-            parents: Vec::default(),
-            expr: None,
-        }
-    }
-}
-
-impl EnfBuilderEmpty {
-    pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parents.push(parent.into());
-        self
-    }
-    pub fn expr(mut self, expr: Link<Op>) -> EnfBuilderFull {
-        self.expr = Some(expr);
-        unsafe { std::mem::transmute(self) }
-    }
-}
-
-impl EnfBuilderFull {
-    pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parents.push(parent.into());
-        self
-    }
-    pub fn expr(mut self, expr: Link<Op>) -> Self {
-        self.expr = Some(expr);
-        self
-    }
-    pub fn build(self) -> Link<Enf> {
-        Enf {
-            parents: self.parents,
-            expr: self.expr.unwrap(),
-        }
-        .into()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::ops::Deref;
@@ -116,7 +60,7 @@ mod tests {
         let parent = Link::new(Owner::Evaluator(Evaluator::default().into()));
         let expr = Link::new(Add::default()).as_op();
         let enf = Enf::builder()
-            .parent(parent.clone())
+            .parents(parent.clone())
             .expr(expr.clone())
             .build();
         assert_eq!(

@@ -1,4 +1,4 @@
-use crate::ir::{Builder, Link, Node, NotSet, Op, Owner, Parameter, Parent, Root};
+use crate::ir::{Builder, Link, Node, Op, Owner, Parameter, Parent, Root};
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash, Builder)]
 pub struct Function {

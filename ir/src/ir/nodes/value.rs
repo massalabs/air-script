@@ -1,9 +1,7 @@
-use std::marker::PhantomData;
-
 use air_parser::ast::{self, Identifier, QualifiedIdentifier, TraceSegmentId};
 use miden_diagnostics::SourceSpan;
 
-use crate::ir::{BackLink, Builder, Child, Leaf, Link, Node, NotSet, Op, Owner, TraceAccess};
+use crate::ir::{BackLink, Builder, Child, Leaf, Link, Node, Op, Owner, TraceAccess};
 
 /// Represents a scalar value in the [MIR]
 ///
@@ -121,7 +119,7 @@ impl Default for SpannedMirValue {
     }
 }
 
-#[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
+#[derive(Default, Clone, PartialEq, Eq, Debug, Hash, Builder)]
 pub struct Value {
     pub parents: Vec<BackLink<Owner>>,
     pub value: SpannedMirValue,
@@ -162,62 +160,6 @@ impl Child for Value {
     }
 }
 
-pub struct ValueBuilder<State> {
-    _state: PhantomData<State>,
-    parents: Vec<BackLink<Owner>>,
-    value: Option<SpannedMirValue>,
-}
-
-type ValueBuilderEmpty = ValueBuilder<(BackLink<Owner>, NotSet)>;
-type ValueBuilderFull = ValueBuilder<(BackLink<Owner>, SpannedMirValue)>;
-
-impl Builder for Value {
-    type Empty = ValueBuilderEmpty;
-    type Full = ValueBuilderFull;
-    fn builder() -> Self::Empty {
-        ValueBuilder::default()
-    }
-}
-
-impl Default for ValueBuilderEmpty {
-    fn default() -> Self {
-        Self {
-            _state: PhantomData,
-            parents: Vec::default(),
-            value: None,
-        }
-    }
-}
-
-impl ValueBuilderEmpty {
-    pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parents.push(parent.into());
-        self
-    }
-    pub fn value(mut self, value: SpannedMirValue) -> ValueBuilderFull {
-        self.value = Some(value);
-        unsafe { std::mem::transmute(self) }
-    }
-}
-
-impl ValueBuilderFull {
-    pub fn value(mut self, value: SpannedMirValue) -> Self {
-        self.value = Some(value);
-        self
-    }
-    pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parents.push(parent.into());
-        self
-    }
-    pub fn build(self) -> Link<Value> {
-        Value {
-            parents: self.parents,
-            value: self.value.expect("value not set"),
-        }
-        .into()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::ops::Deref;
@@ -229,7 +171,7 @@ mod tests {
     fn test_value_builder() {
         let parent = Link::new(Owner::Add(Add::default().into()));
         let value = Value::builder()
-            .parent(parent.clone())
+            .parents(parent.clone())
             .value(SpannedMirValue::default())
             .build();
         assert_eq!(

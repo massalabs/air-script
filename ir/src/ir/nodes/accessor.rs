@@ -2,9 +2,9 @@ use std::{any::Any, hash::Hash};
 
 use air_parser::ast::{AccessType, RangeBound, Type};
 
-use crate::ir::{BackLink, Builder, Child, Link, Node, NotSet, Op, Owner, Parent};
+use crate::ir::{BackLink, Builder, Child, Link, Node, Op, Owner, Parent};
 
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug, Builder)]
 pub struct Accessor {
     pub parents: Vec<BackLink<Owner>>,
     pub indexable: Link<Op>,
@@ -107,105 +107,6 @@ impl Child for Accessor {
     }
 }
 
-pub struct AccessorBuilder<State> {
-    _state: std::marker::PhantomData<State>,
-    parents: Vec<BackLink<Owner>>,
-    indexable: Option<Link<Op>>,
-    access_type: Option<AccessType>,
-}
-
-type AccessorBuilderEmpty = AccessorBuilder<(BackLink<Owner>, NotSet, NotSet)>;
-type AccessorBuilderA = AccessorBuilder<(BackLink<Owner>, Link<Op>, NotSet)>;
-type AccessorBuilderB = AccessorBuilder<(BackLink<Owner>, NotSet, AccessType)>;
-type AccessorBuilderFull = AccessorBuilder<(BackLink<Owner>, Link<Op>, AccessType)>;
-
-impl Builder for Accessor {
-    type Empty = AccessorBuilderEmpty;
-    type Full = AccessorBuilderFull;
-    fn builder() -> Self::Empty {
-        AccessorBuilder::default()
-    }
-}
-
-impl Default for AccessorBuilderEmpty {
-    fn default() -> Self {
-        Self {
-            _state: std::marker::PhantomData,
-            parents: Vec::default(),
-            indexable: None,
-            access_type: None,
-        }
-    }
-}
-
-impl AccessorBuilderEmpty {
-    pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parents.push(parent.into());
-        self
-    }
-    pub fn indexable(mut self, indexable: Link<Op>) -> AccessorBuilderA {
-        self.indexable = Some(indexable);
-        unsafe { std::mem::transmute(self) }
-    }
-    pub fn access_type(mut self, access_type: AccessType) -> AccessorBuilderB {
-        self.access_type = Some(access_type);
-        unsafe { std::mem::transmute(self) }
-    }
-}
-
-impl AccessorBuilderA {
-    pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parents.push(parent.into());
-        self
-    }
-    pub fn indexable(mut self, indexable: Link<Op>) -> Self {
-        self.indexable = Some(indexable);
-        self
-    }
-    pub fn access_type(mut self, access_type: AccessType) -> AccessorBuilderFull {
-        self.access_type = Some(access_type);
-        unsafe { std::mem::transmute(self) }
-    }
-}
-
-impl AccessorBuilderB {
-    pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parents.push(parent.into());
-        self
-    }
-    pub fn indexable(mut self, indexable: Link<Op>) -> AccessorBuilderFull {
-        self.indexable = Some(indexable);
-        unsafe { std::mem::transmute(self) }
-    }
-    pub fn access_type(mut self, access_type: AccessType) -> Self {
-        self.access_type = Some(access_type);
-        self
-    }
-}
-
-impl AccessorBuilderFull {
-    pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parents.push(parent.into());
-        self
-    }
-    pub fn indexable(mut self, indexable: Link<Op>) -> Self {
-        self.indexable = Some(indexable);
-        self
-    }
-    pub fn access_type(mut self, access_type: AccessType) -> Self {
-        self.access_type = Some(access_type);
-        self
-    }
-    pub fn build(self) -> Link<Accessor> {
-        Accessor {
-            parents: self.parents,
-            indexable: self.indexable.unwrap(),
-            access_type: self.access_type.unwrap(),
-        }
-        .into()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::ops::Deref;
@@ -219,7 +120,7 @@ mod tests {
         let access_type = AccessType::Default;
 
         let accessor = Accessor::builder()
-            .parent(parent.clone())
+            .parents(parent.clone())
             .indexable(indexable.clone())
             .access_type(access_type.clone())
             .build();

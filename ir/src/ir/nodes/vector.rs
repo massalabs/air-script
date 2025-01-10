@@ -1,8 +1,6 @@
-use std::marker::PhantomData;
+use crate::ir::{BackLink, Builder, Child, Link, Node, Op, Owner, Parent};
 
-use crate::ir::{BackLink, Builder, Child, Link, Node, NotSet, Op, Owner, Parent};
-
-#[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
+#[derive(Default, Clone, PartialEq, Eq, Debug, Hash, Builder)]
 pub struct Vector {
     pub parents: Vec<BackLink<Owner>>,
     pub size: usize,
@@ -53,73 +51,6 @@ impl Child for Vector {
     }
 }
 
-pub struct VectorBuilder<State> {
-    _state: PhantomData<State>,
-    parents: Vec<BackLink<Owner>>,
-    size: Option<usize>,
-    elements: Link<Vec<Link<Op>>>,
-}
-
-impl Builder for Vector {
-    type Empty = VectorBuilder<(BackLink<Owner>, NotSet, Link<Vec<Link<Op>>>)>;
-    type Full = VectorBuilder<(BackLink<Owner>, NotSet, Link<Vec<Link<Op>>>)>;
-    fn builder() -> Self::Empty {
-        VectorBuilder::default()
-    }
-}
-
-impl Default for VectorBuilder<(BackLink<Owner>, NotSet, Link<Vec<Link<Op>>>)> {
-    fn default() -> Self {
-        Self {
-            _state: PhantomData,
-            parents: Vec::default(),
-            size: None,
-            elements: Vec::new().into(),
-        }
-    }
-}
-
-impl VectorBuilder<(BackLink<Owner>, NotSet, Link<Vec<Link<Op>>>)> {
-    pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parents.push(parent.into());
-        self
-    }
-    pub fn size(
-        mut self,
-        size: usize,
-    ) -> VectorBuilder<(BackLink<Owner>, usize, Link<Vec<Link<Op>>>)> {
-        self.size = Some(size);
-        unsafe { std::mem::transmute(self) }
-    }
-    pub fn elements(self, elements: Link<Op>) -> Self {
-        self.elements.borrow_mut().push(elements);
-        self
-    }
-}
-
-impl VectorBuilder<(BackLink<Owner>, usize, Link<Vec<Link<Op>>>)> {
-    pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parents.push(parent.into());
-        self
-    }
-    pub fn size(mut self, size: usize) -> Self {
-        self.size = Some(size);
-        self
-    }
-    pub fn elements(self, elements: Link<Op>) -> Self {
-        self.elements.borrow_mut().push(elements);
-        self
-    }
-    pub fn build(self) -> Link<Vector> {
-        Vector {
-            parents: self.parents,
-            size: self.size.expect("size not set"),
-            elements: self.elements,
-        }
-        .into()
-    }
-}
-
 #[cfg(test)]
 mod tests {
 
@@ -133,7 +64,7 @@ mod tests {
         let a = Link::new(Op::default());
         let b = Link::new(Op::default());
         let vector = VectorBuilder::default()
-            .parent(parent.clone())
+            .parents(parent.clone())
             .size(2)
             .elements(a.clone())
             .elements(b.clone())

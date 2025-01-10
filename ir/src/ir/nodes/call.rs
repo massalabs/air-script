@@ -1,6 +1,6 @@
-use crate::ir::{BackLink, Builder, Child, Link, Node, NotSet, Op, Owner, Parent, Root};
+use crate::ir::{BackLink, Builder, Child, Link, Node, Op, Owner, Parent, Root};
 
-#[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
+#[derive(Default, Clone, PartialEq, Eq, Debug, Hash, Builder)]
 pub struct Call {
     pub parents: Vec<BackLink<Owner>>,
     pub function: Link<Root>,
@@ -51,73 +51,6 @@ impl Child for Call {
     }
 }
 
-pub struct CallBuilder<State> {
-    _state: std::marker::PhantomData<State>,
-    parents: Vec<BackLink<Owner>>,
-    function: Option<Link<Root>>,
-    arguments: Vec<Link<Op>>,
-}
-
-type CallBuilderEmpty = CallBuilder<(BackLink<Owner>, NotSet, Vec<Link<Op>>)>;
-type CallBuilderFull = CallBuilder<(BackLink<Owner>, Link<Root>, Vec<Link<Op>>)>;
-
-impl Builder for Call {
-    type Empty = CallBuilderEmpty;
-    type Full = CallBuilderFull;
-    fn builder() -> Self::Empty {
-        CallBuilder::default()
-    }
-}
-
-impl Default for CallBuilderEmpty {
-    fn default() -> Self {
-        Self {
-            _state: std::marker::PhantomData,
-            parents: Vec::default(),
-            function: None,
-            arguments: Vec::new(),
-        }
-    }
-}
-
-impl CallBuilderEmpty {
-    pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parents.push(parent.into());
-        self
-    }
-    pub fn function(mut self, function: Link<Root>) -> CallBuilderFull {
-        self.function = Some(function);
-        unsafe { std::mem::transmute(self) }
-    }
-    pub fn argument(mut self, argument: Link<Op>) -> Self {
-        self.arguments.push(argument);
-        self
-    }
-}
-
-impl CallBuilderFull {
-    pub fn parent(mut self, parent: Link<Owner>) -> Self {
-        self.parents.push(parent.into());
-        self
-    }
-    pub fn function(mut self, function: Link<Root>) -> Self {
-        self.function = Some(function);
-        self
-    }
-    pub fn argument(mut self, argument: Link<Op>) -> Self {
-        self.arguments.push(argument);
-        self
-    }
-    pub fn build(self) -> Link<Call> {
-        Call {
-            parents: self.parents,
-            function: self.function.unwrap(),
-            arguments: Link::new(self.arguments),
-        }
-        .into()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::ops::Deref;
@@ -136,9 +69,9 @@ mod tests {
         ));
         let arg = Link::new(Op::Add(Add::default().into()));
         let call = Call::builder()
-            .parent(parent.clone())
+            .parents(parent.clone())
             .function(function.clone())
-            .argument(arg.clone())
+            .arguments(arg.clone())
             .build();
         assert_eq!(
             call.borrow().deref(),
