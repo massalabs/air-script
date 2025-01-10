@@ -247,32 +247,8 @@ fn make_builder_struct_fields<'a>(fields: &[(&'a syn::Ident, &'a syn::Type)]) ->
         })
         .collect::<Vec<_>>();
 
-    // Enumerate all single field transitions
     let initial_state = initial_state.clone();
-    let mut states: Vec<Vec<bool>> = vec![];
-    states.push(initial_state.clone());
-    for i in 0..fields.len() {
-        let mut state = initial_state.clone();
-        state[i] = true;
-        if !states.contains(&state) {
-            states.push(state.clone());
-        }
-    }
-    // Enumerate all combinations of two fields
-    let state_len = states.len();
-    for i in 1..state_len {
-        for j in 1..state_len {
-            let mut state = states[i].clone();
-            let other_state = states[j].clone();
-            // Combine the two states
-            state.iter_mut().zip(other_state.iter()).for_each(|(s, o)| {
-                *s = *s || *o;
-            });
-            if !states.contains(&state) {
-                states.push(state.clone());
-            }
-        }
-    }
+    let states = make_states(&initial_state);
     let reverse_states: HashMap<Vec<bool>, usize> = states
         .iter()
         .enumerate()
@@ -290,6 +266,111 @@ fn make_builder_struct_fields<'a>(fields: &[(&'a syn::Ident, &'a syn::Type)]) ->
         transition_table.push(row);
     }
     (fields_info, states, transition_table)
+}
+
+/// Generate a sorted list of all possible states for the builder struct.
+/// Gray codes are used to enumerate binary numbers.
+/// They get sorted first by the number of `true` values, then ordered by leftmost true bits.
+/// For example, for 4 fields, the states would be:
+/// ```rust
+/// let states = [
+///     [0, 0, 0, 0],
+///     [1, 0, 0, 0],
+///     [0, 1, 0, 0],
+///     [0, 0, 1, 0],
+///     [0, 0, 0, 1],
+///     [1, 1, 0, 0],
+///     [1, 0, 1, 0],
+///     [1, 0, 0, 1],
+///     [0, 1, 1, 0],
+///     [0, 1, 0, 1],
+///     [0, 0, 1, 1],
+///     [1, 1, 1, 0],
+///     [1, 1, 0, 1],
+///     [1, 0, 1, 1],
+///     [0, 1, 1, 1],
+///     [1, 1, 1, 1],
+/// ];
+/// ```
+fn sorted_leftmost_layered_gray_codes(n: usize) -> Vec<Vec<bool>> {
+    let mut gray_codes = vec![vec![false], vec![true]];
+    for _ in 1..n {
+        let prev = gray_codes.clone();
+        gray_codes.clear();
+        for row in prev.iter() {
+            let mut new_row = vec![false];
+            new_row.extend(row);
+            gray_codes.push(new_row.clone());
+        }
+        for row in prev.iter().rev() {
+            let mut new_row = vec![true];
+            new_row.extend(row);
+            gray_codes.push(new_row.clone());
+        }
+    }
+    gray_codes.sort_by_key(|row| {
+        (
+            // sort by number of true values
+            row.iter()
+                .map(|x| match x {
+                    true => 1,
+                    false => 0,
+                })
+                .sum::<usize>(),
+            // then by leftmost true bits
+            row.iter()
+                .enumerate()
+                .map(|(i, x)| match x {
+                    true => 2usize.pow(i as u32),
+                    false => 0,
+                })
+                .sum::<usize>(),
+        )
+    });
+    gray_codes
+}
+
+/// Generate all possible states for the builder struct.
+/// Merges a leftmost sorted gray code, with the initial state's false values.
+/// The gray code is of order `n`, where `n` is the number of false values in the initial state
+/// For example, for the initial state `[false, true, false, true]`:
+/// ```rust
+/// // We first generate the gray code for `2` false values.
+/// let sorted_gray_codes = [
+///    [false, false],
+///    [true, false],
+///    [false, true],
+///    [true, true],
+/// ];
+/// // Then we merge it with the initial state's false values.
+/// let states = [
+///   [false, true, false, true],
+///   [true,  true, false,  true],
+///   [false, true, true,  true],
+///   [true,  true, true,  true],
+/// ];
+/// ```
+fn make_states(initial_state: &[bool]) -> Vec<Vec<bool>> {
+    let indices = initial_state
+        .iter()
+        .enumerate()
+        .filter_map(|(i, x)| match x {
+            false => Some(i),
+            true => None,
+        })
+        .collect::<Vec<_>>();
+    let sorted_gray_codes = sorted_leftmost_layered_gray_codes(indices.len());
+    let mut states: Vec<Vec<bool>> = vec![];
+    for gray_code in sorted_gray_codes.iter() {
+        let mut new_state = initial_state.to_vec();
+        for (col, value) in indices.iter().zip(gray_code.iter()) {
+            new_state[*col] = *value;
+        }
+        if !states.contains(&new_state) {
+            states.push(new_state);
+        }
+    }
+    states
 }
 
 fn make_builder_struct<'a>(
@@ -385,10 +466,10 @@ fn make_builder_impls<'a>(
             .iter()
             .enumerate()
             .map(|(j, (ident, _, _, arg, set_field, _))| {
-                let (ret, body_ret) = if &state_names[transition_table[i][j]] == state_name {
+                let next_state_name = &state_names[transition_table[i][j]];
+                let (ret, body_ret) = if next_state_name == state_name {
                     (quote! { Self }, quote! { self })
                 } else {
-                    let next_state_name = &state_names[transition_table[i][j]];
                     (
                         quote! { #next_state_name },
                         quote! { unsafe { std::mem::transmute(self) } },
@@ -439,18 +520,8 @@ mod tests {
     use pretty_assertions::assert_eq;
     use syn::parse2;
 
-    // #[derive(Default)]
-    // struct BackLink<T: Default>(T);
-    // struct Link<T>(T);
-    // #[derive(Default)]
-    // enum Owner {
-    //     #[default]
-    //     None,
-    // }
-    // enum Node {}
-    // enum Op {}
     #[test]
-    fn test_derive_node_wrapper() {
+    fn test_derive_builder() {
         let (y, n) = (
             format_ident!("FooBuilderYes"),
             format_ident!("FooBuilderNo"),
@@ -462,6 +533,7 @@ mod tests {
                 a: Link<Node>,
                 bs: Link<Vec<Link<Op>>>,
                 cs: Vec<Link<Op>>,
+                d: Link<Op>,
                 count: i32
             }
         };
@@ -472,17 +544,22 @@ mod tests {
                 a: Option<Link<Node>>,
                 bs: Link<Vec<Link<Op>>>,
                 cs: Vec<Link<Op>>,
+                d: Option<Link<Op>>,
                 count: Option<i32>
             }
             pub struct #y;
             pub struct #n;
-            type FooBuilderState0 = FooBuilder<(#y, #n, #y, #y, #n)>;
-            type FooBuilderState1 = FooBuilder<(#y, #y, #y, #y, #n)>;
-            type FooBuilderState2 = FooBuilder<(#y, #n, #y, #y, #y)>;
-            type FooBuilderState3 = FooBuilder<(#y, #y, #y, #y, #y)>;
+            type FooBuilderState0 = FooBuilder<(#y, #n, #y, #y, #n, #n)>;
+            type FooBuilderState1 = FooBuilder<(#y, #y, #y, #y, #n, #n)>;
+            type FooBuilderState2 = FooBuilder<(#y, #n, #y, #y, #y, #n)>;
+            type FooBuilderState3 = FooBuilder<(#y, #n, #y, #y, #n, #y)>;
+            type FooBuilderState4 = FooBuilder<(#y, #y, #y, #y, #y, #n)>;
+            type FooBuilderState5 = FooBuilder<(#y, #y, #y, #y, #n, #y)>;
+            type FooBuilderState6 = FooBuilder<(#y, #n, #y, #y, #y, #y)>;
+            type FooBuilderState7 = FooBuilder<(#y, #y, #y, #y, #y, #y)>;
             impl Builder for Foo {
                 type Empty = FooBuilderState0;
-                type Full = FooBuilderState3;
+                type Full = FooBuilderState7;
                 fn builder() -> Self::Empty {
                     Self::Empty::default()
                 }
@@ -496,10 +573,34 @@ mod tests {
                         a: Default::default(),
                         bs: Default::default(),
                         cs: Default::default(),
+                        d: Default::default(),
                         count: Default::default(),
                     }
                 }
             }
+
+            // states:
+            // [1, 0, 1, 1, 0, 0],
+            // [1, 1, 1, 1, 0, 0],
+            // [1, 0, 1, 1, 1, 0],
+            // [1, 0, 1, 1, 0, 1],
+            // [1, 1, 1, 1, 1, 0],
+            // [1, 1, 1, 1, 0, 1],
+            // [1, 0, 1, 1, 1, 1],
+            // [1, 1, 1, 1, 1, 1]
+            //
+            // transition_table:
+            // [0, 1, 0, 0, 2, 3],
+            // [1, 1, 1, 1, 4, 5],
+            // [2, 4, 2, 2, 2, 6],
+            // [3, 5, 3, 3, 6, 3],
+            // [4, 4, 4, 4, 4, 7],
+            // [5, 5, 5, 5, 7, 5],
+            // [6, 7, 6, 6, 6, 6],
+            // [7, 7, 7, 7, 7, 7]
+            //
+            // [1, 0, 1, 1, 0, 0],
+            // [0, 1, 0, 0, 2, 3],
             impl FooBuilderState0 {
                 pub fn parent(self, value: crate::ir::Link<Owner>) -> Self {
                     self.parent = value.into();
@@ -517,11 +618,17 @@ mod tests {
                     self.cs.push(value);
                     self
                 }
-                pub fn count(mut self, value: i32) -> FooBuilderState2 {
+                pub fn d(mut self, value: Link<Op>) -> FooBuilderState2 {
+                    self.d = Some(value);
+                    unsafe { std::mem::transmute(self) }
+                }
+                pub fn count(mut self, value: i32) -> FooBuilderState3 {
                     self.count = Some(value);
                     unsafe { std::mem::transmute(self) }
                 }
             }
+            // state:       [1, 1, 1, 1, 0, 0],
+            // transitions: [1, 1, 1, 1, 4, 5],
             impl FooBuilderState1 {
                 pub fn parent(self, value: crate::ir::Link<Owner>) -> Self {
                     self.parent = value.into();
@@ -539,17 +646,23 @@ mod tests {
                     self.cs.push(value);
                     self
                 }
-                pub fn count(mut self, value: i32) -> FooBuilderState3 {
+                pub fn d(mut self, value: Link<Op>) -> FooBuilderState4 {
+                    self.d = Some(value);
+                    unsafe { std::mem::transmute(self) }
+                }
+                pub fn count(mut self, value: i32) -> FooBuilderState5 {
                     self.count = Some(value);
                     unsafe { std::mem::transmute(self) }
                 }
             }
+            // state:       [1, 0, 1, 1, 1, 0],
+            // transitions: [2, 4, 2, 2, 2, 6],
             impl FooBuilderState2 {
                 pub fn parent(self, value: crate::ir::Link<Owner>) -> Self {
                     self.parent = value.into();
                     self
                 }
-                pub fn a(mut self, value: Link<Node>) -> FooBuilderState3 {
+                pub fn a(mut self, value: Link<Node>) -> FooBuilderState4 {
                     self.a = Some(value);
                     unsafe { std::mem::transmute(self) }
                 }
@@ -561,12 +674,46 @@ mod tests {
                     self.cs.push(value);
                     self
                 }
+                pub fn d(mut self, value: Link<Op>) -> Self {
+                    self.d = Some(value);
+                    self
+                }
+                pub fn count(mut self, value: i32) -> FooBuilderState6 {
+                    self.count = Some(value);
+                    unsafe { std::mem::transmute(self) }
+                }
+            }
+            // state:       [1, 0, 1, 1, 0, 1],
+            // transitions: [3, 5, 3, 3, 6, 3],
+            impl FooBuilderState3 {
+                pub fn parent(self, value: crate::ir::Link<Owner>) -> Self {
+                    self.parent = value.into();
+                    self
+                }
+                pub fn a(mut self, value: Link<Node>) -> FooBuilderState5 {
+                    self.a = Some(value);
+                    unsafe { std::mem::transmute(self) }
+                }
+                pub fn bs(self, value: Link<Op>) -> Self {
+                    core::ops::DerefMut::deref_mut(&mut self.bs.borrow_mut()).push(value);
+                    self
+                }
+                pub fn cs(mut self, value: Link<Op>) -> Self {
+                    self.cs.push(value);
+                    self
+                }
+                pub fn d(mut self, value: Link<Op>) -> FooBuilderState6 {
+                    self.d = Some(value);
+                    unsafe { std::mem::transmute(self) }
+                }
                 pub fn count(mut self, value: i32) -> Self {
                     self.count = Some(value);
                     self
                 }
             }
-            impl FooBuilderState3 {
+            // state:       [1, 1, 1, 1, 1, 0],
+            // transitions: [4, 4, 4, 4, 4, 7],
+            impl FooBuilderState4 {
                 pub fn parent(self, value: crate::ir::Link<Owner>) -> Self {
                     self.parent = value.into();
                     self
@@ -583,6 +730,94 @@ mod tests {
                     self.cs.push(value);
                     self
                 }
+                pub fn d(mut self, value: Link<Op>) -> Self {
+                    self.d = Some(value);
+                    self
+                }
+                pub fn count(mut self, value: i32) -> FooBuilderState7 {
+                    self.count = Some(value);
+                    unsafe { std::mem::transmute(self) }
+                }
+            }
+            // state:       [1, 1, 1, 1, 0, 1],
+            // transitions: [5, 5, 5, 5, 7, 5],
+            impl FooBuilderState5 {
+                pub fn parent(self, value: crate::ir::Link<Owner>) -> Self {
+                    self.parent = value.into();
+                    self
+                }
+                pub fn a(mut self, value: Link<Node>) -> Self {
+                    self.a = Some(value);
+                    self
+                }
+                pub fn bs(self, value: Link<Op>) -> Self {
+                    core::ops::DerefMut::deref_mut(&mut self.bs.borrow_mut()).push(value);
+                    self
+                }
+                pub fn cs(mut self, value: Link<Op>) -> Self {
+                    self.cs.push(value);
+                    self
+                }
+                pub fn d(mut self, value: Link<Op>) -> FooBuilderState7 {
+                    self.d = Some(value);
+                    unsafe { std::mem::transmute(self) }
+                }
+                pub fn count(mut self, value: i32) -> Self {
+                    self.count = Some(value);
+                    self
+                }
+            }
+            // state:       [1, 0, 1, 1, 1, 1],
+            // transitions: [6, 7, 6, 6, 6, 6],
+            impl FooBuilderState6 {
+                pub fn parent(self, value: crate::ir::Link<Owner>) -> Self {
+                    self.parent = value.into();
+                    self
+                }
+                pub fn a(mut self, value: Link<Node>) -> FooBuilderState7 {
+                    self.a = Some(value);
+                    unsafe { std::mem::transmute(self) }
+                }
+                pub fn bs(self, value: Link<Op>) -> Self {
+                    core::ops::DerefMut::deref_mut(&mut self.bs.borrow_mut()).push(value);
+                    self
+                }
+                pub fn cs(mut self, value: Link<Op>) -> Self {
+                    self.cs.push(value);
+                    self
+                }
+                pub fn d(mut self, value: Link<Op>) -> Self {
+                    self.d = Some(value);
+                    self
+                }
+                pub fn count(mut self, value: i32) -> Self {
+                    self.count = Some(value);
+                    self
+                }
+            }
+            // state:       [1, 1, 1, 1, 1, 1]
+            // transitions: [7, 7, 7, 7, 7, 7]
+            impl FooBuilderState7 {
+                pub fn parent(self, value: crate::ir::Link<Owner>) -> Self {
+                    self.parent = value.into();
+                    self
+                }
+                pub fn a(mut self, value: Link<Node>) -> Self {
+                    self.a = Some(value);
+                    self
+                }
+                pub fn bs(self, value: Link<Op>) -> Self {
+                    core::ops::DerefMut::deref_mut(&mut self.bs.borrow_mut()).push(value);
+                    self
+                }
+                pub fn cs(mut self, value: Link<Op>) -> Self {
+                    self.cs.push(value);
+                    self
+                }
+                pub fn d(mut self, value: Link<Op>) -> Self {
+                    self.d = Some(value);
+                    self
+                }
                 pub fn count(mut self, value: i32) -> Self {
                     self.count = Some(value);
                     self
@@ -593,6 +828,7 @@ mod tests {
                         a: self.a.clone().unwrap(),
                         bs: self.bs.clone(),
                         cs: self.cs.clone(),
+                        d: self.d.clone().unwrap(),
                         count: self.count.clone().unwrap(),
                     }.into()
                 }
