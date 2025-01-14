@@ -407,11 +407,16 @@ fn test_mutability_wrap_enum() {
 
 #[test]
 fn test_mutability_wrap_op_singleton() {
-    #[derive(Clone, Debug, PartialEq, Eq)]
+    #[derive(Clone, Debug, Eq)]
     struct Add {
         lhs: Link<Op>,
         rhs: Link<Op>,
         _node: Option<Link<Node>>,
+    }
+    impl PartialEq for Add {
+        fn eq(&self, other: &Self) -> bool {
+            self.lhs == other.lhs && self.rhs == other.rhs
+        }
     }
     impl Add {
         fn create(lhs: Link<Op>, rhs: Link<Op>) -> Link<Op> {
@@ -423,11 +428,16 @@ fn test_mutability_wrap_op_singleton() {
             .into()
         }
     }
-    #[derive(Clone, Debug, PartialEq, Eq)]
+    #[derive(Clone, Debug, Eq)]
     struct Call {
         callee: Link<Root>,
         args: Vec<Link<Op>>,
         _node: Option<Link<Node>>,
+    }
+    impl PartialEq for Call {
+        fn eq(&self, other: &Self) -> bool {
+            self.callee == other.callee && self.args == other.args
+        }
     }
     impl Call {
         fn create(callee: Link<Root>, args: Vec<Link<Op>>) -> Link<Op> {
@@ -439,21 +449,31 @@ fn test_mutability_wrap_op_singleton() {
             .into()
         }
     }
-    #[derive(Clone, Debug, PartialEq, Eq)]
+    #[derive(Clone, Debug, Eq)]
     struct Value {
         value: i32,
         _node: Option<Link<Node>>,
+    }
+    impl PartialEq for Value {
+        fn eq(&self, other: &Self) -> bool {
+            self.value == other.value
+        }
     }
     impl Value {
         fn create(value: i32) -> Link<Op> {
             Op::Value(Value { value, _node: None }).into()
         }
     }
-    #[derive(Clone, Debug, PartialEq, Eq)]
+    #[derive(Clone, Debug, Eq)]
     struct Function {
         params: Vec<Link<Op>>,
         body: Link<Op>,
         _node: Option<Link<Node>>,
+    }
+    impl PartialEq for Function {
+        fn eq(&self, other: &Self) -> bool {
+            self.params == other.params && self.body == other.body
+        }
     }
     impl Function {
         fn create(params: Vec<Link<Op>>, body: Link<Op>) -> Link<Root> {
@@ -475,28 +495,41 @@ fn test_mutability_wrap_op_singleton() {
     }
     impl Link<Op> {
         pub fn as_node(&self) -> Link<Node> {
+            eprintln!("as_node({:?})", self);
             match self.borrow_mut().deref_mut() {
                 Op::Add(Add {
                     _node: Some(node), ..
-                }) => node.clone(),
+                }) => {
+                    eprintln!(" -> returning existing node: {:?}", node);
+                    node.clone()
+                }
                 Op::Add(ref mut add) => {
                     let node: Link<Node> = Node::Add(self.clone().into()).into();
+                    eprintln!(" -> creating new node: {:?}", node);
                     add._node = Some(node.clone());
                     node
                 }
                 Op::Call(Call {
                     _node: Some(node), ..
-                }) => node.clone(),
+                }) => {
+                    eprintln!(" -> returning existing node: {:?}", node);
+                    node.clone()
+                }
                 Op::Call(ref mut call) => {
                     let node: Link<Node> = Node::Call(self.clone().into()).into();
+                    eprintln!(" -> creating new node: {:?}", node);
                     call._node = Some(node.clone());
                     node
                 }
                 Op::Value(Value {
                     _node: Some(node), ..
-                }) => node.clone(),
+                }) => {
+                    eprintln!(" -> returning existing node: {:?}", node);
+                    node.clone()
+                }
                 Op::Value(ref mut value) => {
                     let node: Link<Node> = Node::Value(self.clone().into()).into();
+                    eprintln!(" -> creating new node: {:?}", node);
                     value._node = Some(node.clone());
                     node
                 }
@@ -521,22 +554,33 @@ fn test_mutability_wrap_op_singleton() {
             }
         }
         pub fn set(&self, other: &Link<Op>) {
+            eprintln!("setting {:?}\n     to {:?}", &self, &other);
             match other.borrow().deref() {
                 Op::Add(add) => {
-                    let old = self.borrow().deref().clone();
+                    let old = self.get_variants();
+                    eprintln!("old: {:?}", old);
                     *self.borrow_mut().deref_mut() = Op::Add(add.clone());
                     self.update_singletons(old);
                 }
                 Op::Call(call) => {
-                    let old = self.borrow().deref().clone();
+                    let old = self.get_variants();
+                    eprintln!("old: {:?}", old);
                     *self.borrow_mut().deref_mut() = Op::Call(call.clone());
                     self.update_singletons(old);
                 }
                 Op::Value(value) => {
-                    let old = self.borrow().deref().clone();
+                    let old = self.get_variants();
+                    eprintln!("old: {:?}", old);
                     *self.borrow_mut().deref_mut() = Op::Value(value.clone());
                     self.update_singletons(old);
                 }
+            }
+        }
+        fn get_variants(&self) -> Vec<Link<Node>> {
+            match self.borrow().deref() {
+                Op::Add(_) => vec![self.as_node()],
+                Op::Call(_) => vec![self.as_node()],
+                Op::Value(_) => vec![self.as_node()],
             }
         }
         // fn update_singletons(&self, mut old: Op) {
@@ -550,22 +594,45 @@ fn test_mutability_wrap_op_singleton() {
         //         *old_node.borrow_mut().deref_mut() = *node.borrow().deref();
         //     }
         // }
-        fn update_singletons(&self, mut old: Op) {
-            let node = self.as_node();
-            match old {
-                Op::Add(ref mut old_add) => {
-                    if let Some(ref mut old_node) = old_add._node.as_ref() {
-                        old_node.update(&node);
-                    }
+        fn update_singletons(&self, olds: Vec<Link<Node>>) {
+            eprintln!("updating singletons");
+            eprintln!("old: {:?}", olds);
+            eprintln!(
+                "self._node: {:?}",
+                match self.borrow().deref() {
+                    Op::Add(add) => add._node.as_ref(),
+                    Op::Call(call) => call._node.as_ref(),
+                    Op::Value(value) => value._node.as_ref(),
                 }
-                Op::Call(ref mut old_call) => {
-                    if let Some(ref mut old_node) = old_call._node.as_ref() {
-                        old_node.update(&node);
+            );
+            for old in olds {
+                match old.borrow_mut().deref_mut() {
+                    Node::Add(ref mut old_add) => {
+                        if let Some(ref mut old_node) = old_add.to_link().unwrap().try_as_add() {
+                            let node = self.as_node().try_as_op().unwrap();
+                            old_node.update(&node);
+                        }
                     }
-                }
-                Op::Value(ref mut old_value) => {
-                    if let Some(ref mut old_node) = old_value._node.as_ref() {
-                        old_node.update(&node);
+                    Node::Call(ref mut old_call) => {
+                        if let Some(ref mut old_node) = old_call.to_link().unwrap().try_as_call() {
+                            let node = self.as_node().try_as_op().unwrap();
+                            old_node.update(&node);
+                        }
+                    }
+                    Node::Value(ref mut old_value) => {
+                        if let Some(ref mut old_node) = old_value.to_link().unwrap().try_as_value()
+                        {
+                            let node = self.as_node().try_as_op().unwrap();
+                            old_node.update(&node);
+                        }
+                    }
+                    Node::Function(ref mut old_function) => {
+                        if let Some(ref mut old_node) =
+                            old_function.to_link().unwrap().try_as_function()
+                        {
+                            let node = self.as_node().try_as_root().unwrap();
+                            old_node.update(&node);
+                        }
                     }
                 }
             }
@@ -588,7 +655,7 @@ fn test_mutability_wrap_op_singleton() {
                 }
             }
         }
-        pub fn as_function(&self) -> Option<Link<Root>> {
+        pub fn try_as_function(&self) -> Option<Link<Root>> {
             match self.borrow().deref() {
                 Root::Function(_) => Some(self.clone()),
             }
@@ -700,7 +767,6 @@ fn test_mutability_wrap_op_singleton() {
         Function::create(vec![Value::create(3)], Value::create(4)),
         vec![Value::create(5), Value::create(6)],
     );
-    let expected_add = Add::create(Value::create(1), Value::create(2));
     assert_eq!(node_add.try_as_op().unwrap(), expected_call);
     assert_eq!(node_call.try_as_op().unwrap(), expected_call);
     // std::mem::swap(add.borrow(), &mut call.borrow());
