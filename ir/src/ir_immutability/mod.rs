@@ -558,7 +558,7 @@ fn test_mutability_wrap_op_singleton() {
             let old = self.get_singletons();
             eprintln!("old: {:?}", old);
             self.update(other);
-            //self.update_singletons(old);
+            self.update_singletons(old);
         }
         fn get_singletons(&self) -> Vec<Link<Node>> {
             vec![self.as_node()]

@@ -40,7 +40,9 @@ impl<T> Link<T> {
     where
         T: Clone,
     {
-        *self.borrow_mut() = other.borrow().clone();
+        if self.link.as_ptr() != other.link.as_ptr() {
+            *self.borrow_mut() = other.borrow().clone();
+        }
     }
 }
 
