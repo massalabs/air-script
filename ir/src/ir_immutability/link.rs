@@ -23,14 +23,24 @@ impl<T> Link<T> {
     pub fn borrow_mut(&self) -> std::cell::RefMut<T> {
         self.link.borrow_mut()
     }
+    pub fn clone_from(&mut self, other: &Self) {
+        self.link.clone_from(&other.link);
+    }
     pub fn as_ref(&self) -> &RefCell<T> {
         self.link.as_ref()
     }
-    pub fn swap(&self, other: &Self) {
+    pub fn swap(&self, other: &Self)
+    where
+        T: Debug,
+    {
+        eprintln!("Swapping {:?}\n    with {:?}", &self, &other);
         self.link.swap(other.as_ref());
     }
-    pub fn update(&mut self, other: &Self) {
-        self.link = other.link.clone();
+    pub fn update(&self, other: &Self)
+    where
+        T: Clone,
+    {
+        *self.borrow_mut() = other.borrow().clone();
     }
 }
 
