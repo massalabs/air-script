@@ -1,5 +1,5 @@
 mod codegen;
-mod ir_immutability;
+mod ir_mutability;
 
 pub mod ir;
 pub mod passes;
