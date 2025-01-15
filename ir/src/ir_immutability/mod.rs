@@ -1,9 +1,10 @@
 mod link;
+mod mutability;
 use std::cell::Ref;
 use std::mem::swap;
 use std::ops::{Deref, DerefMut};
 
-use link::{BackLink, Link};
+pub use link::{BackLink, Link};
 
 #[test]
 fn test_mutability_current() {
@@ -396,8 +397,17 @@ fn test_mutability_wrap_enum() {
     );
     assert_eq!(node_add.as_op(), expected_call);
     assert_eq!(node_call.as_op(), expected_call);
-    // assertion `left == right` failed
-    //
+    match add.borrow().deref() {
+        Op::Call(call) => println!("add.args: {:?}", call.args),
+        _ => panic!("expected Call, found {:?}", add),
+    };
+    match node_add.borrow().deref() {
+        Node::Op(op) => match op.borrow().deref() {
+            Op::Call(call) => println!("node_add.args: {:?}", call.args),
+            _ => panic!("expected Call, found {:?}", op),
+        },
+        _ => panic!("expected Op, found {:?}", node_add),
+    };
     // std::mem::swap(add.borrow(), &mut call.borrow());
     // -------------- ^^^^^^^^^^^^ expected mutable reference `&mut Ref<'_, test_current::Call>`
     //                         found struct `Ref<'_, test_current::Add>`
@@ -746,6 +756,17 @@ fn test_mutability_wrap_op_singleton() {
     );
     assert_eq!(node_add.try_as_op().unwrap(), expected_call);
     assert_eq!(node_call.try_as_op().unwrap(), expected_call);
+    match add.borrow().deref() {
+        Op::Call(call) => println!("add.args: {:?}", call.args),
+        _ => panic!("expected Call, found {:?}", add),
+    };
+    match node_add.borrow().deref() {
+        Node::Call(op) => match op.to_link().unwrap().borrow().deref() {
+            Op::Call(call) => println!("node_add.args: {:?}", call.args),
+            _ => panic!("expected Call, found {:?}", op),
+        },
+        _ => panic!("expected Call, found {:?}", node_add),
+    };
     // std::mem::swap(add.borrow(), &mut call.borrow());
     // -------------- ^^^^^^^^^^^^ expected mutable reference `&mut Ref<'_, test_current::Call>`
     //                         found struct `Ref<'_, test_current::Add>`
