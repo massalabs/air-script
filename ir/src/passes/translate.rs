@@ -349,7 +349,12 @@ impl<'a> MirBuilder<'a> {
     fn translate_let(&mut self, let_stmt: &'a ast::Let) -> Result<Link<Op>, CompileError> {
         let name = &let_stmt.name;
         let value: Link<Op> = self.translate_expr(&let_stmt.value)?;
+        self.bindings.enter();
         self.bindings.insert(name, value.clone());
+        for stmt in let_stmt.body.iter() {
+            self.translate_statement(stmt)?;
+        }
+        self.bindings.exit();
         Ok(value)
     }
     fn translate_expr(&mut self, expr: &'a ast::Expr) -> Result<Link<Op>, CompileError> {
