@@ -41,7 +41,9 @@ impl Parent for For {
     fn children(&self) -> Link<Vec<Link<Self::Child>>> {
         let mut children = Vec::from(self.iterators.borrow().clone());
         children.push(self.expr.clone());
-        children.push(self.selector.clone());
+        if *self.selector.borrow() != Op::None {
+            children.push(self.selector.clone());
+        }
         Link::new(children)
     }
 }
