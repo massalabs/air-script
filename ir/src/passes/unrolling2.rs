@@ -1,7 +1,4 @@
-use std::{
-    collections::HashMap,
-    ops::{Deref, DerefMut},
-};
+use std::{collections::HashMap, ops::Deref, rc::Rc};
 
 use air_parser::ast::AccessType;
 use air_pass::Pass;
@@ -21,13 +18,11 @@ use super::{duplicate_node_or_replace, visitor2::Visitor};
 /// TODO:
 /// - [ ] Implement diagnostics for better error handling
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ForInliningContext {
     body: Link<Op>,
     iterators: Vec<Link<Op>>,
     selector: Option<Link<Op>>,
-    index: usize,
-    parent_for: Link<Op>,
 }
 
 impl ForInliningContext {}
@@ -80,7 +75,7 @@ impl Pass for Unrolling {
     type Error = CompileError;
 
     fn run<'a>(&mut self, mut ir: Self::Input<'a>) -> Result<Self::Output<'a>, Self::Error> {
-        let graph = ir.constraint_graph();
+        let _graph = ir.constraint_graph();
         /*let functions = graph.get_function_nodes();
         let evaluators = graph.get_evaluator_nodes();
         let bc = graph.boundary_constraints_roots.borrow().deref().clone();
@@ -494,13 +489,11 @@ impl Visitor for UnrollingFirstPass {
             };
 
             self.bodies_to_inline.push((
-                for_node.clone().as_op(),
+                new_node.clone(),
                 ForInliningContext {
                     body: expr.clone(),
                     iterators: iterators_i,
                     selector,
-                    index: i,
-                    parent_for: for_node.clone().as_op(),
                 },
             ));
         }
@@ -524,6 +517,71 @@ impl Visitor for UnrollingSecondPass {
     fn work_stack(&mut self) -> &mut Vec<Link<Node>> {
         &mut self.work_stack
     }
+    fn run(&mut self, graph: &mut Graph) {
+        for (idx, root) in self.root_nodes_to_visit(graph).iter().enumerate() {
+            println!("Visiting root node: {idx} - {:?}", root);
+            println!("");
+
+            // Set context to inline the body for this index
+            let for_inlining_context = self.bodies_to_inline.iter().find_map(|(node, context)| {
+                if Rc::ptr_eq(&node.clone().as_node().link, &root.link) {
+                    Some(context.clone())
+                } else {
+                    None
+                }
+            });
+
+            println!("SET NEW CONTEXT: {:?}", for_inlining_context);
+
+            self.for_inlining_context = for_inlining_context;
+            self.nodes_to_replace.clear();
+
+            self.scan_node(
+                graph,
+                self.for_inlining_context.clone().unwrap().body.as_node(),
+            );
+
+            let mut ind = 0;
+            while let Some(node) = self.work_stack().pop() {
+                ind += 1;
+                self.visit_node(graph, node);
+                if ind > 500 {
+                    unreachable!("UnrollingSecondPass::run: too many iterations");
+                }
+            }
+
+            println!("END Visiting root node: {idx} - {:?}", root);
+
+            // We have finished inlining the body, we can now replace the Root node with the body
+
+            let body = self.for_inlining_context.clone().unwrap().body;
+            let new_node = self.nodes_to_replace.get(&body).unwrap().clone();
+
+            let new_node_with_selector_if_needed =
+                if let Some(selector) = self.for_inlining_context.clone().unwrap().selector {
+                    let zero_node = Value::create(SpannedMirValue {
+                        span: Default::default(),
+                        value: MirValue::Constant(ConstantValue::Felt(0)),
+                    })
+                    .as_op()
+                    .into();
+                    let if_node = If::create(selector, new_node, zero_node).as_op().into();
+                    if_node
+                } else {
+                    new_node
+                };
+
+            *root.clone().borrow_mut() =
+                new_node_with_selector_if_needed.as_node().borrow().clone();
+
+            println!("");
+            println!("Updated child of For node: {:?}", root);
+            println!("");
+
+            // Reset context to None
+            self.for_inlining_context = None;
+        }
+    }
     fn root_nodes_to_visit(&self, _graph: &Graph) -> Vec<Link<Node>> {
         self.bodies_to_inline
             .iter()
@@ -533,84 +591,18 @@ impl Visitor for UnrollingSecondPass {
             .collect::<Vec<_>>()
             .into()
     }
-    fn visit_node(&mut self, graph: &mut Graph, node: Link<Node>) {
-        if node.borrow().deref() == &Node::None {
-            return;
-        }
-        let node_index = self
-            .bodies_to_inline
-            .iter()
-            .position(|(n, _)| n.clone().as_node() == node);
-        match node_index {
-            Some(index) => {
-                // A new body to inline, we should replace the op with the corresponding iteration in the body
-                self.for_inlining_context = Some(self.bodies_to_inline.remove(index).clone().1);
-                self.nodes_to_replace.clear();
-                self.scan_node(
-                    graph,
-                    self.for_inlining_context
-                        .clone()
-                        .unwrap()
-                        .body
-                        .clone()
-                        .as_node(),
-                );
-            }
-            None => {
-                // Normal visit, insert in the graph the same instruction
-                duplicate_node_or_replace(
-                    &mut self.nodes_to_replace,
-                    node.clone().as_op().unwrap(),
-                    self.for_inlining_context.clone().unwrap().iterators,
-                );
-
-                if node
-                    == self
-                        .for_inlining_context
-                        .clone()
-                        .unwrap()
-                        .body
-                        .clone()
-                        .as_node()
-                {
-                    // We have finished inlining the body, we can now replace the node in the current index of the parent For
-                    let new_node = self
-                        .nodes_to_replace
-                        .get(&node.clone().as_op().unwrap())
-                        .unwrap()
-                        .clone();
-
-                    let parent_for: Link<Op> =
-                        self.for_inlining_context.clone().unwrap().parent_for;
-                    let mut parent_for_mut_ref = parent_for.borrow_mut();
-                    let Op::Vector(vector) = parent_for_mut_ref.deref_mut() else {
-                        unreachable!();
-                    };
-
-                    let new_node_to_update_at = if let Some(selector) =
-                        self.for_inlining_context.clone().unwrap().selector
-                    {
-                        let zero_node = Value::create(SpannedMirValue {
-                            span: Default::default(),
-                            value: MirValue::Constant(ConstantValue::Felt(0)),
-                        })
-                        .as_op()
-                        .into();
-                        let if_node = If::create(selector, new_node, zero_node).as_op().into();
-                        if_node
-                    } else {
-                        new_node
-                    };
-
-                    let children = vector.children();
-                    let mut children_mut_ref = children.borrow_mut();
-                    let children_mut = children_mut_ref.deref_mut();
-                    let child_to_update = children_mut
-                        .get_mut(self.for_inlining_context.clone().unwrap().index)
-                        .unwrap();
-                    *child_to_update = new_node_to_update_at;
-                }
-            }
+    fn visit_node(&mut self, _graph: &mut Graph, node: Link<Node>) {
+        if let Some(op) = node.clone().as_op() {
+            duplicate_node_or_replace(
+                &mut self.nodes_to_replace,
+                op,
+                self.for_inlining_context.clone().unwrap().iterators.clone(),
+            );
+        } else {
+            unreachable!(
+                "UnrollingSecondPass::visit_node on a non-Op node: {:?}",
+                node
+            );
         }
     }
 }
