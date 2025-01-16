@@ -4,7 +4,7 @@ use std::ops::Deref;
 use air_parser::ast::AccessType;
 use air_parser::{ast, symbols, LexicalScope, SemanticAnalysisError};
 use air_pass::Pass;
-use miden_diagnostics::{DiagnosticsHandler, Span, Spanned};
+use miden_diagnostics::{DiagnosticsHandler, Severity, SourceSpan, Span, Spanned};
 
 use crate::ir::{Accessor, Add, Boundary, Enf, Evaluator, Matrix, Mul, Root, Sub};
 use crate::{
@@ -46,7 +46,7 @@ impl Pass for AstToMir<'_> {
     type Error = CompileError;
 
     fn run<'a>(&mut self, program: Self::Input<'a>) -> Result<Self::Output<'a>, Self::Error> {
-        let mut builder = MirBuilder::new(&program);
+        let mut builder = MirBuilder::new(&program, self.diagnostics);
         builder.translate_program()?;
         Ok(builder.mir)
     }
@@ -54,6 +54,7 @@ impl Pass for AstToMir<'_> {
 
 pub struct MirBuilder<'a> {
     program: &'a ast::Program,
+    diagnostics: &'a DiagnosticsHandler,
     mir: Mir,
     random_values: Option<&'a ast::RandomValues>,
     trace_columns: &'a Vec<ast::TraceSegment>,
@@ -64,9 +65,10 @@ pub struct MirBuilder<'a> {
 }
 
 impl<'a> MirBuilder<'a> {
-    pub fn new(program: &'a ast::Program) -> Self {
+    pub fn new(program: &'a ast::Program, diagnostics: &'a DiagnosticsHandler) -> Self {
         Self {
             program,
+            diagnostics,
             mir: Mir::default(),
             random_values: program.random_values.as_ref(),
             trace_columns: program.trace_columns.as_ref(),
@@ -144,14 +146,11 @@ impl<'a> MirBuilder<'a> {
             for binding in &trace_segment.bindings {
                 //            println!("binding: {:#?}", binding);
                 let params =
-                    self.translate_params_ev(ident, binding.name.as_ref(), &binding.ty, &mut i);
+                    self.translate_params_ev(ident, binding.name.as_ref(), &binding.ty, &mut i)?;
                 for param in params {
                     ev = ev.parameters(param.clone());
                 }
             }
-
-            // TRANSLATE TODO:
-            // ev.parameters should be a Vec<> to differentiate trace segment
         }
         let ev = ev.build();
         if known_signature {
@@ -159,7 +158,7 @@ impl<'a> MirBuilder<'a> {
             let original = self.mir
                 .constraint_graph_mut()
                 .get_evaluator_mut(ident)
-                .unwrap_or_else(||panic!("missing evaluator signature for {:?}\nuse self.translate_evaluator_signature(ident, ast_eval) before self.translate_evaluator(ident, ast_eval)", ident));
+                .unwrap_or_else(|| panic!("missing evaluator signature for {:?}\nuse self.translate_evaluator_signature(ident, ast_eval) before self.translate_evaluator(ident, ast_eval)", ident));
             if original.borrow().parameters != ev.borrow().parameters {
                 panic!(
                     "evaluator parameter mismatch for {:?}\nexpected: {:#?}\nbut got: {:#?}",
@@ -207,7 +206,7 @@ impl<'a> MirBuilder<'a> {
         let mut i = 0;
         for (param_ident, ty) in ast_func.params.iter() {
             let name = Some(param_ident);
-            let param = self.translate_params_fn(ident, name, ty, &mut i);
+            let param = self.translate_params_fn(ident, name, ty, &mut i)?;
             func = func.parameters(param.clone());
         }
         i += 1;
@@ -252,13 +251,13 @@ impl<'a> MirBuilder<'a> {
         name: Option<&'a ast::Identifier>,
         ty: &ast::Type,
         i: &mut usize,
-    ) -> Vec<Link<Parameter>> {
+    ) -> Result<Vec<Link<Parameter>>, CompileError> {
         match ty {
             ast::Type::Felt => {
                 let param = Parameter::create(*i, MirType::Felt);
                 *i += 1;
                 self.bindings.insert(name.unwrap(), param.clone().as_op());
-                vec![param]
+                Ok(vec![param])
             }
             ast::Type::Vector(size) => {
                 let mut vector = Vector::builder().size(*size);
@@ -271,10 +270,23 @@ impl<'a> MirBuilder<'a> {
                 }
                 let vector: Link<Op> = vector.build().as_op().into();
                 self.bindings.insert(name.unwrap(), vector.clone());
-                params
+                Ok(params)
             }
             ast::Type::Matrix(_rows, _cols) => {
-                unimplemented!("matrix parameters not supported");
+                let span = if let Some(name) = name {
+                    name.span()
+                } else {
+                    SourceSpan::UNKNOWN
+                };
+                self.diagnostics
+                    .diagnostic(Severity::Bug)
+                    .with_message("matrix parameters not supported")
+                    .with_primary_label(
+                        span,
+                        "expected this to be a felt or vector",
+                    )
+                    .emit();
+                Err(CompileError::Failed)
             }
         }
     }
@@ -285,22 +297,35 @@ impl<'a> MirBuilder<'a> {
         name: Option<&'a ast::Identifier>,
         ty: &ast::Type,
         i: &mut usize,
-    ) -> Link<Parameter> {
+    ) -> Result<Link<Parameter>, CompileError> {
         match ty {
             ast::Type::Felt => {
                 let param = Parameter::create(*i, MirType::Felt);
                 *i += 1;
                 self.bindings.insert(name.unwrap(), param.clone().as_op());
-                param
+                Ok(param)
             }
             ast::Type::Vector(size) => {
                 let param = Parameter::create(*i, MirType::Vector(*size));
                 *i += 1;
                 self.bindings.insert(name.unwrap(), param.clone().as_op());
-                param
+                Ok(param)
             }
             ast::Type::Matrix(_rows, _cols) => {
-                unimplemented!("matrix parameters not supported");
+                let span = if let Some(name) = name {
+                    name.span()
+                } else {
+                    SourceSpan::UNKNOWN
+                };
+                self.diagnostics
+                    .diagnostic(Severity::Bug)
+                    .with_message("matrix parameters not supported")
+                    .with_primary_label(
+                        span,
+                        "expected this to be a felt or vector",
+                    )
+                    .emit();
+                Err(CompileError::Failed)
             }
         }
     }
@@ -622,20 +647,35 @@ impl<'a> MirBuilder<'a> {
                 other => unimplemented!("unhandled builtin: {}", other),
             }
         } else {
-            let mut arg_nodes: Vec<Link<Op>>;
+            let mut arg_nodes;
 
             // Get the known callee in the functions hashmap
             // Then, get the node index of the function definition
             let callee_node;
-            if let Some(callee) = self.mir.constraint_graph().get_function(&resolved_callee) {
+            if let Some(callee) = self.mir.constraint_graph().get_function(&resolved_callee).cloned() {
                 callee_node = callee.clone().as_root();
-                arg_nodes = call
-                    .args
-                    .iter()
-                    .map(|arg| self.translate_expr(arg).unwrap())
-                    .collect()
-            } else if let Some(callee) = self.mir.constraint_graph().get_evaluator(&resolved_callee)
-            {
+                arg_nodes = Vec::new();
+                for arg in call.args.iter() {
+                    let arg_node = self.translate_expr(arg)?;
+                    arg_nodes.push(arg_node);
+                }
+                if callee.borrow().parameters.len() != arg_nodes.len() {
+                    self.diagnostics
+                        .diagnostic(Severity::Error)
+                        .with_message("argument count mismatch")
+                        .with_primary_label(
+                            call.span(),
+                            format!("expected call to have {} arguments, but got {}", 
+                            callee.borrow().parameters.len(), arg_nodes.len())
+                        )
+                        .with_secondary_label(
+                            call.callee.span(),
+                            format!("this functions has {} parameters", callee.borrow().parameters.len())
+                        )
+                        .emit();
+                    return Err(CompileError::Failed);
+                }
+            } else if let Some(callee) = self.mir.constraint_graph().get_evaluator(&resolved_callee).cloned() {
                 // TRANSLATE TODO:
                 // - For Evaluators, we need to:
                 // - differentiate between trace segments
@@ -646,21 +686,30 @@ impl<'a> MirBuilder<'a> {
                     let arg_node = self.translate_expr(arg)?;
                     arg_nodes.push(arg_node);
                 }
+                if callee.borrow().parameters.len() != arg_nodes.len() {
+                    self.diagnostics
+                        .diagnostic(Severity::Error)
+                        .with_message("argument count mismatch")
+                        .with_primary_label(
+                            call.span(),
+                            format!("expected call to have {} arguments, but got {}", 
+                            callee.borrow().parameters.len(), arg_nodes.len())
+                        )
+                        .with_secondary_label(
+                            call.callee.span(),
+                            format!("this functions has {} parameters", callee.borrow().parameters.len())
+                        )
+                        .emit();
+                    return Err(CompileError::Failed);
+                }
             } else {
-                panic!("Unkown function or evaluator: {:?}", resolved_callee);
+                panic!("Unknown function or evaluator: {:?}", resolved_callee);
             }
             let mut call_node = Call::builder().function(callee_node);
             for arg in arg_nodes {
                 call_node = call_node.arguments(arg);
             }
-            let call_node: Link<Op> = call_node.build().as_op().into();
-
-            println!(
-                "call to {:?} : {:?}",
-                resolved_callee.name(),
-                call_node.clone().as_call().unwrap().link.as_ptr()
-            );
-
+            let call_node = call_node.build().as_op().into();
             Ok(call_node)
         }
     }
