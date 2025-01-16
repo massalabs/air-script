@@ -169,10 +169,7 @@ impl<'a> MirBuilder<'a> {
                 );
             }
             let body = ev.borrow().body.borrow().clone();
-            *original
-                .borrow()
-                .body
-                .borrow_mut() = body;
+            *original.borrow().body.borrow_mut() = body;
         } else {
             self.mir
                 .constraint_graph_mut()
@@ -239,10 +236,7 @@ impl<'a> MirBuilder<'a> {
                 );
             }
             let body = func.borrow().body.borrow().clone();
-            *original
-                .borrow()
-                .body
-                .borrow_mut() = body;
+            *original.borrow().body.borrow_mut() = body;
         } else {
             self.mir
                 .constraint_graph_mut()
@@ -656,7 +650,11 @@ impl<'a> MirBuilder<'a> {
             }
             let call_node: Link<Op> = call_node.build().as_op().into();
 
-            println!("call to {:?} : {:?}", resolved_callee.name(), call_node.clone().as_call().unwrap().link.as_ptr());
+            println!(
+                "call to {:?} : {:?}",
+                resolved_callee.name(),
+                call_node.clone().as_call().unwrap().link.as_ptr()
+            );
 
             Ok(call_node)
         }
@@ -866,13 +864,12 @@ impl<'a> MirBuilder<'a> {
             AccessType::Default => return Ok(let_bound_access_expr),
             _ => {
                 let accessor: Link<Op> =
-                Accessor::create(let_bound_access_expr, access.access_type.clone())
-                    .as_op()
-                    .into();
+                    Accessor::create(let_bound_access_expr, access.access_type.clone())
+                        .as_op()
+                        .into();
                 Ok(accessor)
             }
         }
-
     }
 
     // Check assumptions, probably this assumed that the inlining pass did some work

@@ -133,8 +133,7 @@ impl Visitor for UnrollingFirstPass {
                         .into();
                         vec.push(val);
                     }
-                    *value.as_node().borrow_mut() =
-                        Vector::create(vec).as_node().borrow().clone();
+                    *value.as_node().borrow_mut() = Vector::create(vec).as_node().borrow().clone();
                 }
                 ConstantValue::Matrix(m) => {
                     let mut res_m = vec![];
@@ -176,8 +175,7 @@ impl Visitor for UnrollingFirstPass {
                     .into();
                     vec.push(val);
                 }
-                *value.as_node().borrow_mut() =
-                    Vector::create(vec).as_node().borrow().clone();
+                *value.as_node().borrow_mut() = Vector::create(vec).as_node().borrow().clone();
             }
             MirValue::RandomValueBinding(random_value_binding) => {
                 let mut vec = vec![];
@@ -190,8 +188,7 @@ impl Visitor for UnrollingFirstPass {
                     .into();
                     vec.push(val);
                 }
-                *value.as_node().borrow_mut() =
-                    Vector::create(vec).as_node().borrow().clone();
+                *value.as_node().borrow_mut() = Vector::create(vec).as_node().borrow().clone();
             }
         }
     }
@@ -215,8 +212,7 @@ impl Visitor for UnrollingFirstPass {
                     let new_node = Add::create(lhs.clone(), rhs.clone()).as_op().into();
                     new_vec.push(new_node);
                 }
-                *add.as_node().borrow_mut() =
-                    Vector::create(new_vec).as_node().borrow().clone();
+                *add.as_node().borrow_mut() = Vector::create(new_vec).as_node().borrow().clone();
             }
         };
     }
@@ -239,8 +235,7 @@ impl Visitor for UnrollingFirstPass {
                     let new_node = Sub::create(lhs.clone(), rhs.clone()).as_op().into();
                     new_vec.push(new_node);
                 }
-                *sub.as_node().borrow_mut() =
-                    Vector::create(new_vec).as_node().borrow().clone();
+                *sub.as_node().borrow_mut() = Vector::create(new_vec).as_node().borrow().clone();
             }
         };
     }
@@ -263,8 +258,7 @@ impl Visitor for UnrollingFirstPass {
                     let new_node = Mul::create(lhs.clone(), rhs.clone()).as_op().into();
                     new_vec.push(new_node);
                 }
-                *mul.as_node().borrow_mut() =
-                    Vector::create(new_vec).as_node().borrow().clone();
+                *mul.as_node().borrow_mut() = Vector::create(new_vec).as_node().borrow().clone();
             }
         };
     }
@@ -278,8 +272,7 @@ impl Visitor for UnrollingFirstPass {
                 let new_node = Enf::create(op.clone()).as_op().into();
                 new_vec.push(new_node);
             }
-            *enf.as_node().borrow_mut() =
-                Vector::create(new_vec).as_node().borrow().clone();
+            *enf.as_node().borrow_mut() = Vector::create(new_vec).as_node().borrow().clone();
         };
     }
 
@@ -372,8 +365,7 @@ impl Visitor for UnrollingFirstPass {
                 let new_node = Boundary::create(expr.clone(), kind).as_op().into();
                 new_vec.push(new_node);
             }
-            *boundary.as_node().borrow_mut() =
-                Vector::create(new_vec).as_node().borrow().clone();
+            *boundary.as_node().borrow_mut() = Vector::create(new_vec).as_node().borrow().clone();
         };
     }
 
@@ -512,8 +504,7 @@ impl Visitor for UnrollingFirstPass {
                 },
             ));
         }
-        *for_node.as_node().borrow_mut() =
-            Vector::create(new_vec).as_node().borrow().clone();
+        *for_node.as_node().borrow_mut() = Vector::create(new_vec).as_node().borrow().clone();
     }
 
     fn visit_call(&mut self, _graph: &mut Graph, _call: Link<Call>) {
