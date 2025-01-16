@@ -71,8 +71,6 @@ pub struct InliningSecondPass {
     call_inlining_context: Option<CallInliningContext>,
     nodes_to_replace: HashMap<Link<Op>, Link<Op>>,
 
-    updated_nodes: Vec<Link<Node>>,
-
     // HashMap<Callee, Vec<Call nodes where called>>
     func_eval_nodes_where_called: HashMap<Link<Root>, Vec<Link<Call>>>,
 }
@@ -87,7 +85,6 @@ impl InliningSecondPass {
             nodes_to_replace: HashMap::new(),
             func_eval_nodes_where_called,
             func_eval_inlining_order,
-            updated_nodes: Vec::new(),
         }
     }
 }
@@ -289,7 +286,7 @@ impl Visitor for InliningSecondPass {
             while let Some(node) = self.work_stack().pop() {
                 ind += 1;
                 self.visit_node(graph, node);
-                if ind > 50 {
+                if ind > 500 {
                     unreachable!("InliningSecondPass::run: too many iterations");
                 }
             }
@@ -327,7 +324,6 @@ impl Visitor for InliningSecondPass {
 
                 println!("");
                 println!("Updated call node: {:?}", root);
-                self.updated_nodes.push(root.clone());
                 println!("");
             }
 
@@ -336,12 +332,10 @@ impl Visitor for InliningSecondPass {
         }
     }
     fn scan_node(&mut self, _graph: &Graph, node: Link<Node>) {
-        // INLINING TODO:
-        // - If we scan a Call node, set the context
-        // - Check assumptions (e.g. we should never encounter a new Call node before fully finishing the current call's inlining)
-
         self.work_stack().push(node.clone());
         if let Some(_owner) = node.clone().as_owner() {
+            // If we visit a Call, do not visit the children (the call's arguments)
+            // TODO INLINING: Check whether we should instead
             if let Some(_call) = node.clone().as_call() {
                 return;
             }
