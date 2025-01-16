@@ -1,9 +1,11 @@
 use prettyplease::unparse;
 
+#[allow(unused)]
 pub fn fmt(code: proc_macro2::TokenStream) -> String {
     let file = syn::parse_file(&code.to_string().replace(" } ", "\n}")).unwrap();
     unparse(&file)
 }
+#[allow(unused)]
 /// if fmt can't format the code, use this instead
 pub fn default_fmt(s: &proc_macro2::TokenStream) -> String {
     let s = s
