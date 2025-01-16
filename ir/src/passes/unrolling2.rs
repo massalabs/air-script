@@ -2,6 +2,7 @@ use std::{collections::HashMap, ops::Deref, rc::Rc};
 
 use air_parser::ast::AccessType;
 use air_pass::Pass;
+use miden_diagnostics::DiagnosticsHandler;
 //use miden_diagnostics::DiagnosticsHandler;
 
 use crate::{ir::*, CompileError};
@@ -27,30 +28,40 @@ pub struct ForInliningContext {
 
 impl ForInliningContext {}
 
-pub struct Unrolling {}
-impl Unrolling {
-    pub fn new() -> Self {
-        Self {}
+pub struct Unrolling<'a> {
+    diagnostics: &'a DiagnosticsHandler
+}
+
+impl<'a> Unrolling<'a> {
+    pub fn new(diagnostics: &'a DiagnosticsHandler) -> Self {
+        Self {
+            diagnostics
+        }
     }
 }
 
-pub struct UnrollingFirstPass {
+pub struct UnrollingFirstPass<'a> {
+    diagnostics: &'a DiagnosticsHandler,
+
     // general context
     work_stack: Vec<Link<Node>>,
 
     bodies_to_inline: Vec<(Link<Op>, ForInliningContext)>,
 }
 
-impl UnrollingFirstPass {
-    pub fn new() -> Self {
+impl<'a> UnrollingFirstPass<'a> {
+    pub fn new(diagnostics: &'a DiagnosticsHandler) -> Self {
         Self {
+            diagnostics,
             work_stack: vec![],
             bodies_to_inline: vec![],
         }
     }
 }
 
-pub struct UnrollingSecondPass {
+pub struct UnrollingSecondPass<'a> {
+    diagnostics: &'a DiagnosticsHandler,
+
     // general context
     work_stack: Vec<Link<Node>>,
 
@@ -58,9 +69,10 @@ pub struct UnrollingSecondPass {
     for_inlining_context: Option<ForInliningContext>,
     nodes_to_replace: HashMap<Link<Op>, Link<Op>>,
 }
-impl UnrollingSecondPass {
-    pub fn new(bodies_to_inline: Vec<(Link<Op>, ForInliningContext)>) -> Self {
+impl<'a> UnrollingSecondPass<'a> {
+    pub fn new(diagnostics: &'a DiagnosticsHandler, bodies_to_inline: Vec<(Link<Op>, ForInliningContext)>) -> Self {
         Self {
+            diagnostics,
             work_stack: vec![],
             bodies_to_inline,
             for_inlining_context: None,
@@ -69,17 +81,24 @@ impl UnrollingSecondPass {
     }
 }
 
-impl Pass for Unrolling {
+impl Pass for Unrolling<'_> {
     type Input<'a> = Mir;
     type Output<'a> = Mir;
     type Error = CompileError;
 
     fn run<'a>(&mut self, mut ir: Self::Input<'a>) -> Result<Self::Output<'a>, Self::Error> {
-        let _graph = ir.constraint_graph();
-        /*let functions = graph.get_function_nodes();
+        /*let graph = ir.constraint_graph();
+        let functions = graph.get_function_nodes();
         let evaluators = graph.get_evaluator_nodes();
         let bc = graph.boundary_constraints_roots.borrow().deref().clone();
-        let ic = graph.integrity_constraints_roots.borrow().deref().clone();*/
+        let ic = graph.integrity_constraints_roots.borrow().deref().clone();
+
+        for bc in bc {
+            println!("bc: {:?}", bc);
+        }
+        for ic in ic {
+            println!("ic: {:?}", ic);
+        }*/
 
         println!("****************************");
         println!("Starting first UNROLLING pass");
@@ -87,7 +106,7 @@ impl Pass for Unrolling {
         println!("");
 
         // The first pass unrolls all nodes fully, except for For nodes
-        let mut first_pass = UnrollingFirstPass::new();
+        let mut first_pass = UnrollingFirstPass::new(self.diagnostics);
         Visitor::run(&mut first_pass, ir.constraint_graph_mut());
 
         println!("first_pass.bodies_to_inline.clone(): {:?}", first_pass.bodies_to_inline.clone());
@@ -98,13 +117,13 @@ impl Pass for Unrolling {
         println!("");
 
         // The second pass actually inlines the For nodes
-        let mut second_pass = UnrollingSecondPass::new(first_pass.bodies_to_inline.clone());
+        let mut second_pass = UnrollingSecondPass::new(self.diagnostics, first_pass.bodies_to_inline.clone());
         Visitor::run(&mut second_pass, ir.constraint_graph_mut());
         Ok(ir)
     }
 }
 
-impl Visitor for UnrollingFirstPass {
+impl Visitor for UnrollingFirstPass<'_> {
     fn work_stack(&mut self) -> &mut Vec<Link<Node>> {
         &mut self.work_stack
     }
@@ -525,7 +544,7 @@ impl Visitor for UnrollingFirstPass {
     }
 }
 
-impl Visitor for UnrollingSecondPass {
+impl Visitor for UnrollingSecondPass<'_> {
     fn work_stack(&mut self) -> &mut Vec<Link<Node>> {
         &mut self.work_stack
     }

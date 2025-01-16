@@ -2,6 +2,7 @@ use core::panic;
 use std::collections::HashMap;
 
 use air_pass::Pass;
+use miden_diagnostics::DiagnosticsHandler;
 //use miden_diagnostics::DiagnosticsHandler;
 
 use crate::{
@@ -32,14 +33,20 @@ pub struct CallInliningContext {
 }
 impl CallInliningContext {}
 
-pub struct Inlining {}
-impl Inlining {
-    pub fn new() -> Self {
-        Self {}
+pub struct Inlining<'a> {
+    diagnostics: &'a DiagnosticsHandler
+}
+impl<'a> Inlining<'a> {
+    pub fn new(diagnostics: &'a DiagnosticsHandler) -> Self {
+        Self {
+            diagnostics
+        }
     }
 }
 
-pub struct InliningFirstPass {
+pub struct InliningFirstPass<'a> {
+    diagnostics: &'a DiagnosticsHandler,
+
     // general context
     work_stack: Vec<Link<Node>>,
     in_func_or_eval: bool,
@@ -50,9 +57,10 @@ pub struct InliningFirstPass {
     // HashMap<Callee, Vec<Call nodes where called>>
     func_eval_nodes_where_called: HashMap<Link<Root>, Vec<Link<Call>>>,
 }
-impl InliningFirstPass {
-    pub fn new() -> Self {
+impl<'a> InliningFirstPass<'a> {
+    pub fn new(diagnostics: &'a DiagnosticsHandler) -> Self {
         Self {
+            diagnostics,
             work_stack: vec![],
             in_func_or_eval: false,
             current_callees_encountered: Vec::new(),
@@ -62,7 +70,9 @@ impl InliningFirstPass {
     }
 }
 
-pub struct InliningSecondPass {
+pub struct InliningSecondPass<'a> {
+    diagnostics: &'a DiagnosticsHandler,
+
     // general context
     work_stack: Vec<Link<Node>>,
     // context for both passes
@@ -74,12 +84,14 @@ pub struct InliningSecondPass {
     // HashMap<Callee, Vec<Call nodes where called>>
     func_eval_nodes_where_called: HashMap<Link<Root>, Vec<Link<Call>>>,
 }
-impl InliningSecondPass {
+impl<'a> InliningSecondPass<'a> {
     pub fn new(
+        diagnostics: &'a DiagnosticsHandler,
         func_eval_inlining_order: Vec<Link<Root>>,
         func_eval_nodes_where_called: HashMap<Link<Root>, Vec<Link<Call>>>,
     ) -> Self {
         Self {
+            diagnostics,
             work_stack: vec![],
             call_inlining_context: None,
             nodes_to_replace: HashMap::new(),
@@ -89,13 +101,13 @@ impl InliningSecondPass {
     }
 }
 
-impl Pass for Inlining {
+impl Pass for Inlining<'_> {
     type Input<'a> = Mir;
     type Output<'a> = Mir;
     type Error = CompileError;
 
     fn run<'a>(&mut self, mut ir: Self::Input<'a>) -> Result<Self::Output<'a>, Self::Error> {
-        let mut first_pass = InliningFirstPass::new();
+        let mut first_pass = InliningFirstPass::new(self.diagnostics);
 
         println!("****************************");
         println!("Starting first INLINING pass");
@@ -113,6 +125,7 @@ impl Pass for Inlining {
         println!("");
 
         let mut second_pass = InliningSecondPass::new(
+            self.diagnostics,
             func_eval_inlining_order.clone(),
             first_pass.func_eval_nodes_where_called.clone(),
         );
@@ -160,7 +173,7 @@ fn create_inlining_order(
     func_eval_inlining_order
 }
 
-impl Visitor for InliningFirstPass {
+impl Visitor for InliningFirstPass<'_> {
     fn work_stack(&mut self) -> &mut Vec<Link<Node>> {
         &mut self.work_stack
     }
@@ -226,9 +239,7 @@ impl Visitor for InliningFirstPass {
     }
 }
 
-impl InliningSecondPass {}
-
-impl Visitor for InliningSecondPass {
+impl Visitor for InliningSecondPass<'_> {
     fn work_stack(&mut self) -> &mut Vec<Link<Node>> {
         &mut self.work_stack
     }
