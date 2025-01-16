@@ -81,10 +81,10 @@ impl Pass for Unrolling {
 
     fn run<'a>(&mut self, mut ir: Self::Input<'a>) -> Result<Self::Output<'a>, Self::Error> {
         let graph = ir.constraint_graph();
-        let functions = graph.get_function_nodes();
+        /*let functions = graph.get_function_nodes();
         let evaluators = graph.get_evaluator_nodes();
         let bc = graph.boundary_constraints_roots.borrow().deref().clone();
-        let ic = graph.integrity_constraints_roots.borrow().deref().clone();
+        let ic = graph.integrity_constraints_roots.borrow().deref().clone();*/
 
         // The first pass unrolls all nodes fully, except for For nodes
         let mut first_pass = UnrollingFirstPass::new();
@@ -133,7 +133,7 @@ impl Visitor for UnrollingFirstPass {
                         .into();
                         vec.push(val);
                     }
-                    *value.as_node().borrow_mut().deref_mut() =
+                    *value.as_node().borrow_mut() =
                         Vector::create(vec).as_node().borrow().clone();
                 }
                 ConstantValue::Matrix(m) => {
@@ -152,7 +152,7 @@ impl Visitor for UnrollingFirstPass {
                         let res_row_vec = Vector::create(res_row).into();
                         res_m.push(res_row_vec);
                     }
-                    *value.as_node().borrow_mut().deref_mut() =
+                    *value.as_node().borrow_mut() =
                         Matrix::create(res_m).as_node().borrow().clone();
                 }
             },
@@ -176,7 +176,7 @@ impl Visitor for UnrollingFirstPass {
                     .into();
                     vec.push(val);
                 }
-                *value.as_node().borrow_mut().deref_mut() =
+                *value.as_node().borrow_mut() =
                     Vector::create(vec).as_node().borrow().clone();
             }
             MirValue::RandomValueBinding(random_value_binding) => {
@@ -190,7 +190,7 @@ impl Visitor for UnrollingFirstPass {
                     .into();
                     vec.push(val);
                 }
-                *value.as_node().borrow_mut().deref_mut() =
+                *value.as_node().borrow_mut() =
                     Vector::create(vec).as_node().borrow().clone();
             }
         }
@@ -215,7 +215,7 @@ impl Visitor for UnrollingFirstPass {
                     let new_node = Add::create(lhs.clone(), rhs.clone()).as_op().into();
                     new_vec.push(new_node);
                 }
-                *add.as_node().borrow_mut().deref_mut() =
+                *add.as_node().borrow_mut() =
                     Vector::create(new_vec).as_node().borrow().clone();
             }
         };
@@ -239,7 +239,7 @@ impl Visitor for UnrollingFirstPass {
                     let new_node = Sub::create(lhs.clone(), rhs.clone()).as_op().into();
                     new_vec.push(new_node);
                 }
-                *sub.as_node().borrow_mut().deref_mut() =
+                *sub.as_node().borrow_mut() =
                     Vector::create(new_vec).as_node().borrow().clone();
             }
         };
@@ -263,7 +263,7 @@ impl Visitor for UnrollingFirstPass {
                     let new_node = Mul::create(lhs.clone(), rhs.clone()).as_op().into();
                     new_vec.push(new_node);
                 }
-                *mul.as_node().borrow_mut().deref_mut() =
+                *mul.as_node().borrow_mut() =
                     Vector::create(new_vec).as_node().borrow().clone();
             }
         };
@@ -278,7 +278,7 @@ impl Visitor for UnrollingFirstPass {
                 let new_node = Enf::create(op.clone()).as_op().into();
                 new_vec.push(new_node);
             }
-            *enf.as_node().borrow_mut().deref_mut() =
+            *enf.as_node().borrow_mut() =
                 Vector::create(new_vec).as_node().borrow().clone();
         };
     }
@@ -312,7 +312,7 @@ impl Visitor for UnrollingFirstPass {
         }
 
         // Finally, replace the Fold with the expanded expression
-        *fold.as_node().borrow_mut().deref_mut() = acc_node.as_node().borrow().clone();
+        *fold.as_node().borrow_mut() = acc_node.as_node().borrow().clone();
     }
 
     fn visit_parameter(&mut self, _graph: &mut Graph, _parameter: Link<Parameter>) {
@@ -355,7 +355,7 @@ impl Visitor for UnrollingFirstPass {
                             .into();
                     new_vec.push(new_node);
                 }
-                *if_node.as_node().borrow_mut().deref_mut() =
+                *if_node.as_node().borrow_mut() =
                     Vector::create(new_vec).as_node().borrow().clone();
             }
         };
@@ -372,7 +372,7 @@ impl Visitor for UnrollingFirstPass {
                 let new_node = Boundary::create(expr.clone(), kind).as_op().into();
                 new_vec.push(new_node);
             }
-            *boundary.as_node().borrow_mut().deref_mut() =
+            *boundary.as_node().borrow_mut() =
                 Vector::create(new_vec).as_node().borrow().clone();
         };
     }
@@ -401,7 +401,7 @@ impl Visitor for UnrollingFirstPass {
                         Some(child_accessed) => child_accessed,
                         None => unreachable!(), // raise diag
                     };
-                    *accessor.as_node().borrow_mut().deref_mut() =
+                    *accessor.as_node().borrow_mut() =
                         child_accessed.clone().as_node().borrow().clone();
                 } else {
                     unreachable!(); // raise diag
@@ -426,7 +426,7 @@ impl Visitor for UnrollingFirstPass {
                             Some(child_accessed) => child_accessed,
                             None => unreachable!(), // raise diag
                         };
-                        *accessor.as_node().borrow_mut().deref_mut() =
+                        *accessor.as_node().borrow_mut() =
                             child_accessed.clone().as_node().borrow().clone();
                     } else {
                         unreachable!(); // raise diag
@@ -512,7 +512,7 @@ impl Visitor for UnrollingFirstPass {
                 },
             ));
         }
-        *for_node.as_node().borrow_mut().deref_mut() =
+        *for_node.as_node().borrow_mut() =
             Vector::create(new_vec).as_node().borrow().clone();
     }
 
