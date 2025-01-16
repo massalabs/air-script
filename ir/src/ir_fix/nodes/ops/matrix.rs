@@ -1,0 +1,41 @@
+use crate::ir_fix::{BackLink, Builder, Child, Link, Op, Owner, Parent, Vector};
+
+#[derive(Default, Clone, PartialEq, Eq, Debug, Hash, Builder)]
+pub struct Matrix {
+    pub parents: Vec<BackLink<Owner>>,
+    pub size: usize,
+    // elements are of type Vector
+    pub elements: Link<Vec<Link<Op>>>,
+}
+
+impl Matrix {
+    pub fn create(elements: Vec<Link<Op>>) -> Link<Op> {
+        let size = elements.len();
+        Op::Matrix(Self {
+            size,
+            elements: Link::new(elements),
+            ..Default::default()
+        })
+        .into()
+    }
+}
+
+impl Parent for Matrix {
+    type Child = Op;
+    fn children(&self) -> Link<Vec<Link<Self::Child>>> {
+        self.elements.clone()
+    }
+}
+
+impl Child for Matrix {
+    type Parent = Owner;
+    fn get_parents(&self) -> Vec<BackLink<Self::Parent>> {
+        self.parents.clone()
+    }
+    fn add_parent(&mut self, parent: Link<Self::Parent>) {
+        self.parents.push(parent.into());
+    }
+    fn remove_parent(&mut self, parent: Link<Self::Parent>) {
+        self.parents.retain(|p| *p != parent.clone().into());
+    }
+}
