@@ -81,9 +81,21 @@ impl Pass for Unrolling {
         let bc = graph.boundary_constraints_roots.borrow().deref().clone();
         let ic = graph.integrity_constraints_roots.borrow().deref().clone();*/
 
+        println!("****************************");
+        println!("Starting first UNROLLING pass");
+        println!("****************************");
+        println!("");
+
         // The first pass unrolls all nodes fully, except for For nodes
         let mut first_pass = UnrollingFirstPass::new();
         Visitor::run(&mut first_pass, ir.constraint_graph_mut());
+
+        println!("first_pass.bodies_to_inline.clone(): {:?}", first_pass.bodies_to_inline.clone());
+
+        println!("****************************");
+        println!("Starting second UNROLLING pass");
+        println!("****************************");
+        println!("");
 
         // The second pass actually inlines the For nodes
         let mut second_pass = UnrollingSecondPass::new(first_pass.bodies_to_inline.clone());
