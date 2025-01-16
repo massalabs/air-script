@@ -18,8 +18,8 @@ use std::collections::BTreeMap;
 
 use miden_diagnostics::{SourceSpan, Spanned};
 
-use super::constraints::{ConstraintDomain, ConstraintRoot, Constraints};
 use super::Graph;
+use crate::ir::{ConstraintDomain, ConstraintRoot, Constraints};
 
 /// The intermediate representation of a complete AirScript program
 ///

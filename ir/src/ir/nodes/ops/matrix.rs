@@ -1,31 +1,34 @@
-use crate::ir_fix::{BackLink, Builder, Child, Link, Op, Owner, Parent};
+use crate::ir::{BackLink, Builder, Child, Link, Op, Owner, Parent, Vector};
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash, Builder)]
-pub struct Sub {
+#[enum_wrapper(Op)]
+pub struct Matrix {
     pub parents: Vec<BackLink<Owner>>,
-    pub lhs: Link<Op>,
-    pub rhs: Link<Op>,
+    pub size: usize,
+    // elements are of type Vector
+    pub elements: Link<Vec<Link<Op>>>,
 }
 
-impl Sub {
-    pub fn create(lhs: Link<Op>, rhs: Link<Op>) -> Link<Op> {
-        Op::Sub(Self {
-            lhs,
-            rhs,
+impl Matrix {
+    pub fn create(elements: Vec<Link<Op>>) -> Link<Op> {
+        let size = elements.len();
+        Op::Matrix(Self {
+            size,
+            elements: Link::new(elements),
             ..Default::default()
         })
         .into()
     }
 }
 
-impl Parent for Sub {
+impl Parent for Matrix {
     type Child = Op;
     fn children(&self) -> Link<Vec<Link<Self::Child>>> {
-        Link::new(vec![self.lhs.clone(), self.rhs.clone()])
+        self.elements.clone()
     }
 }
 
-impl Child for Sub {
+impl Child for Matrix {
     type Parent = Owner;
     fn get_parents(&self) -> Vec<BackLink<Self::Parent>> {
         self.parents.clone()

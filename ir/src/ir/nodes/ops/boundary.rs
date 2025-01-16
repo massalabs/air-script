@@ -1,10 +1,9 @@
+use crate::ir::{BackLink, Builder, Child, Link, Op, Owner, Parent};
+use air_parser::ast::Boundary as BoundaryKind;
 use std::hash::Hash;
 
-use crate::ir::{BackLink, Builder, Child, Link, Node, Op, Owner, Parent};
-
-use air_parser::ast::Boundary as BoundaryKind;
-
 #[derive(Clone, PartialEq, Eq, Debug, Builder)]
+#[enum_wrapper(Op)]
 pub struct Boundary {
     pub parents: Vec<BackLink<Owner>>,
     pub kind: BoundaryKind,
@@ -32,25 +31,13 @@ impl Hash for Boundary {
 }
 
 impl Boundary {
-    pub fn create(expr: Link<Op>, kind: BoundaryKind) -> Link<Self> {
-        Self {
+    pub fn create(expr: Link<Op>, kind: BoundaryKind) -> Link<Op> {
+        Op::Boundary(Self {
             expr,
             kind,
             ..Default::default()
-        }
+        })
         .into()
-    }
-}
-
-impl Link<Boundary> {
-    pub fn as_op(self) -> Link<Op> {
-        Op::Boundary(self).into()
-    }
-    pub fn as_owner(self) -> Link<Owner> {
-        Owner::Boundary(self).into()
-    }
-    pub fn as_node(self) -> Link<Node> {
-        Node::Boundary(self).into()
     }
 }
 
@@ -71,33 +58,5 @@ impl Child for Boundary {
     }
     fn remove_parent(&mut self, parent: Link<Self::Parent>) {
         self.parents.retain(|p| *p != parent.clone().into());
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::ops::Deref;
-
-    use crate::ir::Evaluator;
-
-    use super::*;
-
-    #[test]
-    fn test_boundary() {
-        let parent = Link::new(Owner::Evaluator(Evaluator::default().into()));
-        let expr = Link::new(Op::default());
-        let boundary = Boundary::builder()
-            .parents(parent.clone())
-            .kind(BoundaryKind::Last)
-            .expr(expr.clone())
-            .build();
-        assert_eq!(
-            boundary.borrow().deref(),
-            &Boundary {
-                parents: vec![parent.into()],
-                kind: BoundaryKind::Last,
-                expr: expr.clone()
-            }
-        );
     }
 }

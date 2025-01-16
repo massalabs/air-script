@@ -1,31 +1,33 @@
-use crate::ir_fix::{BackLink, Builder, Child, Link, Op, Owner, Parent};
+use crate::ir::{BackLink, Builder, Child, Link, Op, Owner, Parent, Root};
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash, Builder)]
-pub struct Mul {
+#[enum_wrapper(Op)]
+pub struct Call {
     pub parents: Vec<BackLink<Owner>>,
-    pub lhs: Link<Op>,
-    pub rhs: Link<Op>,
+    pub function: Link<Root>,
+    /// Parent::children only contains the arguments
+    pub arguments: Link<Vec<Link<Op>>>,
 }
 
-impl Mul {
-    pub fn create(lhs: Link<Op>, rhs: Link<Op>) -> Link<Op> {
-        Op::Mul(Self {
-            lhs,
-            rhs,
+impl Call {
+    pub fn create(function: Link<Root>, arguments: Vec<Link<Op>>) -> Link<Op> {
+        Op::Call(Self {
+            function,
+            arguments: Link::new(arguments),
             ..Default::default()
         })
         .into()
     }
 }
 
-impl Parent for Mul {
+impl Parent for Call {
     type Child = Op;
     fn children(&self) -> Link<Vec<Link<Self::Child>>> {
-        Link::new(vec![self.lhs.clone(), self.rhs.clone()])
+        self.arguments.clone()
     }
 }
 
-impl Child for Mul {
+impl Child for Call {
     type Parent = Owner;
     fn get_parents(&self) -> Vec<BackLink<Self::Parent>> {
         self.parents.clone()

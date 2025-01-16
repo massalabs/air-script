@@ -1,6 +1,7 @@
-use crate::ir_fix::{BackLink, Builder, Child, Link, Op, Owner, Parent};
+use crate::ir::{BackLink, Builder, Child, Link, Op, Owner, Parent};
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash, Builder)]
+#[enum_wrapper(Op)]
 pub struct Add {
     pub parents: Vec<BackLink<Owner>>,
     pub lhs: Link<Op>,

@@ -9,7 +9,7 @@ use syn::{parse_macro_input, DeriveInput};
 /// Derive the `Builder` trait for a struct.
 /// Generates a type-level state machine for transitioning between states.
 ///
-/// States correspond to the which fields have been set or not.
+/// States correspond to which fields have been set or not.
 /// It takes into account the type of the fields.
 /// The following types are treated as optional fields:
 /// - `BackLink<T>`
@@ -19,6 +19,7 @@ use syn::{parse_macro_input, DeriveInput};
 /// For example, given the following struct:
 /// ```ignore
 /// #[derive(Builder, Eq, PartialEq, Debug)]
+/// #[enum_wrapper(Op)]
 /// struct Foo {
 ///     a: BackLink<Owner>,
 ///     b: Vec<BackLink<Owner>>,
@@ -101,8 +102,8 @@ use syn::{parse_macro_input, DeriveInput};
 ///         f: Link::new(vec![f0, f1]),
 ///     });
 /// ```
-#[proc_macro_derive(Builder, attributes(node))]
-pub fn derive_isnode(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(Builder, attributes(enum_wrapper))]
+pub fn derive_builder_op(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     impl_builder(&ast).into()
 }

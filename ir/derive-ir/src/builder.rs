@@ -4,7 +4,13 @@ use std::collections::HashMap;
 use quote::{format_ident, quote};
 use syn::DeriveInput;
 
+pub enum EnumWrapper {
+    Op,
+    Root,
+}
+
 pub fn impl_builder(input: &DeriveInput) -> proc_macro2::TokenStream {
+    let enum_wrapper = get_enum_wrapper(input);
     let name = &input.ident;
     let (yes_name, no_name) = (
         format_ident!("{}BuilderYes", name),
@@ -21,6 +27,7 @@ pub fn impl_builder(input: &DeriveInput) -> proc_macro2::TokenStream {
         &builder_struct_fields,
         &builder_states,
         &transition_table,
+        &enum_wrapper,
     );
     quote! {
         #builder_struct
@@ -34,6 +41,29 @@ pub fn impl_builder(input: &DeriveInput) -> proc_macro2::TokenStream {
             }
         }
         #builder_impls
+    }
+}
+
+fn get_enum_wrapper(input: &DeriveInput) -> EnumWrapper {
+    let enum_wrapper_ident: syn::Ident = input
+        .attrs
+        .iter()
+        .find_map(|attr| {
+            let path = attr.path();
+            if let Some(ident) = path.get_ident() {
+                if ident != "enum_wrapper" {
+                    return None;
+                }
+            } else {
+                return None;
+            }
+            Some(attr.parse_args().unwrap())
+        })
+        .expect("No enum_wrapper attribute found, expected one of (`#[enum_wrapper(Op)]`, `#[enum_wrapper(Root)]`)");
+    match enum_wrapper_ident.to_string().as_str() {
+        "Op" => EnumWrapper::Op,
+        "Root" => EnumWrapper::Root,
+        _ => unimplemented!(),
     }
 }
 
@@ -453,6 +483,7 @@ fn make_builder_impls<'a>(
     )],
     states: &[Vec<bool>],
     transition_table: &[Vec<usize>],
+    enum_wrapper: &EnumWrapper,
 ) -> proc_macro2::TokenStream {
     let state_names = states
         .iter()
@@ -484,14 +515,11 @@ fn make_builder_impls<'a>(
             })
             .collect::<Vec<_>>();
         if i == states.len() - 1 {
-            let builder = fields.iter().map(|(_, _, _, _, _, builder)| builder);
-            methods.push(quote! {
-                pub fn build(&self) -> crate::ir::Link<#name> {
-                    #name {
-                        #(#builder),*
-                    }.into()
-                }
-            });
+            let builder = fields
+                .iter()
+                .map(|(_, _, _, _, _, builder)| builder)
+                .collect::<Vec<_>>();
+            methods.push(make_build_method(name, &builder, enum_wrapper));
         };
         quote! {
             impl #state_name {
@@ -513,6 +541,33 @@ fn make_builder_impls<'a>(
     }
 }
 
+fn make_build_method(
+    name: &syn::Ident,
+    builder: &[&proc_macro2::TokenStream],
+    enum_wrapper: &EnumWrapper,
+) -> proc_macro2::TokenStream {
+    match enum_wrapper {
+        EnumWrapper::Op => quote! {
+            pub fn build(&self) -> crate::ir::Link<Op> {
+                Op::#name(
+                    #name {
+                        #(#builder),*
+                    }
+                ).into()
+            }
+        },
+        EnumWrapper::Root => quote! {
+            pub fn build(&self) -> crate::ir::Link<Root> {
+                Root::#name(
+                    #name {
+                        #(#builder),*
+                    }
+                ).into()
+            }
+        },
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -528,6 +583,7 @@ mod tests {
         );
         let input = quote! {
             #[derive(Builder)]
+            #[enum_wrapper(Op)]
             struct Foo {
                 parent: BackLink<Owner>,
                 a: Link<Node>,
@@ -822,15 +878,17 @@ mod tests {
                     self.count = Some(value);
                     self
                 }
-                pub fn build(&self) -> crate::ir::Link<Foo> {
-                    Foo {
-                        parent: self.parent.clone(),
-                        a: self.a.clone().unwrap(),
-                        bs: self.bs.clone(),
-                        cs: self.cs.clone(),
-                        d: self.d.clone().unwrap(),
-                        count: self.count.clone().unwrap(),
-                    }.into()
+                pub fn build(&self) -> crate::ir::Link<Op> {
+                    Op::Foo(
+                        Foo {
+                            parent: self.parent.clone(),
+                            a: self.a.clone().unwrap(),
+                            bs: self.bs.clone(),
+                            cs: self.cs.clone(),
+                            d: self.d.clone().unwrap(),
+                            count: self.count.clone().unwrap(),
+                        }
+                    ).into()
                 }
             }
         };
