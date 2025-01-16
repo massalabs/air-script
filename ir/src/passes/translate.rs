@@ -1,4 +1,5 @@
-use std::ops::{Deref, DerefMut};
+use core::panic;
+use std::ops::Deref;
 
 use air_parser::ast::AccessType;
 use air_parser::{ast, symbols, LexicalScope, SemanticAnalysisError};
@@ -143,7 +144,7 @@ impl<'a> MirBuilder<'a> {
             for binding in &trace_segment.bindings {
                 //            println!("binding: {:#?}", binding);
                 let params =
-                    self.translate_params(ident, binding.name.as_ref(), &binding.ty, &mut i);
+                    self.translate_params_ev(ident, binding.name.as_ref(), &binding.ty, &mut i);
                 for param in params {
                     ev = ev.parameters(param.clone());
                 }
@@ -168,12 +169,10 @@ impl<'a> MirBuilder<'a> {
                 );
             }
             let body = ev.borrow().body.borrow().clone();
-            original
+            *original
                 .borrow()
                 .body
-                .borrow_mut()
-                .deref_mut()
-                .clone_from(&body);
+                .borrow_mut() = body;
         } else {
             self.mir
                 .constraint_graph_mut()
@@ -211,13 +210,8 @@ impl<'a> MirBuilder<'a> {
         let mut i = 0;
         for (param_ident, ty) in ast_func.params.iter() {
             let name = Some(param_ident);
-
-            // TRANSLATE TODO:
-            // Update translate_params to differentiate between functions and evaluators
-            let params = self.translate_params(ident, name, ty, &mut i);
-            for param in params {
-                func = func.parameters(param.clone());
-            }
+            let param = self.translate_params_fn(ident, name, ty, &mut i);
+            func = func.parameters(param.clone());
         }
         i += 1;
         let ret = Parameter::create(i, self.translate_type(&ast_func.return_type));
@@ -245,12 +239,10 @@ impl<'a> MirBuilder<'a> {
                 );
             }
             let body = func.borrow().body.borrow().clone();
-            original
+            *original
                 .borrow()
                 .body
-                .borrow_mut()
-                .deref_mut()
-                .clone_from(&body);
+                .borrow_mut() = body;
         } else {
             self.mir
                 .constraint_graph_mut()
@@ -260,7 +252,7 @@ impl<'a> MirBuilder<'a> {
         Ok(func)
     }
 
-    fn translate_params(
+    fn translate_params_ev(
         &mut self,
         _func_ident: &'a ast::QualifiedIdentifier,
         name: Option<&'a ast::Identifier>,
@@ -286,6 +278,32 @@ impl<'a> MirBuilder<'a> {
                 let vector: Link<Op> = vector.build().as_op().into();
                 self.bindings.insert(name.unwrap(), vector.clone());
                 params
+            }
+            ast::Type::Matrix(_rows, _cols) => {
+                unimplemented!("matrix parameters not supported");
+            }
+        }
+    }
+
+    fn translate_params_fn(
+        &mut self,
+        _func_ident: &'a ast::QualifiedIdentifier,
+        name: Option<&'a ast::Identifier>,
+        ty: &ast::Type,
+        i: &mut usize,
+    ) -> Link<Parameter> {
+        match ty {
+            ast::Type::Felt => {
+                let param = Parameter::create(*i, MirType::Felt);
+                *i += 1;
+                self.bindings.insert(name.unwrap(), param.clone().as_op());
+                param
+            }
+            ast::Type::Vector(size) => {
+                let param = Parameter::create(*i, MirType::Vector(*size));
+                *i += 1;
+                self.bindings.insert(name.unwrap(), param.clone().as_op());
+                param
             }
             ast::Type::Matrix(_rows, _cols) => {
                 unimplemented!("matrix parameters not supported");
@@ -636,7 +654,10 @@ impl<'a> MirBuilder<'a> {
             for arg in arg_nodes {
                 call_node = call_node.arguments(arg);
             }
-            let call_node = call_node.build().as_op().into();
+            let call_node: Link<Op> = call_node.build().as_op().into();
+
+            println!("call to {:?} : {:?}", resolved_callee.name(), call_node.clone().as_call().unwrap().link.as_ptr());
+
             Ok(call_node)
         }
     }
@@ -841,11 +862,17 @@ impl<'a> MirBuilder<'a> {
             .get(access.name.as_ref())
             .unwrap_or_else(|| panic!("undefined variable: {:?}", access))
             .clone();
-        let accessor: Link<Op> =
-            Accessor::create(let_bound_access_expr, access.access_type.clone())
-                .as_op()
-                .into();
-        Ok(accessor)
+        match access.access_type {
+            AccessType::Default => return Ok(let_bound_access_expr),
+            _ => {
+                let accessor: Link<Op> =
+                Accessor::create(let_bound_access_expr, access.access_type.clone())
+                    .as_op()
+                    .into();
+                Ok(accessor)
+            }
+        }
+
     }
 
     // Check assumptions, probably this assumed that the inlining pass did some work
