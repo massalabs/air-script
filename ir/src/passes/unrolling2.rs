@@ -599,10 +599,8 @@ impl Visitor for UnrollingSecondPass<'_> {
                     let zero_node = Value::create(SpannedMirValue {
                         span: Default::default(),
                         value: MirValue::Constant(ConstantValue::Felt(0)),
-                    })
-                    .as_op()
-                    .into();
-                    let if_node = If::create(selector, new_node, zero_node).as_op().into();
+                    });
+                    let if_node = If::create(selector, new_node, zero_node);
                     if_node
                 } else {
                     new_node

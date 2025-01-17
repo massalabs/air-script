@@ -53,7 +53,7 @@ pub struct InliningFirstPass<'a> {
     // HashMap<Function, Functions where it is called>
     func_eval_dependency_graph: HashMap<Link<Root>, Vec<Link<Root>>>,
     // HashMap<Callee, Vec<Call nodes where called>>
-    func_eval_nodes_where_called: HashMap<Link<Root>, Vec<Link<Call>>>,
+    func_eval_nodes_where_called: HashMap<Link<Root>, Vec<Link<Op>>>, // Op is a Call here
 }
 impl<'a> InliningFirstPass<'a> {
     pub fn new(diagnostics: &'a DiagnosticsHandler) -> Self {
@@ -80,13 +80,13 @@ pub struct InliningSecondPass<'a> {
     nodes_to_replace: HashMap<Link<Op>, Link<Op>>,
 
     // HashMap<Callee, Vec<Call nodes where called>>
-    func_eval_nodes_where_called: HashMap<Link<Root>, Vec<Link<Call>>>,
+    func_eval_nodes_where_called: HashMap<Link<Root>, Vec<Link<Op>>>, // Op is a Call here
 }
 impl<'a> InliningSecondPass<'a> {
     pub fn new(
         diagnostics: &'a DiagnosticsHandler,
         func_eval_inlining_order: Vec<Link<Root>>,
-        func_eval_nodes_where_called: HashMap<Link<Root>, Vec<Link<Call>>>,
+        func_eval_nodes_where_called: HashMap<Link<Root>, Vec<Link<Op>>>,
     ) -> Self {
         Self {
             diagnostics,
@@ -176,7 +176,8 @@ impl Visitor for InliningFirstPass<'_> {
         &mut self.work_stack
     }
     fn run(&mut self, graph: &mut Graph) {
-        for root in self.root_nodes_to_visit(graph) {
+        for root_node in self.root_nodes_to_visit(graph) {
+            let root = root_node.as_root().unwrap();
             if let Some(_function) = root.clone().as_function() {
                 self.in_func_or_eval = true;
             } else if let Some(_evaluator) = root.clone().as_evaluator() {
@@ -185,7 +186,7 @@ impl Visitor for InliningFirstPass<'_> {
                 self.in_func_or_eval = false;
             }
 
-            self.scan_node(graph, root.clone());
+            self.scan_node(graph, root_node.clone());
             while let Some(node) = self.work_stack().pop() {
                 self.visit_node(graph, node);
             }
@@ -223,7 +224,7 @@ impl Visitor for InliningFirstPass<'_> {
     }
     fn visit_call(&mut self, _graph: &mut Graph, call: Link<Op>) {
         // safe to unwrap because we just dispatched on it
-        let callee = call.clone();
+        let callee = &call.as_call().unwrap().function;
         if self.in_func_or_eval {
             self.current_callees_encountered.push(callee.clone());
         }
@@ -252,89 +253,91 @@ impl Visitor for InliningSecondPass<'_> {
         return callee_nodes_to_inline_in_order;
     }
     fn run(&mut self, graph: &mut Graph) {
-        for (idx, root) in self.root_nodes_to_visit(graph).iter().enumerate() {
-            println!("Visiting root node: {idx} - {:?}", root);
+        for (idx, root_node) in self.root_nodes_to_visit(graph).iter().enumerate() {
+            println!("Visiting root node: {idx} - {:?}", root_node);
             println!("");
 
-            // Set context for inlining this call
-            let Some(call_node) = root.clone().as_call() else {
-                unreachable!("InliningSecondPass::run: root node is not a Call node");
-            };
+            if let Some(op) = root_node.as_op() {
+                // Set context for inlining this call
+                let Some(call_node) = op.as_call() else {
+                    unreachable!("InliningSecondPass::run: root node is not a Call node");
+                };
 
-            let callee = call_node.borrow().function.clone();
-            let arguments = call_node.borrow().arguments.clone();
-            let (pure_function, body) = if let Some(f) = callee.clone().as_function() {
-                (true, f.borrow().body.clone())
-            } else if let Some(ev) = callee.clone().as_evaluator() {
-                (false, ev.borrow().body.clone())
-            } else {
-                unreachable!(
-                    "InliningSecondPass::run: callee is not a Function or an Evaluator node"
-                );
-            };
+                let callee = call_node.function.clone();
+                let arguments = call_node.arguments.clone();
+                let (pure_function, body) = if let Some(f) = callee.clone().as_function() {
+                    (true, f.body.clone())
+                } else if let Some(ev) = callee.clone().as_evaluator() {
+                    (false, ev.body.clone())
+                } else {
+                    unreachable!(
+                        "InliningSecondPass::run: callee is not a Function or an Evaluator node"
+                    );
+                };
 
-            let context = CallInliningContext {
-                body,
-                arguments,
-                pure_function,
-            };
+                let context = CallInliningContext {
+                    body,
+                    arguments,
+                    pure_function,
+                };
 
-            println!("SET NEW CONTEXT: {:?}", context);
-            println!("");
+                println!("SET NEW CONTEXT: {:?}", context);
+                println!("");
 
-            self.call_inlining_context = Some(context.clone());
-            self.nodes_to_replace.clear();
+                self.call_inlining_context = Some(context.clone());
+                self.nodes_to_replace.clear();
 
-            self.scan_node(graph, root.clone());
+                self.scan_node(graph, root_node.clone());
 
-            let mut ind = 0;
+                let mut ind = 0;
 
-            while let Some(node) = self.work_stack().pop() {
-                ind += 1;
-                self.visit_node(graph, node);
-                if ind > 500 {
-                    unreachable!("InliningSecondPass::run: too many iterations");
+                while let Some(node) = self.work_stack().pop() {
+                    ind += 1;
+                    self.visit_node(graph, node);
+                    if ind > 500 {
+                        unreachable!("InliningSecondPass::run: too many iterations");
+                    }
                 }
-            }
 
-            println!("END Visiting root node: {idx} - {:?}", root);
+                println!("END Visiting root node: {idx} - {:?}", root_node);
 
-            if context.pure_function {
-                // We have finished inlining the body, we can now replace the Call node with the last expression of the body
-                let last_child_of_body = context.body.borrow().last().unwrap().clone();
+                if context.pure_function {
+                    // We have finished inlining the body, we can now replace the Call node with the last expression of the body
+                    let last_child_of_body = context.body.borrow().last().unwrap().clone();
 
-                println!("BEFORE update call node: {:?}", root);
-                let new_node = self
-                    .nodes_to_replace
-                    .get(&last_child_of_body)
-                    .unwrap()
-                    .clone();
+                    println!("BEFORE update call node: {:?}", root_node);
+                    let new_node = self
+                        .nodes_to_replace
+                        .get(&last_child_of_body)
+                        .unwrap()
+                        .clone();
 
-                *root.borrow_mut() = new_node.as_node().borrow().clone();
+                    *root_node.borrow_mut() = new_node.as_node().borrow().clone();
 
-                println!("Updated call node: {:?}", root);
-                println!("");
-            } else {
-                // We have finished inlining the body, we can now replace the Call node with all the body
-                let mut new_nodes = Vec::new();
-                for body_node in context.body.borrow().iter() {
-                    // FIXME: Maybe we should only push nodes that are Enf()?
-                    // Depends if additional nodes change things (e.g. the Vector size..)
-                    // For now I think we can keep all nodes, and just ignore the non-Enf nodes
-                    // When building the constraints during lowering Mir -> Air
-                    new_nodes.push(self.nodes_to_replace.get(&body_node).unwrap().clone());
+                    println!("Updated call node: {:?}", root_node);
+                    println!("");
+                } else {
+                    // We have finished inlining the body, we can now replace the Call node with all the body
+                    let mut new_nodes = Vec::new();
+                    for body_node in context.body.borrow().iter() {
+                        // FIXME: Maybe we should only push nodes that are Enf()?
+                        // Depends if additional nodes change things (e.g. the Vector size..)
+                        // For now I think we can keep all nodes, and just ignore the non-Enf nodes
+                        // When building the constraints during lowering Mir -> Air
+                        new_nodes.push(self.nodes_to_replace.get(&body_node).unwrap().clone());
+                    }
+                    let new_nodes_vector = Vector::create(new_nodes);
+
+                    *root_node.clone().borrow_mut() = new_nodes_vector.as_node().borrow().clone();
+
+                    println!("");
+                    println!("Updated call node: {:?}", root_node);
+                    println!("");
                 }
-                let new_nodes_vector = Vector::create(new_nodes).as_op();
 
-                *root.clone().borrow_mut() = new_nodes_vector.as_node().borrow().clone();
-
-                println!("");
-                println!("Updated call node: {:?}", root);
-                println!("");
+                // Reset context to None
+                self.call_inlining_context = None;
             }
-
-            // Reset context to None
-            self.call_inlining_context = None;
         }
     }
     fn scan_node(&mut self, _graph: &Graph, node: Link<Node>) {
@@ -351,7 +354,7 @@ impl Visitor for InliningSecondPass<'_> {
         }
     }
 
-    fn visit_call(&mut self, _graph: &mut Graph, _call: Link<Call>) {
+    fn visit_call(&mut self, _graph: &mut Graph, _call: Link<Op>) {
         let Some(context) = self.call_inlining_context.clone() else {
             unreachable!("InliningSecondPass::visit_node: call_inlining_context is None");
         };
@@ -392,26 +395,26 @@ impl Visitor for InliningSecondPass<'_> {
         // First, check if it's a known Call to inline,
         // if so, set the context and visit the body
 
-        if let Some(call_node) = node.clone().as_call() {
-            self.visit_call(graph, call_node.clone());
+        let call_op = node.clone().as_op().expect(
+            format!(
+                "InliningSecondPass::visit_node on a non-Op node: {:?}",
+                node
+            )
+            .as_str(),
+        );
+        if let Some(_) = call_op.clone().as_call() {
+            self.visit_call(graph, call_op.clone());
         } else {
-            if let Some(op) = node.clone().as_op() {
-                duplicate_node_or_replace(
-                    &mut self.nodes_to_replace,
-                    op,
-                    self.call_inlining_context
-                        .clone()
-                        .unwrap()
-                        .arguments
-                        .borrow()
-                        .clone(),
-                );
-            } else {
-                unreachable!(
-                    "InliningSecondPass::visit_node on a non-Op node: {:?}",
-                    node
-                );
-            }
+            duplicate_node_or_replace(
+                &mut self.nodes_to_replace,
+                call_op,
+                self.call_inlining_context
+                    .clone()
+                    .unwrap()
+                    .arguments
+                    .borrow()
+                    .clone(),
+            );
         }
     }
 }

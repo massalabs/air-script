@@ -290,18 +290,18 @@ impl<'a> MirBuilder<'a> {
         name: Option<&'a ast::Identifier>,
         ty: &ast::Type,
         i: &mut usize,
-    ) -> Result<Link<Parameter>, CompileError> {
+    ) -> Result<Link<Op>, CompileError> {
         match ty {
             ast::Type::Felt => {
                 let param = Parameter::create(*i, MirType::Felt);
                 *i += 1;
-                self.bindings.insert(name.unwrap(), param.clone().as_op());
+                self.bindings.insert(name.unwrap(), param.clone());
                 Ok(param)
             }
             ast::Type::Vector(size) => {
                 let param = Parameter::create(*i, MirType::Vector(*size));
                 *i += 1;
-                self.bindings.insert(name.unwrap(), param.clone().as_op());
+                self.bindings.insert(name.unwrap(), param.clone());
                 Ok(param)
             }
             ast::Type::Matrix(_rows, _cols) => {
@@ -627,7 +627,7 @@ impl<'a> MirBuilder<'a> {
                 other => unimplemented!("unhandled builtin: {}", other),
             }
         } else {
-            let mut arg_nodes;
+            let mut arg_nodes: Vec<Link<Op>>;
 
             // Get the known callee in the functions hashmap
             // Then, get the node index of the function definition
