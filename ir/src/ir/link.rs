@@ -79,17 +79,15 @@ impl<T> From<Rc<RefCell<T>>> for Link<T> {
 }
 
 pub struct BackLink<T> {
-    pub link: Option<Weak<RefCell<T>>>,
+    pub link: Weak<RefCell<T>>,
 }
 
 impl<T> BackLink<T> {
-    pub fn none() -> Self {
-        Self { link: None }
-    }
     pub fn to_link(&self) -> Option<Link<T>> {
-        self.link.as_ref().map(|link| Link {
-            link: link.upgrade().unwrap(),
-        })
+        self.link.upgrade().map(|link| Link { link })
+    }
+    pub fn try_borrow(&self) -> Option<std::cell::Ref<T>> {
+        self.link.upgrade().map(|link| link.borrow())
     }
 }
 

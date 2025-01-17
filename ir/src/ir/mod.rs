@@ -5,9 +5,7 @@ mod link;
 mod mir;
 mod node;
 mod nodes;
-mod op;
 mod owner;
-mod root;
 mod trace;
 pub extern crate derive_ir;
 
@@ -19,9 +17,7 @@ pub use link::{BackLink, Link};
 pub use mir::Mir;
 pub use node::Node;
 pub use nodes::*;
-pub use op::Op;
 pub use owner::Owner;
-pub use root::Root;
 pub use trace::TraceAccess;
 
 /// A trait for nodes that can have children

@@ -1,17 +1,17 @@
-use crate::ir::{Builder, Link, Op, Parameter, Parent, Root};
+use crate::ir::{Builder, Link, Op, Parent, Root};
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash, Builder)]
 #[enum_wrapper(Root)]
 pub struct Function {
-    pub parameters: Vec<Link<Parameter>>,
-    pub return_type: Link<Parameter>,
+    pub parameters: Vec<Link<Op>>, // Parameter
+    pub return_type: Link<Op>,     // Parameter
     pub body: Link<Vec<Link<Op>>>,
 }
 
 impl Function {
     pub fn create(
-        parameters: Vec<Link<Parameter>>,
-        return_type: Link<Parameter>,
+        parameters: Vec<Link<Op>>,
+        return_type: Link<Op>,
         body: Vec<Link<Op>>,
     ) -> Link<Root> {
         Root::Function(Self {

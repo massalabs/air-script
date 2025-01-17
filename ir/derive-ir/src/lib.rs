@@ -103,7 +103,7 @@ use syn::{parse_macro_input, DeriveInput};
 ///     });
 /// ```
 #[proc_macro_derive(Builder, attributes(enum_wrapper))]
-pub fn derive_builder_op(input: TokenStream) -> TokenStream {
+pub fn derive_builder(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     impl_builder(&ast).into()
 }
