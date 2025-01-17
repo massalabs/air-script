@@ -78,6 +78,7 @@ impl<T> From<Rc<RefCell<T>>> for Link<T> {
     }
 }
 
+#[derive(Default)]
 pub struct BackLink<T> {
     pub link: Weak<RefCell<T>>,
 }
@@ -85,15 +86,6 @@ pub struct BackLink<T> {
 impl<T> BackLink<T> {
     pub fn to_link(&self) -> Option<Link<T>> {
         self.link.upgrade().map(|link| Link { link })
-    }
-    pub fn try_borrow(&self) -> Option<std::cell::Ref<T>> {
-        self.link.upgrade().map(|link| link.borrow())
-    }
-}
-
-impl<T> Default for BackLink<T> {
-    fn default() -> Self {
-        Self { link: None }
     }
 }
 
@@ -123,7 +115,7 @@ impl<T> Eq for BackLink<T> {}
 impl<T> From<Link<T>> for BackLink<T> {
     fn from(parent: Link<T>) -> Self {
         Self {
-            link: Some(Rc::downgrade(&parent.link)),
+            link: Rc::downgrade(&parent.link),
         }
     }
 }
@@ -140,7 +132,7 @@ where
 impl<T> From<Rc<RefCell<T>>> for BackLink<T> {
     fn from(parent: Rc<RefCell<T>>) -> Self {
         Self {
-            link: Some(Rc::downgrade(&parent)),
+            link: Rc::downgrade(&parent),
         }
     }
 }
