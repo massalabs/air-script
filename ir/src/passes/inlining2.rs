@@ -210,54 +210,49 @@ impl Visitor for InliningFirstPass {
             .chain(functions.into_iter().map(|f| f.as_node()));
         combined_roots.collect()
     }
-    fn visit_function(&mut self, _graph: &mut Graph, function: Link<crate::ir::Function>) {
+    fn visit_function(&mut self, _graph: &mut Graph, function: Link<Root>) {
         println!("Currently in NEW body of function");
         self.func_eval_dependency_graph
-            .insert(function.as_root(), self.current_callees_encountered.clone());
+            .insert(function, self.current_callees_encountered.clone());
         self.current_callees_encountered.clear();
     }
-    fn visit_evaluator(&mut self, _graph: &mut Graph, evaluator: Link<crate::ir::Evaluator>) {
+    fn visit_evaluator(&mut self, _graph: &mut Graph, evaluator: Link<Root>) {
         println!("Currently in NEW body of evaluator");
-        self.func_eval_dependency_graph.insert(
-            evaluator.as_root(),
-            self.current_callees_encountered.clone(),
-        );
+        self.func_eval_dependency_graph
+            .insert(evaluator, self.current_callees_encountered.clone());
         self.current_callees_encountered.clear();
     }
-    fn visit_call(&mut self, _graph: &mut Graph, call: Link<crate::ir::Call>) {
+    fn visit_call(&mut self, _graph: &mut Graph, call: Link<Op>) {
         println!("Currently in call!");
-        let callee = call.borrow().function.clone();
-        let args = call.borrow().arguments.clone();
+        let ref_call = call.as_call().unwrap();
+        let callee = ref_call.function.clone();
+        let args = ref_call.arguments.clone();
 
         self.current_callees_encountered.push(callee.clone());
-        let callee_ref = callee.borrow();
-
-        match callee_ref.deref() {
-            Root::Evaluator(ev) => {
-                let context = CallInliningContext {
-                    body: ev.borrow().body.clone(),
-                    arguments: args.borrow().deref().clone(),
-                    call_node: call.as_op(),
-                    pure_function: false,
-                };
-                self.func_eval_nodes_where_called
-                    .entry(callee.clone())
-                    .and_modify(|v| v.push(context.clone()))
-                    .or_insert(vec![context]);
-            }
-            Root::Function(func) => {
-                let context = CallInliningContext {
-                    body: func.borrow().body.clone(),
-                    arguments: args.borrow().deref().clone(),
-                    call_node: call.as_op(),
-                    pure_function: true,
-                };
-                self.func_eval_nodes_where_called
-                    .entry(callee.clone())
-                    .and_modify(|v| v.push(context.clone()))
-                    .or_insert(vec![context]);
-            }
-            _ => unreachable!(),
+        if let Some(ev) = callee.clone().as_evaluator() {
+            let context = CallInliningContext {
+                body: ev.body.clone(),
+                arguments: args.borrow().deref().clone(),
+                call_node: call.clone(),
+                pure_function: false,
+            };
+            self.func_eval_nodes_where_called
+                .entry(callee.clone())
+                .and_modify(|v| v.push(context.clone()))
+                .or_insert(vec![context]);
+        } else if let Some(func) = callee.clone().as_function() {
+            let context = CallInliningContext {
+                body: func.body.clone(),
+                arguments: args.borrow().deref().clone(),
+                call_node: call.clone(),
+                pure_function: true,
+            };
+            self.func_eval_nodes_where_called
+                .entry(callee.clone())
+                .and_modify(|v| v.push(context.clone()))
+                .or_insert(vec![context]);
+        } else {
+            unreachable!();
         }
     }
 }
@@ -286,10 +281,10 @@ impl Visitor for InliningSecondPass {
         // - Check assumptions (e.g. we should never encounter a new Call node before fully finishing the current call's inlining)
 
         self.work_stack().push(node.clone());
-        if let Some(_owner) = node.clone().as_owner() {
-            if let Some(_call) = _owner.as_call() {
+        if let Some(op) = node.clone().as_op() {
+            let Some(_) = op.as_call() else {
                 return;
-            }
+            };
             for child in node.children().borrow().iter() {
                 self.scan_node(_graph, child.clone().as_node());
             }
@@ -396,7 +391,7 @@ impl Visitor for InliningSecondPass {
                                 new_nodes
                                     .push(self.nodes_to_replace.get(&body_node).unwrap().clone());
                             }
-                            let new_nodes_vector = Vector::create(new_nodes).as_op();
+                            let new_nodes_vector = Vector::create(new_nodes);
                             *self
                                 .call_inlining_context
                                 .as_mut()

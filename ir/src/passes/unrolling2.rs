@@ -117,8 +117,10 @@ impl Visitor for UnrollingFirstPass {
             );
         combined_roots.collect()
     }
-    fn visit_value(&mut self, _graph: &mut Graph, value: Link<Value>) {
-        let mir_value = value.borrow().value.value.clone();
+    fn visit_value(&mut self, _graph: &mut Graph, value: Link<Op>) {
+        // safe to un wrap because we just dispatched on it
+        let value_ref = value.as_value().unwrap();
+        let mir_value = value_ref.value.value.clone();
         match mir_value {
             MirValue::Constant(c) => match c {
                 ConstantValue::Felt(_) => {}
@@ -126,11 +128,9 @@ impl Visitor for UnrollingFirstPass {
                     let mut vec = vec![];
                     for val in v {
                         let val = Value::create(SpannedMirValue {
-                            span: value.borrow().value.span.clone(),
+                            span: value_ref.value.span.clone(),
                             value: MirValue::Constant(ConstantValue::Felt(val)),
-                        })
-                        .as_op()
-                        .into();
+                        });
                         vec.push(val);
                     }
                     *value.as_node().borrow_mut().deref_mut() =
@@ -142,11 +142,9 @@ impl Visitor for UnrollingFirstPass {
                         let mut res_row = vec![];
                         for val in row {
                             let val = Value::create(SpannedMirValue {
-                                span: value.borrow().value.span.clone(),
+                                span: value_ref.value.span.clone(),
                                 value: MirValue::Constant(ConstantValue::Felt(val)),
-                            })
-                            .as_op()
-                            .into();
+                            });
                             res_row.push(val);
                         }
                         let res_row_vec = Vector::create(res_row).into();
@@ -165,15 +163,13 @@ impl Visitor for UnrollingFirstPass {
                 let mut vec = vec![];
                 for index in 0..trace_access_binding.size {
                     let val = Value::create(SpannedMirValue {
-                        span: value.borrow().value.span.clone(),
+                        span: value_ref.value.span.clone(),
                         value: MirValue::TraceAccess(TraceAccess {
                             segment: trace_access_binding.segment,
                             column: trace_access_binding.offset + index,
                             row_offset: 0, // ???
                         }),
-                    })
-                    .as_op()
-                    .into();
+                    });
                     vec.push(val);
                 }
                 *value.as_node().borrow_mut().deref_mut() =
@@ -183,11 +179,9 @@ impl Visitor for UnrollingFirstPass {
                 let mut vec = vec![];
                 for index in 0..random_value_binding.size {
                     let val = Value::create(SpannedMirValue {
-                        span: value.borrow().value.span.clone(),
+                        span: value_ref.value.span.clone(),
                         value: MirValue::RandomValue(random_value_binding.offset + index),
-                    })
-                    .as_op()
-                    .into();
+                    });
                     vec.push(val);
                 }
                 *value.as_node().borrow_mut().deref_mut() =
@@ -196,9 +190,11 @@ impl Visitor for UnrollingFirstPass {
         }
     }
 
-    fn visit_add(&mut self, _graph: &mut Graph, add: Link<Add>) {
-        let lhs = add.borrow().lhs.clone();
-        let rhs = add.borrow().rhs.clone();
+    fn visit_add(&mut self, _graph: &mut Graph, add: Link<Op>) {
+        // safe to un wrap because we just dispatched on it
+        let add_ref = add.as_add().unwrap();
+        let lhs = add_ref.lhs.clone();
+        let rhs = add_ref.rhs.clone();
 
         if let (Op::Vector(lhs_vector), Op::Vector(rhs_vector)) =
             (lhs.borrow().deref(), rhs.borrow().deref())
@@ -212,7 +208,7 @@ impl Visitor for UnrollingFirstPass {
             } else {
                 let mut new_vec = vec![];
                 for (lhs, rhs) in lhs_vec.iter().zip(rhs_vec.iter()) {
-                    let new_node = Add::create(lhs.clone(), rhs.clone()).as_op().into();
+                    let new_node = Add::create(lhs.clone(), rhs.clone());
                     new_vec.push(new_node);
                 }
                 *add.as_node().borrow_mut().deref_mut() =
@@ -221,9 +217,11 @@ impl Visitor for UnrollingFirstPass {
         };
     }
 
-    fn visit_sub(&mut self, _graph: &mut Graph, sub: Link<Sub>) {
-        let lhs = sub.borrow().lhs.clone();
-        let rhs = sub.borrow().rhs.clone();
+    fn visit_sub(&mut self, _graph: &mut Graph, sub: Link<Op>) {
+        // safe to unwrap because we just dispatched on it
+        let sub_ref = sub.as_sub().unwrap();
+        let lhs = sub_ref.lhs.clone();
+        let rhs = sub_ref.rhs.clone();
 
         if let (Op::Vector(lhs_vector), Op::Vector(rhs_vector)) =
             (lhs.borrow().deref(), rhs.borrow().deref())
@@ -236,7 +234,7 @@ impl Visitor for UnrollingFirstPass {
             } else {
                 let mut new_vec = vec![];
                 for (lhs, rhs) in lhs_vec.iter().zip(rhs_vec.iter()) {
-                    let new_node = Sub::create(lhs.clone(), rhs.clone()).as_op().into();
+                    let new_node = Sub::create(lhs.clone(), rhs.clone());
                     new_vec.push(new_node);
                 }
                 *sub.as_node().borrow_mut().deref_mut() =
@@ -245,9 +243,10 @@ impl Visitor for UnrollingFirstPass {
         };
     }
 
-    fn visit_mul(&mut self, _graph: &mut Graph, mul: Link<Mul>) {
-        let lhs = mul.borrow().lhs.clone();
-        let rhs = mul.borrow().rhs.clone();
+    fn visit_mul(&mut self, _graph: &mut Graph, mul: Link<Op>) {
+        let mul_ref = mul.as_mul().unwrap();
+        let lhs = mul_ref.lhs.clone();
+        let rhs = mul_ref.rhs.clone();
 
         if let (Op::Vector(lhs_vector), Op::Vector(rhs_vector)) =
             (lhs.borrow().deref(), rhs.borrow().deref())
@@ -260,7 +259,7 @@ impl Visitor for UnrollingFirstPass {
             } else {
                 let mut new_vec = vec![];
                 for (lhs, rhs) in lhs_vec.iter().zip(rhs_vec.iter()) {
-                    let new_node = Mul::create(lhs.clone(), rhs.clone()).as_op().into();
+                    let new_node = Mul::create(lhs.clone(), rhs.clone());
                     new_vec.push(new_node);
                 }
                 *mul.as_node().borrow_mut().deref_mut() =
@@ -269,13 +268,14 @@ impl Visitor for UnrollingFirstPass {
         };
     }
 
-    fn visit_enf(&mut self, _graph: &mut Graph, enf: Link<Enf>) {
-        let expr = enf.borrow().expr.clone();
+    fn visit_enf(&mut self, _graph: &mut Graph, enf: Link<Op>) {
+        let enf_ref = enf.as_enf().unwrap();
+        let expr = enf_ref.expr.clone();
         if let Op::Vector(vec) = expr.borrow().deref() {
             let ops = vec.children().borrow().deref().clone();
             let mut new_vec = vec![];
             for op in ops.iter() {
-                let new_node = Enf::create(op.clone()).as_op().into();
+                let new_node = Enf::create(op.clone());
                 new_vec.push(new_node);
             }
             *enf.as_node().borrow_mut().deref_mut() =
@@ -283,10 +283,11 @@ impl Visitor for UnrollingFirstPass {
         };
     }
 
-    fn visit_fold(&mut self, _graph: &mut Graph, fold: Link<Fold>) {
-        let iterator = fold.borrow().iterator.clone();
-        let operator = fold.borrow().operator.clone();
-        let initial_value = fold.borrow().initial_value.clone();
+    fn visit_fold(&mut self, _graph: &mut Graph, fold: Link<Op>) {
+        let fold_ref = fold.as_fold().unwrap();
+        let iterator = fold_ref.iterator.clone();
+        let operator = fold_ref.operator.clone();
+        let initial_value = fold_ref.initial_value.clone();
 
         let iterator_ref = iterator.borrow();
         let Op::Vector(iterator_vector) = iterator_ref.deref() else {
@@ -298,13 +299,13 @@ impl Visitor for UnrollingFirstPass {
         match operator {
             FoldOperator::Add => {
                 for iterator_node in iterator_nodes {
-                    let new_acc_node = Add::create(acc_node, iterator_node).as_op().into();
+                    let new_acc_node = Add::create(acc_node, iterator_node);
                     acc_node = new_acc_node;
                 }
             }
             FoldOperator::Mul => {
                 for iterator_node in iterator_nodes {
-                    let new_acc_node = Mul::create(acc_node, iterator_node).as_op().into();
+                    let new_acc_node = Mul::create(acc_node, iterator_node);
                     acc_node = new_acc_node;
                 }
             }
@@ -315,15 +316,16 @@ impl Visitor for UnrollingFirstPass {
         *fold.as_node().borrow_mut().deref_mut() = acc_node.as_node().borrow().clone();
     }
 
-    fn visit_parameter(&mut self, _graph: &mut Graph, _parameter: Link<Parameter>) {
+    fn visit_parameter(&mut self, _graph: &mut Graph, _parameter: Link<Op>) {
         // FIXME: Just check that the parameter is a scalar, raise diag otherwise
         // List comprehension bodies should only be scalar expressions
     }
 
-    fn visit_if(&mut self, _graph: &mut Graph, if_node: Link<If>) {
-        let condition = if_node.borrow().condition.clone();
-        let then_branch = if_node.borrow().then_branch.clone();
-        let else_branch = if_node.borrow().else_branch.clone();
+    fn visit_if(&mut self, _graph: &mut Graph, if_node: Link<Op>) {
+        let if_ref = if_node.as_if().unwrap();
+        let condition = if_ref.condition.clone();
+        let then_branch = if_ref.then_branch.clone();
+        let else_branch = if_ref.else_branch.clone();
 
         if let (
             Op::Vector(condition_vector),
@@ -350,9 +352,7 @@ impl Visitor for UnrollingFirstPass {
                     .zip(else_branch_vec.iter())
                 {
                     let new_node =
-                        If::create(condition.clone(), then_branch.clone(), else_branch.clone())
-                            .as_op()
-                            .into();
+                        If::create(condition.clone(), then_branch.clone(), else_branch.clone());
                     new_vec.push(new_node);
                 }
                 *if_node.as_node().borrow_mut().deref_mut() =
@@ -361,15 +361,17 @@ impl Visitor for UnrollingFirstPass {
         };
     }
 
-    fn visit_boundary(&mut self, _graph: &mut Graph, boundary: Link<Boundary>) {
-        let expr = boundary.borrow().expr.clone();
-        let kind = boundary.borrow().kind.clone();
+    fn visit_boundary(&mut self, _graph: &mut Graph, boundary: Link<Op>) {
+        // safe to unwrap because we just dispatched on it
+        let boundary_ref = boundary.as_boundary().unwrap();
+        let expr = boundary_ref.expr.clone();
+        let kind = boundary_ref.kind.clone();
 
         if let Op::Vector(vec) = expr.borrow().deref() {
             let expr_vec = vec.children().borrow().deref().clone();
             let mut new_vec = vec![];
             for expr in expr_vec.iter() {
-                let new_node = Boundary::create(expr.clone(), kind).as_op().into();
+                let new_node = Boundary::create(expr.clone(), kind);
                 new_vec.push(new_node);
             }
             *boundary.as_node().borrow_mut().deref_mut() =
@@ -377,9 +379,10 @@ impl Visitor for UnrollingFirstPass {
         };
     }
 
-    fn visit_accessor(&mut self, _graph: &mut Graph, accessor: Link<Accessor>) {
-        let indexable = accessor.borrow().indexable.clone();
-        let access_type = accessor.borrow().access_type.clone();
+    fn visit_accessor(&mut self, _graph: &mut Graph, accessor: Link<Op>) {
+        let accessor_ref = accessor.as_accessor().unwrap();
+        let indexable = accessor_ref.indexable.clone();
+        let access_type = accessor_ref.access_type.clone();
         match access_type {
             AccessType::Default => {
                 // Check that the child node is a scalar, raise diag otherwise
@@ -442,18 +445,18 @@ impl Visitor for UnrollingFirstPass {
         }
     }
 
-    fn visit_for(&mut self, _graph: &mut Graph, for_node: Link<For>) {
+    fn visit_for(&mut self, _graph: &mut Graph, for_node: Link<Op>) {
         // For each value produced by the iterators, we need to:
         // - Duplicate the body
         // - Visit the body and replace the Variables with the value (with the correct index depending on the binding)
         // If there is a selector, we need to enforce the selector on the body through an if node ?
 
         let for_node_clone = for_node.clone();
-        let for_ref = for_node_clone.borrow();
+        let for_ref = for_node_clone.as_for().unwrap();
         let iterators_ref = for_ref.iterators.borrow();
         let iterators = iterators_ref.deref();
-        let expr = for_node.borrow().expr.clone();
-        let selector = for_node.borrow().selector.clone();
+        let expr = for_ref.expr.clone();
+        let selector = for_ref.selector.clone();
 
         // Check iterator lengths
         if iterators.is_empty() {
@@ -463,7 +466,6 @@ impl Visitor for UnrollingFirstPass {
             .clone()
             .as_vector()
             .expect("Iterators should be vectors")
-            .borrow()
             .children()
             .borrow()
             .len();
@@ -473,7 +475,6 @@ impl Visitor for UnrollingFirstPass {
                 .clone()
                 .as_vector()
                 .expect("Iterators should be vectors")
-                .borrow()
                 .children()
                 .borrow()
                 .len()
@@ -491,7 +492,7 @@ impl Visitor for UnrollingFirstPass {
             let iterators_i = iterators
                 .iter()
                 .map(|op| match op.clone().as_vector() {
-                    Some(vec) => vec.borrow().children().borrow()[i].clone(),
+                    Some(vec) => vec.children().borrow()[i].clone(),
                     _ => unreachable!(),
                 })
                 .collect::<Vec<_>>();
@@ -502,13 +503,13 @@ impl Visitor for UnrollingFirstPass {
             };
 
             self.bodies_to_inline.push((
-                for_node.clone().as_op(),
+                for_node.clone(),
                 ForInliningContext {
                     body: expr.clone(),
                     iterators: iterators_i,
                     selector,
                     index: i,
-                    parent_for: for_node.clone().as_op(),
+                    parent_for: for_node.clone(),
                 },
             ));
         }
@@ -516,15 +517,15 @@ impl Visitor for UnrollingFirstPass {
             Vector::create(new_vec).as_node().borrow().clone();
     }
 
-    fn visit_call(&mut self, _graph: &mut Graph, _call: Link<Call>) {
+    fn visit_call(&mut self, _graph: &mut Graph, _call: Link<Op>) {
         unreachable!("Calls should have been inlined before this pass");
     }
 
-    fn visit_function(&mut self, _graph: &mut Graph, _function: Link<Function>) {
+    fn visit_function(&mut self, _graph: &mut Graph, _function: Link<Root>) {
         unreachable!("Functions should have been inlined before this pass");
     }
 
-    fn visit_evaluator(&mut self, _graph: &mut Graph, _evaluator: Link<Evaluator>) {
+    fn visit_evaluator(&mut self, _graph: &mut Graph, _evaluator: Link<Root>) {
         unreachable!("Evaluators should have been inlined before this pass");
     }
 }
@@ -602,10 +603,8 @@ impl Visitor for UnrollingSecondPass {
                         let zero_node = Value::create(SpannedMirValue {
                             span: Default::default(),
                             value: MirValue::Constant(ConstantValue::Felt(0)),
-                        })
-                        .as_op()
-                        .into();
-                        let if_node = If::create(selector, new_node, zero_node).as_op().into();
+                        });
+                        let if_node = If::create(selector, new_node, zero_node);
                         if_node
                     } else {
                         new_node

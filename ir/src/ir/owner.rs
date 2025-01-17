@@ -1,12 +1,14 @@
-use crate::ir::{BackLink, Child, Link, Op, Parent};
+use std::ops::Deref;
+
+use crate::ir::{BackLink, Child, Link, Op, Parent, Root};
 
 /// The nodes that can own Op nodes
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub enum Owner {
+    Function(BackLink<Root>),
+    Evaluator(BackLink<Root>),
     Accessor(BackLink<Op>),
     Boundary(BackLink<Op>),
-    Function(BackLink<Op>),
-    Evaluator(BackLink<Op>),
     Vector(BackLink<Op>),
     Matrix(BackLink<Op>),
     Call(BackLink<Op>),
@@ -101,6 +103,47 @@ impl Child for Owner {
             Owner::Matrix(m) => m.remove_parent(parent),
             Owner::Accessor(a) => a.remove_parent(parent),
             Owner::None => (),
+        }
+    }
+}
+
+impl Link<Owner> {
+    pub fn as_root(&self) -> Option<Link<Root>> {
+        match self.borrow().deref() {
+            Owner::Function(f) => f.to_link(),
+            Owner::Evaluator(e) => e.to_link(),
+            Owner::Accessor(_) => None,
+            Owner::Boundary(_) => None,
+            Owner::Vector(_) => None,
+            Owner::Matrix(_) => None,
+            Owner::Call(_) => None,
+            Owner::Fold(_) => None,
+            Owner::Add(_) => None,
+            Owner::Sub(_) => None,
+            Owner::Mul(_) => None,
+            Owner::Enf(_) => None,
+            Owner::For(_) => None,
+            Owner::If(_) => None,
+            Owner::None => None,
+        }
+    }
+    pub fn as_op(&self) -> Option<Link<Op>> {
+        match self.borrow().deref() {
+            Owner::Function(_) => None,
+            Owner::Evaluator(_) => None,
+            Owner::Accessor(back) => back.to_link(),
+            Owner::Boundary(back) => back.to_link(),
+            Owner::Vector(back) => back.to_link(),
+            Owner::Matrix(back) => back.to_link(),
+            Owner::Call(back) => back.to_link(),
+            Owner::Fold(back) => back.to_link(),
+            Owner::Add(back) => back.to_link(),
+            Owner::Sub(back) => back.to_link(),
+            Owner::Mul(back) => back.to_link(),
+            Owner::Enf(back) => back.to_link(),
+            Owner::For(back) => back.to_link(),
+            Owner::If(back) => back.to_link(),
+            Owner::None => None,
         }
     }
 }

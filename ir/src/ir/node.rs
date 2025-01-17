@@ -125,8 +125,31 @@ impl Child for Node {
 }
 
 impl Link<Node> {
+    pub fn as_root(&self) -> Option<Link<Root>> {
+        match self.borrow().deref() {
+            Node::Function(f) => f.to_link(),
+            Node::Evaluator(e) => e.to_link(),
+            Node::Enf(_) => None,
+            Node::Boundary(_) => None,
+            Node::Add(_) => None,
+            Node::Sub(_) => None,
+            Node::Mul(_) => None,
+            Node::If(_) => None,
+            Node::For(_) => None,
+            Node::Call(_) => None,
+            Node::Fold(_) => None,
+            Node::Vector(_) => None,
+            Node::Matrix(_) => None,
+            Node::Accessor(_) => None,
+            Node::Parameter(_) => None,
+            Node::Value(_) => None,
+            Node::None => None,
+        }
+    }
     pub fn as_op(&self) -> Option<Link<Op>> {
         match self.borrow().deref() {
+            Node::Function(_) => None,
+            Node::Evaluator(_) => None,
             Node::Enf(inner) => inner.to_link(),
             Node::Boundary(inner) => inner.to_link(),
             Node::Add(inner) => inner.to_link(),
@@ -141,177 +164,25 @@ impl Link<Node> {
             Node::Accessor(inner) => inner.to_link(),
             Node::Parameter(inner) => inner.to_link(),
             Node::Value(inner) => inner.to_link(),
-            _ => None,
+            Node::None => None,
         }
     }
-    pub fn as_enf(&self) -> Option<Ref<Enf>> {
-        get_inner(self.borrow(), |node| match node {
-            Node::Enf(op) => match op.to_link().unwrap().borrow().deref() {
-                Op::Enf(inner) => Some(inner),
-                _ => None,
-            },
-            _ => None,
-        })
-    }
-    pub fn as_enf_mut(&self) -> Option<RefMut<Enf>> {
-        match self.borrow_mut().deref_mut() {
-            Node::Enf(inner) => inner.to_link().unwrap().as_enf_mut(),
-            _ => None,
-        }
-    }
-    pub fn as_boundary(&self) -> Option<Ref<Boundary>> {
+    pub fn as_owner(&self) -> Option<Link<Owner>> {
         match self.borrow().deref() {
-            Node::Boundary(inner) => inner.to_link().unwrap().as_boundary(),
-            _ => None,
-        }
-    }
-    pub fn as_boundary_mut(&self) -> Option<RefMut<Boundary>> {
-        match self.borrow_mut().deref_mut() {
-            Node::Boundary(inner) => inner.to_link().unwrap().as_boundary_mut(),
-            _ => None,
-        }
-    }
-    pub fn as_add(&self) -> Option<Ref<Add>> {
-        match self.borrow().deref() {
-            Node::Add(inner) => inner.to_link().unwrap().as_add(),
-            _ => None,
-        }
-    }
-    pub fn as_add_mut(&self) -> Option<RefMut<Add>> {
-        match self.borrow_mut().deref_mut() {
-            Node::Add(inner) => inner.to_link().unwrap().as_add_mut(),
-            _ => None,
-        }
-    }
-    pub fn as_sub(&self) -> Option<Ref<Sub>> {
-        match self.borrow().deref() {
-            Node::Sub(inner) => inner.to_link().unwrap().as_sub(),
-            _ => None,
-        }
-    }
-    pub fn as_sub_mut(&self) -> Option<RefMut<Sub>> {
-        match self.borrow_mut().deref_mut() {
-            Node::Sub(inner) => inner.to_link().unwrap().as_sub_mut(),
-            _ => None,
-        }
-    }
-    pub fn as_mul(&self) -> Option<Ref<Mul>> {
-        match self.borrow().deref() {
-            Node::Mul(inner) => inner.to_link().unwrap().as_mul(),
-            _ => None,
-        }
-    }
-    pub fn as_mul_mut(&self) -> Option<RefMut<Mul>> {
-        match self.borrow_mut().deref_mut() {
-            Node::Mul(inner) => inner.to_link().unwrap().as_mul_mut(),
-            _ => None,
-        }
-    }
-    pub fn as_if(&self) -> Option<Ref<If>> {
-        match self.borrow().deref() {
-            Node::If(inner) => inner.to_link().unwrap().as_if(),
-            _ => None,
-        }
-    }
-    pub fn as_if_mut(&self) -> Option<RefMut<If>> {
-        match self.borrow_mut().deref_mut() {
-            Node::If(inner) => inner.to_link().unwrap().as_if_mut(),
-            _ => None,
-        }
-    }
-    pub fn as_for(&self) -> Option<Ref<For>> {
-        match self.borrow().deref() {
-            Node::For(inner) => inner.to_link().unwrap().as_for(),
-            _ => None,
-        }
-    }
-    pub fn as_for_mut(&self) -> Option<RefMut<For>> {
-        match self.borrow_mut().deref_mut() {
-            Node::For(inner) => inner.to_link().unwrap().as_for_mut(),
-            _ => None,
-        }
-    }
-    pub fn as_call(&self) -> Option<Ref<Call>> {
-        match self.borrow().deref() {
-            Node::Call(inner) => inner.to_link().unwrap().as_call(),
-            _ => None,
-        }
-    }
-    pub fn as_call_mut(&self) -> Option<RefMut<Call>> {
-        match self.borrow_mut().deref_mut() {
-            Node::Call(inner) => inner.to_link().unwrap().as_call_mut(),
-            _ => None,
-        }
-    }
-    pub fn as_fold(&self) -> Option<Ref<Fold>> {
-        match self.borrow().deref() {
-            Node::Fold(inner) => inner.to_link().unwrap().as_fold(),
-            _ => None,
-        }
-    }
-    pub fn as_fold_mut(&self) -> Option<RefMut<Fold>> {
-        match self.borrow_mut().deref_mut() {
-            Node::Fold(inner) => inner.to_link().unwrap().as_fold_mut(),
-            _ => None,
-        }
-    }
-    pub fn as_vector(&self) -> Option<Ref<Vector>> {
-        match self.borrow().deref() {
-            Node::Vector(inner) => inner.to_link().unwrap().as_vector(),
-            _ => None,
-        }
-    }
-    pub fn as_vector_mut(&self) -> Option<RefMut<Vector>> {
-        match self.borrow_mut().deref_mut() {
-            Node::Vector(inner) => inner.to_link().unwrap().as_vector_mut(),
-            _ => None,
-        }
-    }
-    pub fn as_matrix(&self) -> Option<Ref<Matrix>> {
-        match self.borrow().deref() {
-            Node::Matrix(inner) => inner.to_link().unwrap().as_matrix(),
-            _ => None,
-        }
-    }
-    pub fn as_matrix_mut(&self) -> Option<RefMut<Matrix>> {
-        match self.borrow_mut().deref_mut() {
-            Node::Matrix(inner) => inner.to_link().unwrap().as_matrix_mut(),
-            _ => None,
-        }
-    }
-    pub fn as_accessor(&self) -> Option<Ref<Accessor>> {
-        match self.borrow().deref() {
-            Node::Accessor(inner) => inner.to_link().unwrap().as_accessor(),
-            _ => None,
-        }
-    }
-    pub fn as_accessor_mut(&self) -> Option<RefMut<Accessor>> {
-        match self.borrow_mut().deref_mut() {
-            Node::Accessor(inner) => inner.to_link().unwrap().as_accessor_mut(),
-            _ => None,
-        }
-    }
-    pub fn as_parameter(&self) -> Option<Ref<Parameter>> {
-        match self.borrow().deref() {
-            Node::Parameter(inner) => inner.to_link().unwrap().as_parameter(),
-            _ => None,
-        }
-    }
-    pub fn as_parameter_mut(&self) -> Option<RefMut<Parameter>> {
-        match self.borrow_mut().deref_mut() {
-            Node::Parameter(inner) => inner.to_link().unwrap().as_parameter_mut(),
-            _ => None,
-        }
-    }
-    pub fn as_value(&self) -> Option<Ref<Value>> {
-        match self.borrow().deref() {
-            Node::Value(inner) => inner.to_link().unwrap().as_value(),
-            _ => None,
-        }
-    }
-    pub fn as_value_mut(&self) -> Option<RefMut<Value>> {
-        match self.borrow_mut().deref_mut() {
-            Node::Value(inner) => inner.to_link().unwrap().as_value_mut(),
+            Node::Accessor(op) => Some(Owner::Accessor(op.clone()).into()),
+            Node::Boundary(op) => Some(Owner::Boundary(op.clone()).into()),
+            Node::Function(op) => Some(Owner::Function(op.clone()).into()),
+            Node::Evaluator(op) => Some(Owner::Evaluator(op.clone()).into()),
+            Node::Vector(op) => Some(Owner::Vector(op.clone()).into()),
+            Node::Matrix(op) => Some(Owner::Matrix(op.clone()).into()),
+            Node::Call(op) => Some(Owner::Call(op.clone()).into()),
+            Node::Fold(op) => Some(Owner::Fold(op.clone()).into()),
+            Node::Add(op) => Some(Owner::Add(op.clone()).into()),
+            Node::Sub(op) => Some(Owner::Sub(op.clone()).into()),
+            Node::Mul(op) => Some(Owner::Mul(op.clone()).into()),
+            Node::Enf(op) => Some(Owner::Enf(op.clone()).into()),
+            Node::For(op) => Some(Owner::For(op.clone()).into()),
+            Node::If(op) => Some(Owner::If(op.clone()).into()),
             _ => None,
         }
     }
