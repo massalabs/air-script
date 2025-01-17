@@ -1,13 +1,13 @@
 mod evaluator;
 mod function;
-
 pub use evaluator::Evaluator;
 pub use function::Function;
 
-use super::value::MirType;
-use crate::ir::{BackLink, Child, Leaf, Link, Node, Op, Owner};
+use super::MirType;
+use crate::ir::{BackLink, Builder, Child, Link, Op, Owner};
 
-#[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
+#[derive(Builder, Default, Clone, PartialEq, Eq, Debug, Hash)]
+#[enum_wrapper(Op)]
 pub struct Parameter {
     parents: Vec<BackLink<Owner>>,
     pub position: usize,
@@ -15,12 +15,12 @@ pub struct Parameter {
 }
 
 impl Parameter {
-    pub fn create(position: usize, ty: MirType) -> Link<Self> {
-        Self {
+    pub fn create(position: usize, ty: MirType) -> Link<Op> {
+        Op::Parameter(Self {
             parents: Vec::default(),
             position,
             ty,
-        }
+        })
         .into()
     }
 }
@@ -35,17 +35,5 @@ impl Child for Parameter {
     }
     fn remove_parent(&mut self, parent: Link<Self::Parent>) {
         self.parents.retain(|p| *p != parent.clone().into());
-    }
-}
-
-impl Link<Parameter> {
-    pub fn as_leaf(self) -> Link<Leaf> {
-        Leaf::Parameter(self.clone()).into()
-    }
-    pub fn as_op(self) -> Link<Op> {
-        Op::Parameter(self).into()
-    }
-    pub fn as_node(self) -> Link<Node> {
-        Node::Parameter(self).into()
     }
 }

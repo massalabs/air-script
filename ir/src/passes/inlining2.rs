@@ -34,13 +34,11 @@ pub struct CallInliningContext {
 impl CallInliningContext {}
 
 pub struct Inlining<'a> {
-    diagnostics: &'a DiagnosticsHandler
+    diagnostics: &'a DiagnosticsHandler,
 }
 impl<'a> Inlining<'a> {
     pub fn new(diagnostics: &'a DiagnosticsHandler) -> Self {
-        Self {
-            diagnostics
-        }
+        Self { diagnostics }
     }
 }
 
@@ -213,25 +211,22 @@ impl Visitor for InliningFirstPass<'_> {
             .chain(functions.into_iter().map(|f| f.as_node()));
         combined_roots.collect()
     }
-    fn visit_function(&mut self, _graph: &mut Graph, function: Link<crate::ir::Function>) {
+    fn visit_function(&mut self, _graph: &mut Graph, function: Link<Root>) {
         self.func_eval_dependency_graph
-            .insert(function.as_root(), self.current_callees_encountered.clone());
+            .insert(function, self.current_callees_encountered.clone());
         self.current_callees_encountered.clear();
     }
-    fn visit_evaluator(&mut self, _graph: &mut Graph, evaluator: Link<crate::ir::Evaluator>) {
-        self.func_eval_dependency_graph.insert(
-            evaluator.as_root(),
-            self.current_callees_encountered.clone(),
-        );
+    fn visit_evaluator(&mut self, _graph: &mut Graph, evaluator: Link<Root>) {
+        self.func_eval_dependency_graph
+            .insert(evaluator.clone(), self.current_callees_encountered.clone());
         self.current_callees_encountered.clear();
     }
-    fn visit_call(&mut self, _graph: &mut Graph, call: Link<crate::ir::Call>) {
-        let callee = call.borrow().function.clone();
-
+    fn visit_call(&mut self, _graph: &mut Graph, call: Link<Op>) {
+        // safe to unwrap because we just dispatched on it
+        let callee = call.clone();
         if self.in_func_or_eval {
             self.current_callees_encountered.push(callee.clone());
         }
-
         self.func_eval_nodes_where_called
             .entry(callee.clone())
             .and_modify(|v| v.push(call.clone()))
@@ -344,12 +339,12 @@ impl Visitor for InliningSecondPass<'_> {
     }
     fn scan_node(&mut self, _graph: &Graph, node: Link<Node>) {
         self.work_stack().push(node.clone());
-        if let Some(_owner) = node.clone().as_owner() {
+        if let Some(op) = node.clone().as_op() {
             // If we visit a Call, do not visit the children (the call's arguments)
             // TODO INLINING: Check whether we should instead
-            if let Some(_call) = node.clone().as_call() {
+            let Some(_) = op.as_call() else {
                 return;
-            }
+            };
             for child in node.children().borrow().iter() {
                 self.scan_node(_graph, child.clone().as_node());
             }

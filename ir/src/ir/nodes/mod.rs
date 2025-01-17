@@ -1,25 +1,20 @@
-mod accessor;
-mod boundary;
-mod call;
-mod enf;
-mod fold;
-mod matrix;
+mod op;
+mod ops;
+mod root;
 mod roots;
-mod structured_ops;
-mod value;
-mod vector;
 
-pub use accessor::Accessor;
-pub use boundary::Boundary;
-pub use call::Call;
-pub use enf::Enf;
-pub use fold::{Fold, FoldOperator};
-pub use matrix::Matrix;
-pub use roots::Evaluator;
-pub use roots::{Function, Parameter};
-pub use structured_ops::{Add, For, If, Mul, Sub};
-pub use value::{
-    ConstantValue, MirType, MirValue, PeriodicColumnAccess, PublicInputAccess, SpannedMirValue,
-    TraceAccessBinding, Value,
-};
-pub use vector::Vector;
+pub use op::Op;
+pub use ops::*;
+pub use root::Root;
+pub use roots::*;
+use std::cell::{Ref, RefMut};
+pub fn get_inner<T, U>(obj: Ref<T>, getter: impl Fn(&T) -> Option<&U>) -> Option<Ref<U>> {
+    Ref::filter_map(obj, getter).ok()
+}
+
+pub fn get_inner_mut<T, U>(
+    obj: RefMut<T>,
+    getter: impl Fn(&mut T) -> Option<&mut U>,
+) -> Option<RefMut<U>> {
+    RefMut::filter_map(obj, getter).ok()
+}

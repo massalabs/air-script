@@ -1,7 +1,7 @@
 use air_parser::ast::{self, Identifier, QualifiedIdentifier, TraceSegmentId};
 use miden_diagnostics::SourceSpan;
 
-use crate::ir::{BackLink, Builder, Child, Leaf, Link, Node, Op, Owner, TraceAccess};
+use crate::ir::{BackLink, Builder, Child, Link, Op, Owner, TraceAccess};
 
 /// Represents a scalar value in the [MIR]
 ///
@@ -120,30 +120,19 @@ impl Default for SpannedMirValue {
 }
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash, Builder)]
+#[enum_wrapper(Op)]
 pub struct Value {
     pub parents: Vec<BackLink<Owner>>,
     pub value: SpannedMirValue,
 }
 
 impl Value {
-    pub fn create(value: SpannedMirValue) -> Link<Self> {
-        Self {
+    pub fn create(value: SpannedMirValue) -> Link<Op> {
+        Op::Value(Self {
             value,
             ..Default::default()
-        }
+        })
         .into()
-    }
-}
-
-impl Link<Value> {
-    pub fn as_leaf(self) -> Link<Leaf> {
-        Leaf::Value(self).into()
-    }
-    pub fn as_op(self) -> Link<Op> {
-        Op::Value(self).into()
-    }
-    pub fn as_node(self) -> Link<Node> {
-        Node::Value(self).into()
     }
 }
 
@@ -157,29 +146,5 @@ impl Child for Value {
     }
     fn remove_parent(&mut self, parent: Link<Self::Parent>) {
         self.parents.retain(|p| *p != parent.clone().into());
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::ops::Deref;
-
-    use super::*;
-    use crate::ir::{Add, Owner};
-
-    #[test]
-    fn test_value_builder() {
-        let parent = Link::new(Owner::Add(Add::default().into()));
-        let value = Value::builder()
-            .parents(parent.clone())
-            .value(SpannedMirValue::default())
-            .build();
-        assert_eq!(
-            value.borrow().deref(),
-            &Value {
-                parents: vec![parent.into()],
-                value: SpannedMirValue::default()
-            }
-        );
     }
 }

@@ -5,13 +5,11 @@ mod link;
 mod mir;
 mod node;
 mod nodes;
-mod op;
 mod owner;
-mod root;
 mod trace;
 pub extern crate derive_ir;
 
-pub use constraints::ConstraintError;
+pub use constraints::{ConstraintDomain, ConstraintError, ConstraintRoot, Constraints};
 pub use derive_ir::Builder;
 pub use graph::Graph;
 pub use leaf::Leaf;
@@ -19,9 +17,7 @@ pub use link::{BackLink, Link};
 pub use mir::Mir;
 pub use node::Node;
 pub use nodes::*;
-pub use op::Op;
 pub use owner::Owner;
-pub use root::Root;
 pub use trace::TraceAccess;
 
 /// A trait for nodes that can have children
@@ -41,6 +37,19 @@ where
     }
 }
 
+impl<T> Parent for BackLink<T>
+where
+    Link<T>: Parent,
+{
+    type Child = <Link<T> as Parent>::Child;
+    fn children(&self) -> Link<Vec<Link<Self::Child>>> {
+        match self.to_link() {
+            Some(link) => link.children(),
+            None => Link::new(Vec::new()),
+        }
+    }
+}
+
 /// A trait for nodes that can have a parent
 /// This is used with the Parent trait to allow for easy traversal and manipulation of the graph
 pub trait Child: Clone + Into<Link<Self>> + PartialEq {
@@ -48,13 +57,6 @@ pub trait Child: Clone + Into<Link<Self>> + PartialEq {
     fn get_parents(&self) -> Vec<BackLink<Self::Parent>>;
     fn add_parent(&mut self, parent: Link<Self::Parent>);
     fn remove_parent(&mut self, parent: Link<Self::Parent>);
-    /*fn swap_parent(&mut self, old_parent: Link<Self::Parent>, new_parent: Link<Self::Parent>)
-    where
-        Self::Parent: PartialEq + Parent<Child = Self>,
-    {
-        self.remove_parent(old_parent);
-        self.add_parent(new_parent);
-    }*/
 }
 
 impl<T> Child for Link<T>
@@ -72,13 +74,32 @@ where
     fn remove_parent(&mut self, parent: Link<Self::Parent>) {
         self.borrow_mut().remove_parent(parent)
     }
-    /*fn swap_parent(&mut self, old_parent: Link<Self::Parent>, new_parent: Link<Self::Parent>) {
-        self.borrow_mut().swap_parent(old_parent, new_parent)
-    }*/
 }
 
-/// A helper struct used with the Builder trait to indicate that a field has not been set
-pub struct NotSet;
+impl<T> Child for BackLink<T>
+where
+    Link<T>: Child,
+{
+    type Parent = <Link<T> as Child>::Parent;
+    fn get_parents(&self) -> Vec<BackLink<Self::Parent>> {
+        match self.to_link() {
+            Some(link) => link.get_parents(),
+            None => Vec::new(),
+        }
+    }
+    fn add_parent(&mut self, parent: Link<Self::Parent>) {
+        match self.to_link() {
+            Some(ref mut link) => link.add_parent(parent),
+            None => (),
+        }
+    }
+    fn remove_parent(&mut self, parent: Link<Self::Parent>) {
+        match self.to_link() {
+            Some(ref mut link) => link.remove_parent(parent),
+            None => (),
+        }
+    }
+}
 
 /// A trait implemented by all nodes.
 /// Will be derivable later. The implementation and type-safe builder is currently manual while we tweak the design

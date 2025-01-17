@@ -119,7 +119,7 @@ impl<'a> MirBuilder<'a> {
         &mut self,
         ident: &'a ast::QualifiedIdentifier,
         ast_eval: &'a ast::EvaluatorFunction,
-    ) -> Result<Link<Evaluator>, CompileError> {
+    ) -> Result<Link<Root>, CompileError> {
         self._translate_evaluator_known(ident, ast_eval, false)
     }
 
@@ -127,7 +127,7 @@ impl<'a> MirBuilder<'a> {
         &mut self,
         ident: &'a ast::QualifiedIdentifier,
         ast_eval: &'a ast::EvaluatorFunction,
-    ) -> Result<Link<Evaluator>, CompileError> {
+    ) -> Result<Link<Root>, CompileError> {
         self._translate_evaluator_known(ident, ast_eval, true)
     }
 
@@ -136,7 +136,7 @@ impl<'a> MirBuilder<'a> {
         ident: &'a ast::QualifiedIdentifier,
         ast_eval: &'a ast::EvaluatorFunction,
         known_signature: bool,
-    ) -> Result<Link<Evaluator>, CompileError> {
+    ) -> Result<Link<Root>, CompileError> {
         self.bindings.enter();
         self.root_name = Some(ident);
         let mut ev = Evaluator::builder();
@@ -154,21 +154,21 @@ impl<'a> MirBuilder<'a> {
         }
         let ev = ev.build();
         if known_signature {
-            self.translate_body(ident, ev.clone().as_root(), &ast_eval.body)?;
+            self.translate_body(ident, ev.clone(), &ast_eval.body)?;
             let original = self.mir
                 .constraint_graph_mut()
                 .get_evaluator_mut(ident)
                 .unwrap_or_else(|| panic!("missing evaluator signature for {:?}\nuse self.translate_evaluator_signature(ident, ast_eval) before self.translate_evaluator(ident, ast_eval)", ident));
-            if original.borrow().parameters != ev.borrow().parameters {
+            if original.parameters != ev.as_evaluator().unwrap().parameters {
                 panic!(
                     "evaluator parameter mismatch for {:?}\nexpected: {:#?}\nbut got: {:#?}",
                     ident,
-                    original.borrow().parameters,
-                    ev.borrow().parameters
+                    original.parameters,
+                    ev.as_evaluator().unwrap().parameters
                 );
             }
-            let body = ev.borrow().body.borrow().clone();
-            *original.borrow().body.borrow_mut() = body;
+            let body = ev.as_evaluator().unwrap().body.borrow().clone();
+            original.body.borrow_mut().clone_from(&body);
         } else {
             self.mir
                 .constraint_graph_mut()
@@ -182,7 +182,7 @@ impl<'a> MirBuilder<'a> {
         &mut self,
         ident: &'a ast::QualifiedIdentifier,
         ast_func: &'a ast::Function,
-    ) -> Result<Link<Function>, CompileError> {
+    ) -> Result<Link<Root>, CompileError> {
         self._translate_function_known(ident, ast_func, false)
     }
 
@@ -190,7 +190,7 @@ impl<'a> MirBuilder<'a> {
         &mut self,
         ident: &'a ast::QualifiedIdentifier,
         ast_func: &'a ast::Function,
-    ) -> Result<Link<Function>, CompileError> {
+    ) -> Result<Link<Root>, CompileError> {
         self._translate_function_known(ident, ast_func, true)
     }
 
@@ -199,7 +199,7 @@ impl<'a> MirBuilder<'a> {
         ident: &'a ast::QualifiedIdentifier,
         ast_func: &'a ast::Function,
         known_signature: bool,
-    ) -> Result<Link<Function>, CompileError> {
+    ) -> Result<Link<Root>, CompileError> {
         self.bindings.enter();
         self.root_name = Some(ident);
         let mut func = Function::builder();
@@ -213,29 +213,25 @@ impl<'a> MirBuilder<'a> {
         let ret = Parameter::create(i, self.translate_type(&ast_func.return_type));
         let func = func.return_type(ret).build();
         if known_signature {
-            self.translate_body(ident, func.clone().as_root(), &ast_func.body)?;
+            self.translate_body(ident, func.clone(), &ast_func.body)?;
             let original = self.mir
                 .constraint_graph_mut()
                 .get_function_mut(ident).unwrap_or_else(||panic!("missing function signature for {:?}\nuse self.translate_function_signature(ident, ast_func) before self.translate_function(ident, ast_func)", ident));
-            let orig_sig = original.clone().borrow().clone();
-            let new_sig = func.borrow();
+            let orig_sig = original.clone();
+            let new_sig = func.as_function().unwrap();
             if orig_sig.parameters != new_sig.parameters {
                 panic!(
                     "function parameter mismatch for {:?}\nexpected: {:#?}\nbut got: {:#?}",
-                    ident,
-                    original.borrow().deref().parameters,
-                    func.borrow().deref().parameters
+                    ident, original.parameters, new_sig.parameters
                 );
             } else if orig_sig.return_type != new_sig.return_type {
                 panic!(
                     "function return mismatch for {:?}\nexpected: {:#?}\nbut got: {:#?}",
-                    ident,
-                    original.borrow().deref().return_type,
-                    func.borrow().deref().return_type
+                    ident, original.return_type, new_sig.return_type
                 );
             }
-            let body = func.borrow().body.borrow().clone();
-            *original.borrow().body.borrow_mut() = body;
+            let body = new_sig.body.borrow().clone();
+            original.body.borrow_mut().clone_from(&body);
         } else {
             self.mir
                 .constraint_graph_mut()
@@ -251,24 +247,24 @@ impl<'a> MirBuilder<'a> {
         name: Option<&'a ast::Identifier>,
         ty: &ast::Type,
         i: &mut usize,
-    ) -> Result<Vec<Link<Parameter>>, CompileError> {
+    ) -> Result<Vec<Link<Op>>, CompileError> {
         match ty {
             ast::Type::Felt => {
                 let param = Parameter::create(*i, MirType::Felt);
                 *i += 1;
-                self.bindings.insert(name.unwrap(), param.clone().as_op());
+                self.bindings.insert(name.unwrap(), param.clone());
                 Ok(vec![param])
             }
             ast::Type::Vector(size) => {
                 let mut vector = Vector::builder().size(*size);
                 let mut params = Vec::new();
                 for _ in 0..*size {
-                    let param: Link<Parameter> = Parameter::create(*i, MirType::Felt).into();
+                    let param = Parameter::create(*i, MirType::Felt);
                     *i += 1;
-                    vector = vector.elements(param.clone().as_op());
+                    vector = vector.elements(param.clone());
                     params.push(param);
                 }
-                let vector: Link<Op> = vector.build().as_op().into();
+                let vector: Link<Op> = vector.build().into();
                 self.bindings.insert(name.unwrap(), vector.clone());
                 Ok(params)
             }
@@ -281,10 +277,7 @@ impl<'a> MirBuilder<'a> {
                 self.diagnostics
                     .diagnostic(Severity::Bug)
                     .with_message("matrix parameters not supported")
-                    .with_primary_label(
-                        span,
-                        "expected this to be a felt or vector",
-                    )
+                    .with_primary_label(span, "expected this to be a felt or vector")
                     .emit();
                 Err(CompileError::Failed)
             }
@@ -320,10 +313,7 @@ impl<'a> MirBuilder<'a> {
                 self.diagnostics
                     .diagnostic(Severity::Bug)
                     .with_message("matrix parameters not supported")
-                    .with_primary_label(
-                        span,
-                        "expected this to be a felt or vector",
-                    )
+                    .with_primary_label(span, "expected this to be a felt or vector")
                     .emit();
                 Err(CompileError::Failed)
             }
@@ -342,8 +332,8 @@ impl<'a> MirBuilder<'a> {
         for stmt in body {
             let op = self.translate_statement(stmt)?;
             match func.clone().borrow().deref() {
-                Root::Function(f) => f.borrow().body.borrow_mut().push(op.clone()),
-                Root::Evaluator(e) => e.borrow().body.borrow_mut().push(op.clone()),
+                Root::Function(f) => f.body.borrow_mut().push(op.clone()),
+                Root::Evaluator(e) => e.body.borrow_mut().push(op.clone()),
                 Root::None => {
                     unreachable!("expected function or evaluator, got None")
                 }
@@ -416,7 +406,7 @@ impl<'a> MirBuilder<'a> {
         self.bindings.enter();
         for (index, binding) in list_comp.bindings.iter().enumerate() {
             let binding_node =
-                Parameter::create(/*binding.span(), */ index, ast::Type::Felt.into()).as_op();
+                Parameter::create(/*binding.span(), */ index, ast::Type::Felt.into());
             self.bindings.insert(binding, binding_node.into());
         }
 
@@ -433,9 +423,9 @@ impl<'a> MirBuilder<'a> {
         };
         let body_node = self.translate_scalar_expr(&list_comp.body)?;
 
-        let for_node = For::create(iterator_nodes.into(), body_node, selector_node).as_op();
+        let for_node = For::create(iterator_nodes.into(), body_node, selector_node);
 
-        let enf_node: Link<Op> = Enf::create(for_node.into()).as_op().into();
+        let enf_node: Link<Op> = Enf::create(for_node.into());
         let node = self.insert_enforce(enf_node);
         self.bindings.exit();
         node
@@ -445,7 +435,7 @@ impl<'a> MirBuilder<'a> {
         let node_to_add = if let Op::Enf(_) = node.clone().borrow().deref() {
             node
         } else {
-            Enf::builder().expr(node).build().as_op().into()
+            Enf::builder().expr(node).build().into()
         };
         match self.in_boundary {
             true => self
@@ -455,17 +445,10 @@ impl<'a> MirBuilder<'a> {
             false => {
                 match self.root.borrow().deref() {
                     Root::Function(func) => {
-                        func.borrow_mut()
-                            .body
-                            .borrow_mut()
-                            .push(node_to_add.clone());
+                        func.body.borrow_mut().push(node_to_add.clone());
                     }
                     Root::Evaluator(evaluator) => {
-                        evaluator
-                            .borrow_mut()
-                            .body
-                            .borrow_mut()
-                            .push(node_to_add.clone());
+                        evaluator.body.borrow_mut().push(node_to_add.clone());
                     }
                     Root::None => {
                         // Insert in integrity
@@ -503,7 +486,7 @@ impl<'a> MirBuilder<'a> {
             let value_node = self.translate_expr(value)?;
             node = node.elements(value_node);
         }
-        Ok(node.build().as_op().into())
+        Ok(node.build().into())
     }
 
     fn translate_vector_scalar_expr(
@@ -515,7 +498,7 @@ impl<'a> MirBuilder<'a> {
             let value_node = self.translate_scalar_expr(value)?;
             node = node.elements(value_node);
         }
-        Ok(node.build().as_op().into())
+        Ok(node.build().into())
     }
 
     fn translate_matrix(
@@ -524,10 +507,10 @@ impl<'a> MirBuilder<'a> {
     ) -> Result<Link<Op>, CompileError> {
         let mut node = Matrix::builder().size(m.len());
         for row in m.iter() {
-            let row_node = self.translate_vector_scalar_expr(row)?.as_vector().unwrap();
+            let row_node = self.translate_vector_scalar_expr(row)?;
             node = node.elements(row_node);
         }
-        let node = node.build().as_op().into();
+        let node = node.build().into();
         Ok(node)
     }
 
@@ -549,7 +532,6 @@ impl<'a> MirBuilder<'a> {
                             )),
                         })
                         .build()
-                        .as_op()
                         .into();
                     Ok(node)
                 } else {
@@ -583,15 +565,15 @@ impl<'a> MirBuilder<'a> {
         let rhs = self.translate_scalar_expr(&bin_op.rhs)?;
         match bin_op.op {
             ast::BinaryOp::Add => {
-                let node = Add::builder().lhs(lhs).rhs(rhs).build().as_op().into();
+                let node = Add::builder().lhs(lhs).rhs(rhs).build().into();
                 Ok(node)
             }
             ast::BinaryOp::Sub => {
-                let node = Sub::builder().lhs(lhs).rhs(rhs).build().as_op().into();
+                let node = Sub::builder().lhs(lhs).rhs(rhs).build().into();
                 Ok(node)
             }
             ast::BinaryOp::Mul => {
-                let node = Mul::builder().lhs(lhs).rhs(rhs).build().as_op().into();
+                let node = Mul::builder().lhs(lhs).rhs(rhs).build().into();
                 Ok(node)
             }
             ast::BinaryOp::Exp => {
@@ -605,8 +587,8 @@ impl<'a> MirBuilder<'a> {
                 self.expand_exp(lhs, rhs.item)
             }
             ast::BinaryOp::Eq => {
-                let sub_node = Sub::builder().lhs(lhs).rhs(rhs).build().as_op().into();
-                Ok(Enf::builder().expr(sub_node).build().as_op().into())
+                let sub_node = Sub::builder().lhs(lhs).rhs(rhs).build().into();
+                Ok(Enf::builder().expr(sub_node).build().into())
             }
         }
     }
@@ -627,7 +609,6 @@ impl<'a> MirBuilder<'a> {
                         .operator(FoldOperator::Add)
                         .initial_value(accumulator_node)
                         .build()
-                        .as_op()
                         .into();
                     Ok(node)
                 }
@@ -640,7 +621,6 @@ impl<'a> MirBuilder<'a> {
                         .operator(FoldOperator::Mul)
                         .initial_value(accumulator_node)
                         .build()
-                        .as_op()
                         .into();
                     Ok(node)
                 }
@@ -652,52 +632,69 @@ impl<'a> MirBuilder<'a> {
             // Get the known callee in the functions hashmap
             // Then, get the node index of the function definition
             let callee_node;
-            if let Some(callee) = self.mir.constraint_graph().get_function(&resolved_callee).cloned() {
-                callee_node = callee.clone().as_root();
-                arg_nodes = Vec::new();
-                for arg in call.args.iter() {
-                    let arg_node = self.translate_expr(arg)?;
-                    arg_nodes.push(arg_node);
-                }
-                if callee.borrow().parameters.len() != arg_nodes.len() {
+            if let Some(callee) = self.mir.constraint_graph().get_function(&resolved_callee) {
+                callee_node = callee.clone();
+                arg_nodes = call
+                    .args
+                    .iter()
+                    .map(|arg| self.translate_expr(arg).unwrap())
+                    .collect();
+                // safe to unwrap because we know it is a Function due to get_function
+                let callee_ref = callee.as_function().unwrap();
+                if callee_ref.parameters.len() != arg_nodes.len() {
                     self.diagnostics
                         .diagnostic(Severity::Error)
                         .with_message("argument count mismatch")
                         .with_primary_label(
                             call.span(),
-                            format!("expected call to have {} arguments, but got {}", 
-                            callee.borrow().parameters.len(), arg_nodes.len())
+                            format!(
+                                "expected call to have {} arguments, but got {}",
+                                callee_ref.parameters.len(),
+                                arg_nodes.len()
+                            ),
                         )
                         .with_secondary_label(
                             call.callee.span(),
-                            format!("this functions has {} parameters", callee.borrow().parameters.len())
+                            format!(
+                                "this functions has {} parameters",
+                                callee_ref.parameters.len()
+                            ),
                         )
                         .emit();
                     return Err(CompileError::Failed);
                 }
-            } else if let Some(callee) = self.mir.constraint_graph().get_evaluator(&resolved_callee).cloned() {
+            } else if let Some(callee) = self.mir.constraint_graph().get_evaluator(&resolved_callee)
+            {
                 // TRANSLATE TODO:
                 // - For Evaluators, we need to:
                 // - differentiate between trace segments
                 // - unpack arguments for each trace segment (entirely flatten)
-                callee_node = callee.clone().as_root();
+                callee_node = callee.clone();
                 arg_nodes = Vec::new();
                 for arg in call.args.iter() {
                     let arg_node = self.translate_expr(arg)?;
                     arg_nodes.push(arg_node);
                 }
-                if callee.borrow().parameters.len() != arg_nodes.len() {
+                // safe to unwrap because we know it is an Evaluator due to get_evaluator
+                let callee_ref = callee.as_evaluator().unwrap();
+                if callee_ref.parameters.len() != arg_nodes.len() {
                     self.diagnostics
                         .diagnostic(Severity::Error)
                         .with_message("argument count mismatch")
                         .with_primary_label(
                             call.span(),
-                            format!("expected call to have {} arguments, but got {}", 
-                            callee.borrow().parameters.len(), arg_nodes.len())
+                            format!(
+                                "expected call to have {} arguments, but got {}",
+                                callee_ref.parameters.len(),
+                                arg_nodes.len()
+                            ),
                         )
                         .with_secondary_label(
                             call.callee.span(),
-                            format!("this functions has {} parameters", callee.borrow().parameters.len())
+                            format!(
+                                "this functions has {} parameters",
+                                callee_ref.parameters.len()
+                            ),
                         )
                         .emit();
                     return Err(CompileError::Failed);
@@ -709,7 +706,7 @@ impl<'a> MirBuilder<'a> {
             for arg in arg_nodes {
                 call_node = call_node.arguments(arg);
             }
-            let call_node = call_node.build().as_op().into();
+            let call_node = call_node.build().into();
             Ok(call_node)
         }
     }
@@ -721,7 +718,7 @@ impl<'a> MirBuilder<'a> {
         self.bindings.enter();
         for (index, binding) in list_comp.bindings.iter().enumerate() {
             let binding_node =
-                Parameter::create(/*binding.span(), */ index, ast::Type::Felt.into()).as_op();
+                Parameter::create(/*binding.span(), */ index, ast::Type::Felt.into());
             self.bindings.insert(binding, binding_node.into());
         }
 
@@ -738,9 +735,7 @@ impl<'a> MirBuilder<'a> {
         };
         let body_node = self.translate_scalar_expr(&list_comp.body)?;
 
-        let for_node = For::create(iterator_nodes, body_node, selector_node)
-            .as_op()
-            .into();
+        let for_node = For::create(iterator_nodes, body_node, selector_node).into();
 
         self.bindings.exit();
         Ok(for_node)
@@ -765,7 +760,7 @@ impl<'a> MirBuilder<'a> {
             value: MirValue::Constant(ConstantValue::Felt(c)),
             span: Default::default(),
         };
-        let node = Value::builder().value(value).build().as_op().into();
+        let node = Value::builder().value(value).build().into();
         Ok(node)
     }
 
@@ -778,7 +773,6 @@ impl<'a> MirBuilder<'a> {
             .kind(access.boundary)
             .expr(access_node)
             .build()
-            .as_op()
             .into();
         Ok(node)
     }
@@ -797,19 +791,16 @@ impl<'a> MirBuilder<'a> {
             let value_node = self.translate_scalar_const(*value)?;
             node = node.elements(value_node);
         }
-        Ok(node.build().as_op().into())
+        Ok(node.build().into())
     }
 
     fn translate_matrix_const(&mut self, m: Vec<Vec<u64>>) -> Result<Link<Op>, CompileError> {
         let mut node = Matrix::builder().size(m.len());
         for row in m.iter() {
-            let row_node = self
-                .translate_vector_const(row.clone())?
-                .as_vector()
-                .unwrap();
+            let row_node = self.translate_vector_const(row.clone())?;
             node = node.elements(row_node);
         }
-        let node = node.build().as_op().into();
+        let node = node.build().into();
         Ok(node)
     }
 
@@ -828,7 +819,6 @@ impl<'a> MirBuilder<'a> {
                         value: MirValue::RandomValue(rv),
                     })
                     .build()
-                    .as_op()
                     .into());
             }
 
@@ -839,7 +829,6 @@ impl<'a> MirBuilder<'a> {
                         value: MirValue::TraceAccessBinding(tab),
                     })
                     .build()
-                    .as_op()
                     .into());
             }
 
@@ -851,7 +840,6 @@ impl<'a> MirBuilder<'a> {
                         value: MirValue::TraceAccess(ta),
                     })
                     .build()
-                    .as_op()
                     .into());
             }
 
@@ -871,7 +859,6 @@ impl<'a> MirBuilder<'a> {
                     value: MirValue::TraceAccessBinding(tab),
                 })
                 .build()
-                .as_op()
                 .into());
         }
 
@@ -882,7 +869,6 @@ impl<'a> MirBuilder<'a> {
                     value: MirValue::TraceAccess(trace_access),
                 })
                 .build()
-                .as_op()
                 .into());
         }
 
@@ -893,7 +879,6 @@ impl<'a> MirBuilder<'a> {
                     value: MirValue::RandomValue(random_value),
                 })
                 .build()
-                .as_op()
                 .into());
         }
 
@@ -904,7 +889,6 @@ impl<'a> MirBuilder<'a> {
                     value: MirValue::PublicInput(public_input),
                 })
                 .build()
-                .as_op()
                 .into());
         }
 
@@ -918,9 +902,7 @@ impl<'a> MirBuilder<'a> {
             AccessType::Default => return Ok(let_bound_access_expr),
             _ => {
                 let accessor: Link<Op> =
-                    Accessor::create(let_bound_access_expr, access.access_type.clone())
-                        .as_op()
-                        .into();
+                    Accessor::create(let_bound_access_expr, access.access_type.clone()).into();
                 Ok(accessor)
             }
         }
@@ -1049,21 +1031,16 @@ impl<'a> MirBuilder<'a> {
             n if n % 2 == 0 => {
                 let new_lhs = duplicate_node(lhs.clone());
                 let new_rhs = duplicate_node(lhs.clone());
-                let square = Mul::create(new_lhs, new_rhs).as_op().into();
+                let square = Mul::create(new_lhs, new_rhs).into();
                 self.expand_exp(square, n / 2)
             }
             n => {
                 let new_lhs = duplicate_node(lhs.clone());
                 let new_rhs = duplicate_node(lhs.clone());
                 let new_lhs_clone = duplicate_node(lhs.clone());
-                let square = Mul::create(new_lhs, new_rhs).as_op().into();
+                let square = Mul::create(new_lhs, new_rhs).into();
                 let rec: Link<Op> = self.expand_exp(square, (n - 1) / 2)?;
-                let node = Mul::builder()
-                    .lhs(new_lhs_clone)
-                    .rhs(rec)
-                    .build()
-                    .as_op()
-                    .into();
+                let node = Mul::builder().lhs(new_lhs_clone).rhs(rec).build().into();
                 Ok(node)
             }
         }

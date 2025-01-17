@@ -1,10 +1,9 @@
+use crate::ir::{BackLink, Builder, Child, Link, Op, Owner, Parent};
+use air_parser::ast::{AccessType, RangeBound, Type};
 use std::{any::Any, hash::Hash};
 
-use air_parser::ast::{AccessType, RangeBound, Type};
-
-use crate::ir::{BackLink, Builder, Child, Link, Node, Op, Owner, Parent};
-
 #[derive(Clone, PartialEq, Eq, Debug, Builder)]
+#[enum_wrapper(Op)]
 pub struct Accessor {
     pub parents: Vec<BackLink<Owner>>,
     pub indexable: Link<Op>,
@@ -65,25 +64,13 @@ impl Hash for Accessor {
 }
 
 impl Accessor {
-    pub fn create(indexable: Link<Op>, access_type: AccessType) -> Link<Self> {
-        Self {
+    pub fn create(indexable: Link<Op>, access_type: AccessType) -> Link<Op> {
+        Op::Accessor(Self {
             access_type,
             indexable,
             ..Default::default()
-        }
+        })
         .into()
-    }
-}
-
-impl Link<Accessor> {
-    pub fn as_op(self) -> Link<Op> {
-        Op::Accessor(self).into()
-    }
-    pub fn as_owner(self) -> Link<Owner> {
-        Owner::Accessor(self).into()
-    }
-    pub fn as_node(self) -> Link<Node> {
-        Node::Accessor(self).into()
     }
 }
 
@@ -104,34 +91,5 @@ impl Child for Accessor {
     }
     fn remove_parent(&mut self, parent: Link<Self::Parent>) {
         self.parents.retain(|p| *p != parent.clone().into());
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::ops::Deref;
-
-    use super::*;
-
-    #[test]
-    fn test_accessor_builder() {
-        let parent = Link::new(Owner::default());
-        let indexable = Link::new(Op::default());
-        let access_type = AccessType::Default;
-
-        let accessor = Accessor::builder()
-            .parents(parent.clone())
-            .indexable(indexable.clone())
-            .access_type(access_type.clone())
-            .build();
-
-        assert_eq!(
-            accessor.borrow().deref(),
-            &Accessor {
-                parents: vec![parent.into()],
-                indexable,
-                access_type
-            }
-        );
     }
 }
