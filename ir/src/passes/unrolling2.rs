@@ -354,7 +354,7 @@ impl Visitor for UnrollingFirstPass<'_> {
         Ok(())
     }
 
-    fn visit_if(&mut self, _graph: &mut Graph, if_node: Link<Op>) -> Result<(), CompileError> {
+    /*fn visit_if_old(&mut self, _graph: &mut Graph, if_node: Link<Op>) -> Result<(), CompileError> {
         let if_ref = if_node.as_if().unwrap();
         let condition = if_ref.condition.clone();
         let then_branch = if_ref.then_branch.clone();
@@ -392,6 +392,48 @@ impl Visitor for UnrollingFirstPass<'_> {
                     Vector::create(new_vec).as_node().borrow().clone();
             }
         };
+
+        Ok(())
+    }*/
+
+    fn visit_if(&mut self, _graph: &mut Graph, if_node: Link<Op>) -> Result<(), CompileError> {
+        let if_ref = if_node.as_if().unwrap();
+        let condition = if_ref.condition.clone();
+        let then_branch = if_ref.then_branch.clone();
+        let else_branch = if_ref.else_branch.clone();
+        
+        let mut new_vec = vec![];
+
+        if let Op::Vector(then_branch_vector) = then_branch.clone().borrow().deref() {
+            let then_branch_vec = then_branch_vector.children().borrow().deref().clone();
+
+            for then_branch in then_branch_vec {
+                let new_node = Mul::create(condition.clone(), then_branch);
+                new_vec.push(new_node);
+            }
+        } else {
+            let new_node = Mul::create(condition.clone(), then_branch);
+            new_vec.push(new_node);
+        }
+        
+        let one_constant = SpannedMirValue {
+            span: Default::default(),
+            value: MirValue::Constant(ConstantValue::Felt(1)),
+        };
+
+        if let Op::Vector(else_branch_vector) = else_branch.clone().borrow().deref() {
+            let else_branch_vec = else_branch_vector.children().borrow().deref().clone();
+
+            for else_branch in else_branch_vec {
+                let new_node = Mul::create(Sub::create(Value::create(one_constant.clone()), condition.clone()), else_branch);
+                new_vec.push(new_node);
+            }
+        } else {
+            let new_node = Mul::create(Sub::create(Value::create(one_constant.clone()), condition.clone()), else_branch);
+            new_vec.push(new_node);
+        }
+        
+        *if_node.as_node().borrow_mut() = Vector::create(new_vec).as_node().borrow().clone();
 
         Ok(())
     }
