@@ -35,8 +35,7 @@ use std::ops::Deref;
 use air_pass::Pass;
 
 use crate::ir::{
-    Accessor, Add, Boundary, Call, Enf, Fold, For, If, Link, Matrix, Mul, Op, Parameter, Parent,
-    Sub, Value, Vector,
+    Accessor, Add, Boundary, Call, Enf, Fold, For, If, Link, Matrix, Mul, Node, Op, Parameter, Parent, Sub, Value, Vector
 };
 
 pub struct DumpAst;
@@ -187,6 +186,7 @@ pub fn duplicate_node_or_replace(
     current_replace_map: &mut HashMap<Link<Op>, Link<Op>>,
     node: Link<Op>,
     replace_parameter_list: Vec<Link<Op>>,
+    ref_node: Link<Node>,
 ) {
     match node.borrow().deref() {
         Op::Enf(enf) => {
@@ -323,8 +323,13 @@ pub fn duplicate_node_or_replace(
             current_replace_map.insert(node.clone(), new_node);
         }
         Op::Parameter(parameter) => {
-            let new_node = replace_parameter_list[parameter.position.clone()].clone();
-            current_replace_map.insert(node.clone(), new_node);
+            // Only replace the parameter if it is one we are looking for
+            if parameter.ref_node == ref_node {
+                let new_node = replace_parameter_list[parameter.position.clone()].clone();
+                current_replace_map.insert(node.clone(), new_node);
+            } else {
+                current_replace_map.insert(node.clone(), node.clone());
+            }
         }
         Op::Value(value) => {
             let new_node = Value::create(value.value.clone());

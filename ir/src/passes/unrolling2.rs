@@ -24,6 +24,7 @@ pub struct ForInliningContext {
     body: Link<Op>,
     iterators: Vec<Link<Op>>,
     selector: Option<Link<Op>>,
+    ref_node: Link<Node>,
 }
 
 impl ForInliningContext {}
@@ -531,6 +532,7 @@ impl Visitor for UnrollingFirstPass<'_> {
                     body: expr.clone(),
                     iterators: iterators_i,
                     selector,
+                    ref_node: for_node.clone().as_node(),
                 },
             ));
         }
@@ -632,6 +634,7 @@ impl Visitor for UnrollingSecondPass<'_> {
                 &mut self.nodes_to_replace,
                 op,
                 self.for_inlining_context.clone().unwrap().iterators.clone(),
+                self.for_inlining_context.clone().unwrap().ref_node
             );
         } else {
             unreachable!(

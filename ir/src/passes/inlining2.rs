@@ -30,6 +30,7 @@ pub struct CallInliningContext {
     body: Link<Vec<Link<Op>>>,
     arguments: Link<Vec<Link<Op>>>,
     pure_function: bool,
+    ref_node: Link<Node>,
 }
 impl CallInliningContext {}
 
@@ -282,6 +283,7 @@ impl Visitor for InliningSecondPass<'_> {
                     body,
                     arguments,
                     pure_function,
+                    ref_node: callee.as_node(),
                 };
 
                 println!("SET NEW CONTEXT: {:?}", context);
@@ -419,6 +421,10 @@ impl Visitor for InliningSecondPass<'_> {
                         .arguments
                         .borrow()
                         .clone(),
+                    self.call_inlining_context
+                        .clone()
+                        .unwrap()
+                        .ref_node
                 );
             } else {
                 // We unpack the arguments for all trace_segments first
@@ -442,7 +448,11 @@ impl Visitor for InliningSecondPass<'_> {
                 duplicate_node_or_replace(
                     &mut self.nodes_to_replace,
                     call_op,
-                    args_unpacked
+                    args_unpacked,
+                    self.call_inlining_context
+                        .clone()
+                        .unwrap()
+                        .ref_node
                 );
             }
 
