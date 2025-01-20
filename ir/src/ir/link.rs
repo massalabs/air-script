@@ -22,6 +22,12 @@ impl<T> Link<T> {
     pub fn borrow_mut(&self) -> std::cell::RefMut<T> {
         self.link.borrow_mut()
     }
+    pub fn update(&self, other: &Self)
+    where
+        T: Clone,
+    {
+        *self.borrow_mut() = other.borrow().clone();
+    }
 }
 
 impl<T: Debug> Debug for Link<T> {
@@ -78,14 +84,24 @@ impl<T> From<Rc<RefCell<T>>> for Link<T> {
     }
 }
 
-#[derive(Default)]
 pub struct BackLink<T> {
-    pub link: Weak<RefCell<T>>,
+    pub link: Option<Weak<RefCell<T>>>,
 }
 
 impl<T> BackLink<T> {
+    pub fn none() -> Self {
+        Self { link: None }
+    }
     pub fn to_link(&self) -> Option<Link<T>> {
-        self.link.upgrade().map(|link| Link { link })
+        self.link.as_ref().map(|link| Link {
+            link: link.upgrade().unwrap(),
+        })
+    }
+}
+
+impl<T> Default for BackLink<T> {
+    fn default() -> Self {
+        Self { link: None }
     }
 }
 
@@ -115,7 +131,7 @@ impl<T> Eq for BackLink<T> {}
 impl<T> From<Link<T>> for BackLink<T> {
     fn from(parent: Link<T>) -> Self {
         Self {
-            link: Rc::downgrade(&parent.link),
+            link: Some(Rc::downgrade(&parent.link)),
         }
     }
 }
@@ -132,11 +148,11 @@ where
 impl<T> From<Rc<RefCell<T>>> for BackLink<T> {
     fn from(parent: Rc<RefCell<T>>) -> Self {
         Self {
-            link: Rc::downgrade(&parent),
+            link: Some(Rc::downgrade(&parent)),
         }
     }
 }
 
 impl<T> Hash for BackLink<T> {
-    fn hash<H: std::hash::Hasher>(&self, _state: &mut H) {}
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {}
 }
