@@ -360,7 +360,7 @@ impl Visitor for InliningSecondPass<'_> {
         if let Some(op) = node.clone().as_op() {
             // If we visit a Call, do not visit the children (the call's arguments)
             // TODO INLINING: Check whether we should instead
-            if let Some(_) = op.as_call() {
+            if op.as_call().is_some() {
                 return Ok(());
             };
             for child in node.children().borrow().iter() {
@@ -415,7 +415,7 @@ impl Visitor for InliningSecondPass<'_> {
                 node
             )
         });
-        if let Some(_) = call_op.clone().as_call() {
+        if call_op.clone().as_call().is_some() {
             self.visit_call(graph, call_op.clone())?;
         } else {
             println!(" ");

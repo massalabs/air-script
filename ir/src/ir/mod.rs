@@ -88,15 +88,13 @@ where
         }
     }
     fn add_parent(&mut self, parent: Link<Self::Parent>) {
-        match self.to_link() {
-            Some(ref mut link) => link.add_parent(parent),
-            None => (),
+        if let Some(ref mut link) = self.to_link() {
+            link.add_parent(parent)
         }
     }
     fn remove_parent(&mut self, parent: Link<Self::Parent>) {
-        match self.to_link() {
-            Some(ref mut link) => link.remove_parent(parent),
-            None => (),
+        if let Some(ref mut link) = self.to_link() {
+            link.remove_parent(parent)
         }
     }
 }

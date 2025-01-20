@@ -509,7 +509,7 @@ impl<'a> MirBuilder<'a> {
         self.translate_const(&const_expr)
     }
 
-    fn translate_vector_expr(&mut self, v: &'a Vec<ast::Expr>) -> Result<Link<Op>, CompileError> {
+    fn translate_vector_expr(&mut self, v: &'a [ast::Expr]) -> Result<Link<Op>, CompileError> {
         let mut node = Vector::builder().size(v.len());
         for value in v.iter() {
             let value_node = self.translate_expr(value)?;
