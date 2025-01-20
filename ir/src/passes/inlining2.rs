@@ -1,5 +1,5 @@
 use core::panic;
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::Deref};
 
 use air_pass::Pass;
 use miden_diagnostics::DiagnosticsHandler;
@@ -408,16 +408,44 @@ impl Visitor for InliningSecondPass<'_> {
         if let Some(_) = call_op.clone().as_call() {
             self.visit_call(graph, call_op.clone());
         } else {
-            duplicate_node_or_replace(
-                &mut self.nodes_to_replace,
-                call_op,
-                self.call_inlining_context
+
+            if self.call_inlining_context.clone().unwrap().pure_function {
+                duplicate_node_or_replace(
+                    &mut self.nodes_to_replace,
+                    call_op,
+                    self.call_inlining_context
+                        .clone()
+                        .unwrap()
+                        .arguments
+                        .borrow()
+                        .clone(),
+                );
+            } else {
+                // We unpack the arguments for all trace_segments first
+                let args = self.call_inlining_context
                     .clone()
                     .unwrap()
                     .arguments
                     .borrow()
-                    .clone(),
-            );
+                    .clone();
+                let mut args_unpacked = Vec::new();
+                for args_for_trace_segment in args.iter() {
+                    let Some(trace_segment_vec) = args_for_trace_segment.as_vector() else {
+                        unreachable!("Arguments of a Call node to Evaluator should be a Vectors for each trace segment");
+                    };
+                    let children = trace_segment_vec.children();
+                    for arg in children.borrow().deref() {
+                        args_unpacked.push(arg.clone());
+                    }
+                }
+
+                duplicate_node_or_replace(
+                    &mut self.nodes_to_replace,
+                    call_op,
+                    args_unpacked
+                );
+            }
+
         }
     }
 }
