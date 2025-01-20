@@ -101,7 +101,7 @@ pub fn duplicate_node(node: Link<Op>) -> Link<Op> {
                 .borrow()
                 .iter()
                 .cloned()
-                .map(|iterator| duplicate_node(iterator))
+                .map(duplicate_node)
                 .collect::<Vec<_>>()
                 .into();
             let new_body = duplicate_node(body);
@@ -115,9 +115,8 @@ pub fn duplicate_node(node: Link<Op>) -> Link<Op> {
                 .borrow()
                 .iter()
                 .cloned()
-                .map(|argument| duplicate_node(argument))
-                .collect::<Vec<_>>()
-                .into();
+                .map(duplicate_node)
+                .collect::<Vec<_>>();
             Call::create(function, new_arguments)
         }
         Op::Fold(fold) => {
@@ -135,7 +134,7 @@ pub fn duplicate_node(node: Link<Op>) -> Link<Op> {
             let new_children = children
                 .iter()
                 .cloned()
-                .map(|child| duplicate_node(child))
+                .map(duplicate_node)
                 .collect();
             Vector::create(new_children)
         }
@@ -148,7 +147,7 @@ pub fn duplicate_node(node: Link<Op>) -> Link<Op> {
                 let row_children_link = row
                     .clone()
                     .as_vector()
-                    .expect(format!("expected Vector, found {:?}", row).as_str())
+                    .unwrap_or_else(|| panic!("expected Vector, found {:?}", row))
                     .children()
                     .clone();
                 let row_children_ref = row_children_link.borrow();
@@ -156,10 +155,9 @@ pub fn duplicate_node(node: Link<Op>) -> Link<Op> {
                 let new_row_as_vec = row_children
                     .iter()
                     .cloned()
-                    .map(|child| duplicate_node(child))
-                    .collect::<Vec<_>>()
-                    .into();
-                let new_row = Vector::create(new_row_as_vec).into();
+                    .map(duplicate_node)
+                    .collect::<Vec<_>>();
+                let new_row = Vector::create(new_row_as_vec);
                 new_matrix.push(new_row);
             }
             Matrix::create(new_matrix)
@@ -263,8 +261,7 @@ pub fn duplicate_node_or_replace(
                 .iter()
                 .cloned()
                 .map(|argument| current_replace_map.get(&argument).unwrap().clone())
-                .collect::<Vec<_>>()
-                .into();
+                .collect::<Vec<_>>();
             let new_node = Call::create(function, new_arguments);
             current_replace_map.insert(node.clone(), new_node);
         }
@@ -298,7 +295,7 @@ pub fn duplicate_node_or_replace(
                 let row_children_link = row
                     .clone()
                     .as_vector()
-                    .expect(format!("expected Vector, found {:?}", row).as_str())
+                    .unwrap_or_else(|| panic!("expected Vector, found {:?}", row))
                     .children()
                     .clone();
                 let row_children_ref = row_children_link.borrow();
@@ -307,9 +304,8 @@ pub fn duplicate_node_or_replace(
                     .iter()
                     .cloned()
                     .map(|child| current_replace_map.get(&child).unwrap().clone())
-                    .collect::<Vec<_>>()
-                    .into();
-                let new_row = Vector::create(new_row_as_vec).into();
+                    .collect::<Vec<_>>();
+                let new_row = Vector::create(new_row_as_vec);
                 new_matrix.push(new_row);
             }
             let new_node = Matrix::create(new_matrix);
@@ -325,7 +321,7 @@ pub fn duplicate_node_or_replace(
         Op::Parameter(parameter) => {
             // Only replace the parameter if it is one we are looking for
             if parameter.ref_node == ref_node {
-                let new_node = replace_parameter_list[parameter.position.clone()].clone();
+                let new_node = replace_parameter_list[parameter.position].clone();
                 current_replace_map.insert(node.clone(), new_node);
             } else {
                 current_replace_map.insert(node.clone(), node.clone());

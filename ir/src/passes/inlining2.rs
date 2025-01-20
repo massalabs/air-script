@@ -109,10 +109,9 @@ impl Pass for Inlining<'_> {
     fn run<'a>(&mut self, mut ir: Self::Input<'a>) -> Result<Self::Output<'a>, Self::Error> {
         let mut first_pass = InliningFirstPass::new(self.diagnostics);
 
-        println!("****************************");
+        /*println!("****************************");
         println!("Starting first INLINING pass");
-        println!("****************************");
-        println!("");
+        println!("****************************");*/
 
         // The first pass only identifies the call graph dependencies and the needed calls to inline
         Visitor::run(&mut first_pass, ir.constraint_graph_mut())?;
@@ -122,9 +121,7 @@ impl Pass for Inlining<'_> {
             first_pass.func_eval_dependency_graph.clone(),
         )?;
 
-        println!("");
-        println!("func_eval_inlining_order: {:?}", func_eval_inlining_order);
-        println!("");
+        //println!("func_eval_inlining_order: {:?}", func_eval_inlining_order);
 
         let mut second_pass = InliningSecondPass::new(
             self.diagnostics,
@@ -132,10 +129,9 @@ impl Pass for Inlining<'_> {
             first_pass.func_eval_nodes_where_called.clone(),
         );
 
-        println!("****************************");
+        /*println!("****************************");
         println!("Starting second INLINING pass");
-        println!("****************************");
-        println!("");
+        println!("****************************");*/
 
         // The second pass actually inlines the calls
         Visitor::run(&mut second_pass, ir.constraint_graph_mut())?;
@@ -143,8 +139,8 @@ impl Pass for Inlining<'_> {
     }
 }
 
-fn create_inlining_order<'a>(
-    diagnostics: &'a DiagnosticsHandler,
+fn create_inlining_order(
+    diagnostics: &DiagnosticsHandler,
     mut func_eval_dependency_graph: HashMap<Link<Root>, Vec<Link<Root>>>,
 ) -> Result<Vec<Link<Root>>, CompileError> {
     let mut func_eval_inlining_order = Vec::new();
@@ -270,17 +266,16 @@ impl Visitor for InliningSecondPass<'_> {
             if let Some(nodes_with_context) = self.func_eval_nodes_where_called.get(callee) {
                 callee_nodes_to_inline_in_order.extend(
                     nodes_with_context
-                        .into_iter()
+                        .iter()
                         .map(|call| call.clone().as_node()),
                 );
             }
         }
-        return callee_nodes_to_inline_in_order;
+        callee_nodes_to_inline_in_order
     }
     fn run(&mut self, graph: &mut Graph) -> Result<(), CompileError> {
         for (idx, root_node) in self.root_nodes_to_visit(graph).iter().enumerate() {
-            println!("Visiting root node: {idx} - {:?}", root_node);
-            println!("");
+            //println!("Visiting root node: {idx} - {:?}", root_node);
 
             if let Some(op) = root_node.as_op() {
                 // Set context for inlining this call
@@ -307,8 +302,7 @@ impl Visitor for InliningSecondPass<'_> {
                     ref_node: callee.as_node(),
                 };
 
-                println!("SET NEW CONTEXT: {:?}", context);
-                println!("");
+                //println!("SET NEW CONTEXT: {:?}", context);
 
                 self.call_inlining_context = Some(context.clone());
                 self.nodes_to_replace.clear();
@@ -340,8 +334,7 @@ impl Visitor for InliningSecondPass<'_> {
 
                     *root_node.borrow_mut() = new_node.as_node().borrow().clone();
 
-                    println!("Updated call node: {:?}", root_node);
-                    println!("");
+                    //println!("Updated call node: {:?}", root_node);
                 } else {
                     // We have finished inlining the body, we can now replace the Call node with all the body
                     let mut new_nodes = Vec::new();
@@ -350,15 +343,13 @@ impl Visitor for InliningSecondPass<'_> {
                         // Depends if additional nodes change things (e.g. the Vector size..)
                         // For now I think we can keep all nodes, and just ignore the non-Enf nodes
                         // When building the constraints during lowering Mir -> Air
-                        new_nodes.push(self.nodes_to_replace.get(&body_node).unwrap().clone());
+                        new_nodes.push(self.nodes_to_replace.get(body_node).unwrap().clone());
                     }
                     let new_nodes_vector = Vector::create(new_nodes);
 
                     *root_node.clone().borrow_mut() = new_nodes_vector.as_node().borrow().clone();
 
-                    println!("");
-                    println!("Updated call node: {:?}", root_node);
-                    println!("");
+                    //println!("Updated call node: {:?}", root_node);
                 }
 
                 // Reset context to None
@@ -390,15 +381,12 @@ impl Visitor for InliningSecondPass<'_> {
             // Instead of scanning all the body, we only scan the last node,
             // which represents the return value of the function
 
-            println!("    Visiting call node: {:?}", _call);
-            println!("");
+            /*println!("    Visiting call node: {:?}", _call);
             println!("    Context in visit_call: {:?}", context.clone());
-            println!("");
             println!(
                 "    Scaning body: {:?}",
                 context.body.borrow().last().unwrap().clone().as_node()
-            );
-            println!("");
+            );*/
 
             self.scan_node(
                 _graph,
@@ -424,13 +412,8 @@ impl Visitor for InliningSecondPass<'_> {
         // First, check if it's a known Call to inline,
         // if so, set the context and visit the body
 
-        let call_op = node.clone().as_op().expect(
-            format!(
-                "InliningSecondPass::visit_node on a non-Op node: {:?}",
-                node
-            )
-            .as_str(),
-        );
+        let call_op = node.clone().as_op().unwrap_or_else(|| panic!("InliningSecondPass::visit_node on a non-Op node: {:?}",
+                node));
         if let Some(_) = call_op.clone().as_call() {
             self.visit_call(graph, call_op.clone())?;
         } else {
@@ -552,8 +535,8 @@ impl Visitor for InliningSecondPass<'_> {
                                             value: MirValue::TraceAccessBinding(
                                                 TraceAccessBinding {
                                                     size: 1,
-                                                    segment: tab.segment.clone(),
-                                                    offset: tab.offset.clone() + index,
+                                                    segment: tab.segment,
+                                                    offset: tab.offset + index,
                                                 },
                                             ),
                                             span: *span,

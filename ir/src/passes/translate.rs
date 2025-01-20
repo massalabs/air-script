@@ -168,7 +168,7 @@ impl<'a> MirBuilder<'a> {
         set_all_ref_nodes(all_params_flatten.clone(), ev.as_node());
 
         println!("all_params_flatten: {:#?}", all_params_flatten);
-        println!("");
+        println!();
 
         if known_signature {
             self.translate_body(ident, ev.clone(), &ast_eval.body)?;
@@ -289,7 +289,7 @@ impl<'a> MirBuilder<'a> {
                     vector = vector.elements(param.clone());
                     params.push(param);
                 }
-                let vector: Link<Op> = vector.build().into();
+                let vector: Link<Op> = vector.build();
                 self.bindings.insert(name.unwrap(), vector.clone());
                 Ok(params)
             }
@@ -435,7 +435,7 @@ impl<'a> MirBuilder<'a> {
             let binding_node =
                 Parameter::create(/*binding.span(), */ index, ast::Type::Felt.into());
             params.push(binding_node.clone());
-            self.bindings.insert(binding, binding_node.into());
+            self.bindings.insert(binding, binding_node);
         }
 
         let mut iterator_nodes: Vec<Link<Op>> = Vec::new();
@@ -454,7 +454,7 @@ impl<'a> MirBuilder<'a> {
         let for_node = For::create(iterator_nodes.into(), body_node, selector_node);
         set_all_ref_nodes(params, for_node.as_node());
 
-        let enf_node: Link<Op> = Enf::create(for_node.into());
+        let enf_node: Link<Op> = Enf::create(for_node);
         let node = self.insert_enforce(enf_node);
         self.bindings.exit();
         node
@@ -464,7 +464,7 @@ impl<'a> MirBuilder<'a> {
         let node_to_add = if let Op::Enf(_) = node.clone().borrow().deref() {
             node
         } else {
-            Enf::builder().expr(node).build().into()
+            Enf::builder().expr(node).build()
         };
         match self.in_boundary {
             true => self
@@ -515,7 +515,7 @@ impl<'a> MirBuilder<'a> {
             let value_node = self.translate_expr(value)?;
             node = node.elements(value_node);
         }
-        Ok(node.build().into())
+        Ok(node.build())
     }
 
     fn translate_vector_scalar_expr(
@@ -527,7 +527,7 @@ impl<'a> MirBuilder<'a> {
             let value_node = self.translate_scalar_expr(value)?;
             node = node.elements(value_node);
         }
-        Ok(node.build().into())
+        Ok(node.build())
     }
 
     fn translate_matrix(
@@ -539,7 +539,7 @@ impl<'a> MirBuilder<'a> {
             let row_node = self.translate_vector_scalar_expr(row)?;
             node = node.elements(row_node);
         }
-        let node = node.build().into();
+        let node = node.build();
         Ok(node)
     }
 
@@ -560,8 +560,7 @@ impl<'a> MirBuilder<'a> {
                                 pc.period(),
                             )),
                         })
-                        .build()
-                        .into();
+                        .build();
                     Ok(node)
                 } else {
                     // This is a qualified reference that should have been eliminated
@@ -574,7 +573,7 @@ impl<'a> MirBuilder<'a> {
             }
             // This must be one of public inputs, random values, or trace columns
             ast::ResolvableIdentifier::Global(ident) | ast::ResolvableIdentifier::Local(ident) => {
-                self.translate_symbol_access_global_or_local(&ident, &access)
+                self.translate_symbol_access_global_or_local(&ident, access)
             }
             // These should have been eliminated by previous compiler passes
             ast::ResolvableIdentifier::Unresolved(_ident) => {
@@ -594,15 +593,15 @@ impl<'a> MirBuilder<'a> {
         let rhs = self.translate_scalar_expr(&bin_op.rhs)?;
         match bin_op.op {
             ast::BinaryOp::Add => {
-                let node = Add::builder().lhs(lhs).rhs(rhs).build().into();
+                let node = Add::builder().lhs(lhs).rhs(rhs).build();
                 Ok(node)
             }
             ast::BinaryOp::Sub => {
-                let node = Sub::builder().lhs(lhs).rhs(rhs).build().into();
+                let node = Sub::builder().lhs(lhs).rhs(rhs).build();
                 Ok(node)
             }
             ast::BinaryOp::Mul => {
-                let node = Mul::builder().lhs(lhs).rhs(rhs).build().into();
+                let node = Mul::builder().lhs(lhs).rhs(rhs).build();
                 Ok(node)
             }
             ast::BinaryOp::Exp => {
@@ -616,8 +615,8 @@ impl<'a> MirBuilder<'a> {
                 self.expand_exp(lhs, rhs.item)
             }
             ast::BinaryOp::Eq => {
-                let sub_node = Sub::builder().lhs(lhs).rhs(rhs).build().into();
-                Ok(Enf::builder().expr(sub_node).build().into())
+                let sub_node = Sub::builder().lhs(lhs).rhs(rhs).build();
+                Ok(Enf::builder().expr(sub_node).build())
             }
         }
     }
@@ -639,8 +638,7 @@ impl<'a> MirBuilder<'a> {
                         .iterator(iterator_node)
                         .operator(FoldOperator::Add)
                         .initial_value(accumulator_node)
-                        .build()
-                        .into();
+                        .build();
                     Ok(node)
                 }
                 symbols::Prod => {
@@ -651,8 +649,7 @@ impl<'a> MirBuilder<'a> {
                         .iterator(iterator_node)
                         .operator(FoldOperator::Mul)
                         .initial_value(accumulator_node)
-                        .build()
-                        .into();
+                        .build();
                     Ok(node)
                 }
                 other => unimplemented!("unhandled builtin: {}", other),
@@ -737,7 +734,7 @@ impl<'a> MirBuilder<'a> {
             for arg in arg_nodes {
                 call_node = call_node.arguments(arg);
             }
-            let call_node = call_node.build().into();
+            let call_node = call_node.build();
             Ok(call_node)
         }
     }
@@ -750,7 +747,7 @@ impl<'a> MirBuilder<'a> {
         for (index, binding) in list_comp.bindings.iter().enumerate() {
             let binding_node =
                 Parameter::create(/*binding.span(), */ index, ast::Type::Felt.into());
-            self.bindings.insert(binding, binding_node.into());
+            self.bindings.insert(binding, binding_node);
         }
 
         let iterator_nodes = Link::new(Vec::new());
@@ -766,7 +763,7 @@ impl<'a> MirBuilder<'a> {
         };
         let body_node = self.translate_scalar_expr(&list_comp.body)?;
 
-        let for_node = For::create(iterator_nodes, body_node, selector_node).into();
+        let for_node = For::create(iterator_nodes, body_node, selector_node);
 
         self.bindings.exit();
         Ok(for_node)
@@ -791,7 +788,7 @@ impl<'a> MirBuilder<'a> {
             value: MirValue::Constant(ConstantValue::Felt(c)),
             span: Default::default(),
         };
-        let node = Value::builder().value(value).build().into();
+        let node = Value::builder().value(value).build();
         Ok(node)
     }
 
@@ -803,8 +800,7 @@ impl<'a> MirBuilder<'a> {
         let node = Boundary::builder()
             .kind(access.boundary)
             .expr(access_node)
-            .build()
-            .into();
+            .build();
         Ok(node)
     }
 
@@ -822,7 +818,7 @@ impl<'a> MirBuilder<'a> {
             let value_node = self.translate_scalar_const(*value)?;
             node = node.elements(value_node);
         }
-        Ok(node.build().into())
+        Ok(node.build())
     }
 
     fn translate_matrix_const(&mut self, m: Vec<Vec<u64>>) -> Result<Link<Op>, CompileError> {
@@ -831,7 +827,7 @@ impl<'a> MirBuilder<'a> {
             let row_node = self.translate_vector_const(row.clone())?;
             node = node.elements(row_node);
         }
-        let node = node.build().into();
+        let node = node.build();
         Ok(node)
     }
 
@@ -849,8 +845,7 @@ impl<'a> MirBuilder<'a> {
                         span: Default::default(),
                         value: MirValue::RandomValue(rv),
                     })
-                    .build()
-                    .into());
+                    .build());
             }
 
             if let Some(tab) = self.trace_access_binding(access) {
@@ -859,8 +854,7 @@ impl<'a> MirBuilder<'a> {
                         span: Default::default(),
                         value: MirValue::TraceAccessBinding(tab),
                     })
-                    .build()
-                    .into());
+                    .build());
             }
 
             // Must be a trace segment name
@@ -870,8 +864,7 @@ impl<'a> MirBuilder<'a> {
                         span: Default::default(),
                         value: MirValue::TraceAccess(ta),
                     })
-                    .build()
-                    .into());
+                    .build());
             }
 
             // It should never be possible to reach this point - semantic analysis
@@ -888,7 +881,7 @@ impl<'a> MirBuilder<'a> {
                 AccessType::Default => return Ok(let_bound_access_expr),
                 _ => {
                     let accessor: Link<Op> =
-                        Accessor::create(let_bound_access_expr, access.access_type.clone()).into();
+                        Accessor::create(let_bound_access_expr, access.access_type.clone());
                     return Ok(accessor);
                 }
             }
@@ -901,8 +894,7 @@ impl<'a> MirBuilder<'a> {
                     span: Default::default(),
                     value: MirValue::TraceAccessBinding(tab),
                 })
-                .build()
-                .into());
+                .build());
         }
 
         if let Some(trace_access) = self.trace_access(access) {
@@ -911,8 +903,7 @@ impl<'a> MirBuilder<'a> {
                     span: Default::default(),
                     value: MirValue::TraceAccess(trace_access),
                 })
-                .build()
-                .into());
+                .build());
         }
 
         if let Some(random_value) = self.random_value_access(access) {
@@ -921,8 +912,7 @@ impl<'a> MirBuilder<'a> {
                     span: Default::default(),
                     value: MirValue::RandomValue(random_value),
                 })
-                .build()
-                .into());
+                .build());
         }
 
         if let Some(public_input) = self.public_input_access(access) {
@@ -931,8 +921,7 @@ impl<'a> MirBuilder<'a> {
                     span: Default::default(),
                     value: MirValue::PublicInput(public_input),
                 })
-                .build()
-                .into());
+                .build());
         }
 
         panic!("undefined variable: {:?}", access);
@@ -1061,16 +1050,16 @@ impl<'a> MirBuilder<'a> {
             n if n % 2 == 0 => {
                 let new_lhs = duplicate_node(lhs.clone());
                 let new_rhs = duplicate_node(lhs.clone());
-                let square = Mul::create(new_lhs, new_rhs).into();
+                let square = Mul::create(new_lhs, new_rhs);
                 self.expand_exp(square, n / 2)
             }
             n => {
                 let new_lhs = duplicate_node(lhs.clone());
                 let new_rhs = duplicate_node(lhs.clone());
                 let new_lhs_clone = duplicate_node(lhs.clone());
-                let square = Mul::create(new_lhs, new_rhs).into();
+                let square = Mul::create(new_lhs, new_rhs);
                 let rec: Link<Op> = self.expand_exp(square, (n - 1) / 2)?;
-                let node = Mul::builder().lhs(new_lhs_clone).rhs(rec).build().into();
+                let node = Mul::builder().lhs(new_lhs_clone).rhs(rec).build();
                 Ok(node)
             }
         }

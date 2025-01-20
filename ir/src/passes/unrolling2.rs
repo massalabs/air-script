@@ -102,24 +102,22 @@ impl Pass for Unrolling<'_> {
             println!("ic: {:?}", ic);
         }*/
 
-        println!("****************************");
+        /*println!("****************************");
         println!("Starting first UNROLLING pass");
-        println!("****************************");
-        println!("");
+        println!("****************************");*/
 
         // The first pass unrolls all nodes fully, except for For nodes
         let mut first_pass = UnrollingFirstPass::new(self.diagnostics);
         Visitor::run(&mut first_pass, ir.constraint_graph_mut())?;
 
-        println!(
+        /*println!(
             "first_pass.bodies_to_inline.clone(): {:?}",
             first_pass.bodies_to_inline.clone()
-        );
+        );*/
 
-        println!("****************************");
+        /*println!("****************************");
         println!("Starting second UNROLLING pass");
-        println!("****************************");
-        println!("");
+        println!("****************************");*/
 
         // The second pass actually inlines the For nodes
         let mut second_pass =
@@ -160,7 +158,7 @@ impl Visitor for UnrollingFirstPass<'_> {
                     let mut vec = vec![];
                     for val in v {
                         let val = Value::create(SpannedMirValue {
-                            span: value_ref.value.span.clone(),
+                            span: value_ref.value.span,
                             value: MirValue::Constant(ConstantValue::Felt(val)),
                         });
                         vec.push(val);
@@ -173,12 +171,12 @@ impl Visitor for UnrollingFirstPass<'_> {
                         let mut res_row = vec![];
                         for val in row {
                             let val = Value::create(SpannedMirValue {
-                                span: value_ref.value.span.clone(),
+                                span: value_ref.value.span,
                                 value: MirValue::Constant(ConstantValue::Felt(val)),
                             });
                             res_row.push(val);
                         }
-                        let res_row_vec = Vector::create(res_row).into();
+                        let res_row_vec = Vector::create(res_row);
                         res_m.push(res_row_vec);
                     }
                     *value.as_node().borrow_mut() =
@@ -194,7 +192,7 @@ impl Visitor for UnrollingFirstPass<'_> {
                 let mut vec = vec![];
                 for index in 0..trace_access_binding.size {
                     let val = Value::create(SpannedMirValue {
-                        span: value_ref.value.span.clone(),
+                        span: value_ref.value.span,
                         value: MirValue::TraceAccess(TraceAccess {
                             segment: trace_access_binding.segment,
                             column: trace_access_binding.offset + index,
