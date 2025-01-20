@@ -209,7 +209,7 @@ impl Visitor for UnrollingFirstPass<'_> {
                 let mut vec = vec![];
                 for index in 0..random_value_binding.size {
                     let val = Value::create(SpannedMirValue {
-                        span: value_ref.value.span.clone(),
+                        span: value_ref.value.span,
                         value: MirValue::RandomValue(random_value_binding.offset + index),
                     });
                     vec.push(val);
@@ -456,7 +456,7 @@ impl Visitor for UnrollingFirstPass<'_> {
         // safe to unwrap because we just dispatched on it
         let boundary_ref = boundary.as_boundary().unwrap();
         let expr = boundary_ref.expr.clone();
-        let kind = boundary_ref.kind.clone();
+        let kind = boundary_ref.kind;
 
         if let Op::Vector(vec) = expr.borrow().deref() {
             let expr_vec = vec.children().borrow().deref().clone();
@@ -640,8 +640,8 @@ impl Visitor for UnrollingSecondPass<'_> {
     }
     fn run(&mut self, graph: &mut Graph) -> Result<(), CompileError> {
         for (idx, root) in self.root_nodes_to_visit(graph).iter().enumerate() {
-            println!("Visiting root node: {idx} - {:?}", root);
-            println!("");
+            /*println!("Visiting root node: {idx} - {:?}", root);
+            println!("");*/
 
             // Set context to inline the body for this index
             let for_inlining_context = self.bodies_to_inline.iter().find_map(|(node, context)| {
@@ -684,8 +684,7 @@ impl Visitor for UnrollingSecondPass<'_> {
                         span: Default::default(),
                         value: MirValue::Constant(ConstantValue::Felt(0)),
                     });
-                    let if_node = If::create(selector, new_node, zero_node);
-                    if_node
+                    If::create(selector, new_node, zero_node)
                 } else {
                     new_node
                 };
@@ -693,9 +692,9 @@ impl Visitor for UnrollingSecondPass<'_> {
             *root.clone().borrow_mut() =
                 new_node_with_selector_if_needed.as_node().borrow().clone();
 
-            println!("");
+            /*println!("");
             println!("Updated child of For node: {:?}", root);
-            println!("");
+            println!("");*/
 
             // Reset context to None
             self.for_inlining_context = None;
@@ -710,7 +709,6 @@ impl Visitor for UnrollingSecondPass<'_> {
             .cloned()
             .map(|op| op.as_node())
             .collect::<Vec<_>>()
-            .into()
     }
     fn visit_node(&mut self, _graph: &mut Graph, node: Link<Node>) -> Result<(), CompileError> {
         if let Some(op) = node.clone().as_op() {

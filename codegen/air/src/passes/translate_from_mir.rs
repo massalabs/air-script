@@ -70,21 +70,21 @@ impl<'a> AirBuilder<'a> {
                 let rhs = add.rhs.clone();
                 let lhs_node_index = self.insert_mir_operation(&lhs);
                 let rhs_node_index = self.insert_mir_operation(&rhs);
-                return self.insert_op(Operation::Add(lhs_node_index, rhs_node_index));
+                self.insert_op(Operation::Add(lhs_node_index, rhs_node_index))
             }
             Op::Sub(sub) => {
                 let lhs = sub.lhs.clone();
                 let rhs = sub.rhs.clone();
                 let lhs_node_index = self.insert_mir_operation(&lhs);
                 let rhs_node_index = self.insert_mir_operation(&rhs);
-                return self.insert_op(Operation::Sub(lhs_node_index, rhs_node_index));
+                self.insert_op(Operation::Sub(lhs_node_index, rhs_node_index))
             }
             Op::Mul(mul) => {
                 let lhs = mul.lhs.clone();
                 let rhs = mul.rhs.clone();
                 let lhs_node_index = self.insert_mir_operation(&lhs);
                 let rhs_node_index = self.insert_mir_operation(&rhs);
-                return self.insert_op(Operation::Mul(lhs_node_index, rhs_node_index));
+                self.insert_op(Operation::Mul(lhs_node_index, rhs_node_index))
             }
             Op::Value(value) => {
                 let mir_value = &value.value.value;
@@ -106,13 +106,13 @@ impl<'a> AirBuilder<'a> {
                     }
                     MirValue::PeriodicColumn(periodic_column_access) => {
                         crate::ir::Value::PeriodicColumn(crate::ir::PeriodicColumnAccess {
-                            name: periodic_column_access.name.clone(),
+                            name: periodic_column_access.name,
                             cycle: periodic_column_access.cycle,
                         })
                     }
                     MirValue::PublicInput(public_input_access) => {
                         crate::ir::Value::PublicInput(crate::ir::PublicInputAccess {
-                            name: public_input_access.name.clone(),
+                            name: public_input_access.name,
                             index: public_input_access.index,
                         })
                     }
@@ -120,7 +120,7 @@ impl<'a> AirBuilder<'a> {
                     _ => unreachable!(),
                 };
 
-                return self.insert_op(Operation::Value(value));
+                self.insert_op(Operation::Value(value))
             }
             _ => unreachable!(),
         }
@@ -133,7 +133,7 @@ impl<'a> AirBuilder<'a> {
                 for node in vec.iter() {
                     self.build_boundary_constraint(node)?;
                 }
-                return Ok(());
+                Ok(())
             }
             Op::Matrix(matrix) => {
                 let rows = matrix.elements.borrow().deref().clone();
@@ -143,7 +143,7 @@ impl<'a> AirBuilder<'a> {
                         self.build_boundary_constraint(node)?;
                     }
                 }
-                return Ok(());
+                Ok(())
             }
             Op::Enf(enf) => {
                 let child_op = enf.expr.clone();
@@ -153,7 +153,7 @@ impl<'a> AirBuilder<'a> {
                 };
 
                 self.build_boundary_constraint(&child_op)?;
-                return Ok(());
+                Ok(())
             }
             Op::Sub(sub) => {
                 // Check that lhs is a Bounded trace access
@@ -261,7 +261,7 @@ impl<'a> AirBuilder<'a> {
                 self.air
                     .constraints
                     .insert_constraint(trace_access.segment, root, domain);
-                return Ok(());
+                Ok(())
             }
             _ => unreachable!(),
         }
