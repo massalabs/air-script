@@ -6,7 +6,7 @@ use air_parser::{ast, symbols, LexicalScope, SemanticAnalysisError};
 use air_pass::Pass;
 use miden_diagnostics::{DiagnosticsHandler, Severity, SourceSpan, Span, Spanned};
 
-use crate::ir::{Accessor, Add, Boundary, Enf, Evaluator, Matrix, Mul, Root, Sub};
+use crate::ir::{Accessor, Add, Boundary, Enf, Evaluator, Matrix, Mul, Node, Root, Sub};
 use crate::{
     ir::{
         Builder, Call, ConstantValue, Fold, FoldOperator, For, Function, Link, Mir, MirType,
@@ -137,22 +137,40 @@ impl<'a> MirBuilder<'a> {
         ast_eval: &'a ast::EvaluatorFunction,
         known_signature: bool,
     ) -> Result<Link<Root>, CompileError> {
+
+        let mut all_params_flatten = Vec::new(); 
+
         self.bindings.enter();
         self.root_name = Some(ident);
         let mut ev = Evaluator::builder();
         let mut i = 0;
         for trace_segment in &ast_eval.params {
+
+            let mut all_params_flatten_for_trace_segment = Vec::new();
+
             //        println!("trace_segment: {:#?}", trace_segment);
             for binding in &trace_segment.bindings {
                 //            println!("binding: {:#?}", binding);
                 let params =
                     self.translate_params_ev(ident, binding.name.as_ref(), &binding.ty, &mut i)?;
                 for param in params {
-                    ev = ev.parameters(param.clone());
+                    all_params_flatten_for_trace_segment.push(param.clone());
+                    all_params_flatten.push(param.clone());
                 }
             }
+
+            println!("all_params_flatten_for_trace_segment: {:#?}", all_params_flatten_for_trace_segment.clone());
+            ev = ev.parameters(all_params_flatten_for_trace_segment.clone());
         }
         let ev = ev.build();
+        
+        set_all_ref_nodes(all_params_flatten.clone(), ev.as_node());
+
+
+        println!("all_params_flatten: {:#?}", all_params_flatten);
+        println!("");
+
+
         if known_signature {
             self.translate_body(ident, ev.clone(), &ast_eval.body)?;
             let original = self.mir
@@ -200,6 +218,8 @@ impl<'a> MirBuilder<'a> {
         ast_func: &'a ast::Function,
         known_signature: bool,
     ) -> Result<Link<Root>, CompileError> {
+        let mut params = Vec::new();
+
         self.bindings.enter();
         self.root_name = Some(ident);
         let mut func = Function::builder();
@@ -207,11 +227,17 @@ impl<'a> MirBuilder<'a> {
         for (param_ident, ty) in ast_func.params.iter() {
             let name = Some(param_ident);
             let param = self.translate_params_fn(ident, name, ty, &mut i)?;
+            params.push(param.clone());
             func = func.parameters(param.clone());
         }
         i += 1;
         let ret = Parameter::create(i, self.translate_type(&ast_func.return_type));
+        params.push(ret.clone());
+
         let func = func.return_type(ret).build();
+
+        set_all_ref_nodes(params, func.as_node());
+
         if known_signature {
             self.translate_body(ident, func.clone(), &ast_func.body)?;
             let original = self.mir
@@ -399,14 +425,19 @@ impl<'a> MirBuilder<'a> {
         unreachable!("all EnforceIf should have been transformed into EnforceAll")
     }
 
+
+
     fn translate_enforce_all(
         &mut self,
         list_comp: &'a ast::ListComprehension,
     ) -> Result<Link<Op>, CompileError> {
+        let mut params = Vec::new();
+
         self.bindings.enter();
         for (index, binding) in list_comp.bindings.iter().enumerate() {
             let binding_node =
                 Parameter::create(/*binding.span(), */ index, ast::Type::Felt.into());
+                params.push(binding_node.clone());
             self.bindings.insert(binding, binding_node.into());
         }
 
@@ -424,6 +455,7 @@ impl<'a> MirBuilder<'a> {
         let body_node = self.translate_scalar_expr(&list_comp.body)?;
 
         let for_node = For::create(iterator_nodes.into(), body_node, selector_node);
+        set_all_ref_nodes(params, for_node.as_node());
 
         let enf_node: Link<Op> = Enf::create(for_node.into());
         let node = self.insert_enforce(enf_node);
@@ -594,6 +626,9 @@ impl<'a> MirBuilder<'a> {
     }
 
     fn translate_call(&mut self, call: &'a ast::Call) -> Result<Link<Op>, CompileError> {
+
+        println!("CALL ARGS: {:#?}", call);
+
         // First, resolve the callee, panic if it's not resolved
         let resolved_callee = call.callee.resolved().unwrap();
 
@@ -663,8 +698,7 @@ impl<'a> MirBuilder<'a> {
                         .emit();
                     return Err(CompileError::Failed);
                 }
-            } else if let Some(callee) = self.mir.constraint_graph().get_evaluator(&resolved_callee)
-            {
+            } else if let Some(callee) = self.mir.constraint_graph().get_evaluator(&resolved_callee) {
                 // TRANSLATE TODO:
                 // - For Evaluators, we need to:
                 // - differentiate between trace segments
@@ -684,7 +718,7 @@ impl<'a> MirBuilder<'a> {
                         .with_primary_label(
                             call.span(),
                             format!(
-                                "expected call to have {} arguments, but got {}",
+                                "expected call to have {} trace segments, but got {}",
                                 callee_ref.parameters.len(),
                                 arg_nodes.len()
                             ),
@@ -692,12 +726,45 @@ impl<'a> MirBuilder<'a> {
                         .with_secondary_label(
                             call.callee.span(),
                             format!(
-                                "this functions has {} parameters",
+                                "this function has {} trace segments",
                                 callee_ref.parameters.len()
                             ),
                         )
                         .emit();
                     return Err(CompileError::Failed);
+                }
+
+                for ((trace_segment_id, trace_segments_params), trace_segments_arg) in callee_ref.parameters.iter().enumerate().zip(arg_nodes.iter()) {
+
+                    let Some(trace_segments_arg_vector) = trace_segments_arg.as_vector() else {
+                        unreachable!("expected vector, got {:?}", trace_segments_arg);
+                    };
+                    let trace_segments_arg_vector_len = trace_segments_arg_vector.size;
+
+                    if trace_segments_params.len() != trace_segments_arg_vector_len {
+                        self.diagnostics
+                            .diagnostic(Severity::Error)
+                            .with_message("argument count mismatch")
+                            .with_primary_label(
+                                call.span(),
+                                format!(
+                                    "expected call to have {} arguments in trace segment {}, but got {}",
+                                    trace_segments_params.len(),
+                                    trace_segment_id,
+                                    trace_segments_arg_vector_len
+                                ),
+                            )
+                            .with_secondary_label(
+                                call.callee.span(),
+                                format!(
+                                    "this functions has {} parameters in trace segment {}",
+                                    trace_segments_params.len(),
+                                    trace_segment_id
+                                ),
+                            )
+                            .emit();
+                        return Err(CompileError::Failed);
+                    }
                 }
             } else {
                 panic!("Unknown function or evaluator: {:?}", resolved_callee);
@@ -1044,5 +1111,14 @@ impl<'a> MirBuilder<'a> {
                 Ok(node)
             }
         }
+    }
+}
+
+fn set_all_ref_nodes(params: Vec<Link<Op>>, ref_node: Link<Node>) {
+    for param in params {
+        let Some(mut param) = param.as_parameter_mut() else {
+            unreachable!("expected parameter, got {:?}", param);
+        };
+        param.set_ref_node(ref_node.clone());
     }
 }

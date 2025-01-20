@@ -3,12 +3,12 @@ use crate::ir::{Builder, Link, Op, Parent, Root};
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash, Builder)]
 #[enum_wrapper(Root)]
 pub struct Evaluator {
-    pub parameters: Vec<Link<Op>>,
+    pub parameters: Vec<Vec<Link<Op>>>,
     pub body: Link<Vec<Link<Op>>>,
 }
 
 impl Evaluator {
-    pub fn create(parameters: Vec<Link<Op>>, body: Vec<Link<Op>>) -> Link<Root> {
+    pub fn create(parameters: Vec<Vec<Link<Op>>>, body: Vec<Link<Op>>) -> Link<Root> {
         Root::Evaluator(Self {
             parameters,
             body: Link::new(body),
