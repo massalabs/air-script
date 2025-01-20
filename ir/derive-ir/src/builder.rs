@@ -16,7 +16,7 @@ pub fn impl_builder(input: &DeriveInput) -> proc_macro2::TokenStream {
         format_ident!("{}BuilderYes", name),
         format_ident!("{}BuilderNo", name),
     );
-    let fields = extract_fields(input);
+    let (fields, hidden_fields) = extract_fields(input);
     let (builder_struct_fields, builder_states, transition_table) =
         make_builder_struct_fields(&fields);
     let builder_struct = make_builder_struct(name, &builder_struct_fields);
@@ -28,6 +28,7 @@ pub fn impl_builder(input: &DeriveInput) -> proc_macro2::TokenStream {
         &builder_states,
         &transition_table,
         &enum_wrapper,
+        &hidden_fields,
     );
     quote! {
         #builder_struct
@@ -67,20 +68,31 @@ fn get_enum_wrapper(input: &DeriveInput) -> EnumWrapper {
     }
 }
 
-fn extract_fields(data: &syn::DeriveInput) -> Vec<(&syn::Ident, &syn::Type)> {
-    match &data.data {
+fn extract_fields(data: &syn::DeriveInput) -> (Vec<(&syn::Ident, &syn::Type)>, Vec<&syn::Ident>) {
+    let mut hidden_fields = vec![];
+    let fields = match &data.data {
         syn::Data::Struct(data) => match &data.fields {
             syn::Fields::Named(fields) => fields
                 .named
                 .iter()
-                .map(|field| (field.ident.as_ref().unwrap(), &field.ty))
+                .filter_map(|field| {
+                    let ident = field.ident.as_ref().unwrap();
+                    match &ident.to_string()[..1] {
+                        "_" => {
+                            hidden_fields.push(ident);
+                            None
+                        }
+                        _ => Some((ident, &field.ty)),
+                    }
+                })
                 .collect(),
             syn::Fields::Unnamed(_) => unimplemented!(),
             syn::Fields::Unit => unimplemented!(),
         },
         syn::Data::Enum(_) => unimplemented!(),
         syn::Data::Union(_) => unimplemented!(),
-    }
+    };
+    (fields, hidden_fields)
 }
 
 fn next_ty(ty: &syn::PathSegment) -> Option<syn::PathSegment> {
@@ -484,6 +496,7 @@ fn make_builder_impls<'a>(
     states: &[Vec<bool>],
     transition_table: &[Vec<usize>],
     enum_wrapper: &EnumWrapper,
+    hidden_fields: &[&syn::Ident],
 ) -> proc_macro2::TokenStream {
     let state_names = states
         .iter()
@@ -519,7 +532,12 @@ fn make_builder_impls<'a>(
                 .iter()
                 .map(|(_, _, _, _, _, builder)| builder)
                 .collect::<Vec<_>>();
-            methods.push(make_build_method(name, &builder, enum_wrapper));
+            methods.push(make_build_method(
+                name,
+                &builder,
+                enum_wrapper,
+                hidden_fields,
+            ));
         };
         quote! {
             impl #state_name {
@@ -543,15 +561,22 @@ fn make_builder_impls<'a>(
 
 fn make_build_method(
     name: &syn::Ident,
-    builder: &[&proc_macro2::TokenStream],
+    builders: &[&proc_macro2::TokenStream],
     enum_wrapper: &EnumWrapper,
+    hidden_fields: &[&syn::Ident],
 ) -> proc_macro2::TokenStream {
+    let fields = builders.iter().map(|builder| quote! { #builder }).chain(
+        hidden_fields
+            .iter()
+            .map(|field| quote! { #field: Default::default() }),
+    );
+
     match enum_wrapper {
         EnumWrapper::Op => quote! {
             pub fn build(&self) -> crate::ir::Link<Op> {
                 Op::#name(
                     #name {
-                        #(#builder),*
+                        #(#fields),*
                     }
                 ).into()
             }
@@ -560,7 +585,7 @@ fn make_build_method(
             pub fn build(&self) -> crate::ir::Link<Root> {
                 Root::#name(
                     #name {
-                        #(#builder),*
+                        #(#fields),*
                     }
                 ).into()
             }
@@ -590,7 +615,8 @@ mod tests {
                 bs: Link<Vec<Link<Op>>>,
                 cs: Vec<Link<Op>>,
                 d: Link<Op>,
-                count: i32
+                count: i32,
+                _hidden: i32,
             }
         };
         let expected = quote! {
@@ -630,7 +656,7 @@ mod tests {
                         bs: Default::default(),
                         cs: Default::default(),
                         d: Default::default(),
-                        count: Default::default(),
+                        count: Default::default()
                     }
                 }
             }
@@ -887,6 +913,7 @@ mod tests {
                             cs: self.cs.clone(),
                             d: self.d.clone().unwrap(),
                             count: self.count.clone().unwrap(),
+                            _hidden: Default::default()
                         }
                     ).into()
                 }

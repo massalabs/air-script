@@ -32,8 +32,6 @@ pub fn default_fmt(s: &proc_macro2::TokenStream) -> String {
         let angled_offset = line.match_indices('<').count() as i32
             - line.match_indices('>').count() as i32
             + line.match_indices("->").count() as i32;
-        eprintln!("line: {}", line);
-        eprintln!("curly: {}, parens: {}", curly, parens);
         result.push_str(line);
         angled += angled_offset;
         if angled == 0 {
