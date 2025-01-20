@@ -177,11 +177,14 @@ impl Visitor for InliningFirstPass<'_> {
     }
     fn run(&mut self, graph: &mut Graph) {
         for root_node in self.root_nodes_to_visit(graph) {
-            let root = root_node.as_root().unwrap();
-            if let Some(_function) = root.clone().as_function() {
-                self.in_func_or_eval = true;
-            } else if let Some(_evaluator) = root.clone().as_evaluator() {
-                self.in_func_or_eval = true;
+            if let Some(root) = root_node.as_root() {
+                if let Some(_function) = root.clone().as_function() {
+                    self.in_func_or_eval = true;
+                } else if let Some(_evaluator) = root.clone().as_evaluator() {
+                    self.in_func_or_eval = true;
+                } else {
+                    unreachable!("Encountered a root node that is not a Function or an Evaluator");
+                }
             } else {
                 self.in_func_or_eval = false;
             }
