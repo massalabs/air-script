@@ -29,6 +29,11 @@ impl Parent for Root {
 }
 
 impl Link<Root> {
+    pub fn set(&self, other: &Link<Root>) {
+        self.as_node().update(&other.as_node());
+        self.as_owner().update(&other.as_owner());
+        self.update(other);
+    }
     pub fn as_node(&self) -> Link<Node> {
         let back: BackLink<Root> = self.clone().into();
         match self.borrow_mut().deref_mut() {

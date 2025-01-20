@@ -114,6 +114,15 @@ impl Child for Op {
 }
 
 impl Link<Op> {
+    pub fn set(&self, other: &Link<Op>) {
+        self.as_node().update(&other.as_node());
+        if let Some(owner) = self.as_owner() {
+            if let Some(other_owner) = other.as_owner() {
+                owner.update(&other_owner);
+            }
+        }
+        self.update(other);
+    }
     pub fn as_node(&self) -> Link<Node> {
         let back: BackLink<Op> = self.clone().into();
         match self.clone().borrow_mut().deref_mut() {
