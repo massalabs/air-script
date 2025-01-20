@@ -109,7 +109,7 @@ impl Pass for Unrolling<'_> {
 
         // The first pass unrolls all nodes fully, except for For nodes
         let mut first_pass = UnrollingFirstPass::new(self.diagnostics);
-        Visitor::run(&mut first_pass, ir.constraint_graph_mut());
+        Visitor::run(&mut first_pass, ir.constraint_graph_mut())?;
 
         println!(
             "first_pass.bodies_to_inline.clone(): {:?}",
@@ -124,7 +124,7 @@ impl Pass for Unrolling<'_> {
         // The second pass actually inlines the For nodes
         let mut second_pass =
             UnrollingSecondPass::new(self.diagnostics, first_pass.bodies_to_inline.clone());
-        Visitor::run(&mut second_pass, ir.constraint_graph_mut());
+        Visitor::run(&mut second_pass, ir.constraint_graph_mut())?;
         Ok(ir)
     }
 }
@@ -149,7 +149,7 @@ impl Visitor for UnrollingFirstPass<'_> {
             );
         combined_roots.collect()
     }
-    fn visit_value(&mut self, _graph: &mut Graph, value: Link<Op>) {
+    fn visit_value(&mut self, _graph: &mut Graph, value: Link<Op>) -> Result<(), CompileError> {
         // safe to un wrap because we just dispatched on it
         let value_ref = value.as_value().unwrap();
         let mir_value = value_ref.value.value.clone();
@@ -217,9 +217,10 @@ impl Visitor for UnrollingFirstPass<'_> {
                 *value.as_node().borrow_mut() = Vector::create(vec).as_node().borrow().clone();
             }
         }
+        Ok(())
     }
 
-    fn visit_add(&mut self, _graph: &mut Graph, add: Link<Op>) {
+    fn visit_add(&mut self, _graph: &mut Graph, add: Link<Op>) -> Result<(), CompileError> {
         // safe to un wrap because we just dispatched on it
         let add_ref = add.as_add().unwrap();
         let lhs = add_ref.lhs.clone();
@@ -243,9 +244,10 @@ impl Visitor for UnrollingFirstPass<'_> {
                 *add.as_node().borrow_mut() = Vector::create(new_vec).as_node().borrow().clone();
             }
         };
+        Ok(())
     }
 
-    fn visit_sub(&mut self, _graph: &mut Graph, sub: Link<Op>) {
+    fn visit_sub(&mut self, _graph: &mut Graph, sub: Link<Op>) -> Result<(), CompileError> {
         // safe to unwrap because we just dispatched on it
         let sub_ref = sub.as_sub().unwrap();
         let lhs = sub_ref.lhs.clone();
@@ -268,9 +270,10 @@ impl Visitor for UnrollingFirstPass<'_> {
                 *sub.as_node().borrow_mut() = Vector::create(new_vec).as_node().borrow().clone();
             }
         };
+        Ok(())
     }
 
-    fn visit_mul(&mut self, _graph: &mut Graph, mul: Link<Op>) {
+    fn visit_mul(&mut self, _graph: &mut Graph, mul: Link<Op>) -> Result<(), CompileError> {
         let mul_ref = mul.as_mul().unwrap();
         let lhs = mul_ref.lhs.clone();
         let rhs = mul_ref.rhs.clone();
@@ -292,9 +295,10 @@ impl Visitor for UnrollingFirstPass<'_> {
                 *mul.as_node().borrow_mut() = Vector::create(new_vec).as_node().borrow().clone();
             }
         };
+        Ok(())
     }
 
-    fn visit_enf(&mut self, _graph: &mut Graph, enf: Link<Op>) {
+    fn visit_enf(&mut self, _graph: &mut Graph, enf: Link<Op>) -> Result<(), CompileError> {
         let enf_ref = enf.as_enf().unwrap();
         let expr = enf_ref.expr.clone();
         if let Op::Vector(vec) = expr.borrow().deref() {
@@ -306,9 +310,10 @@ impl Visitor for UnrollingFirstPass<'_> {
             }
             *enf.as_node().borrow_mut() = Vector::create(new_vec).as_node().borrow().clone();
         };
+        Ok(())
     }
 
-    fn visit_fold(&mut self, _graph: &mut Graph, fold: Link<Op>) {
+    fn visit_fold(&mut self, _graph: &mut Graph, fold: Link<Op>) -> Result<(), CompileError> {
         let fold_ref = fold.as_fold().unwrap();
         let iterator = fold_ref.iterator.clone();
         let operator = fold_ref.operator.clone();
@@ -339,14 +344,17 @@ impl Visitor for UnrollingFirstPass<'_> {
 
         // Finally, replace the Fold with the expanded expression
         *fold.as_node().borrow_mut() = acc_node.as_node().borrow().clone();
+
+        Ok(())
     }
 
-    fn visit_parameter(&mut self, _graph: &mut Graph, _parameter: Link<Op>) {
+    fn visit_parameter(&mut self, _graph: &mut Graph, _parameter: Link<Op>) -> Result<(), CompileError> {
         // FIXME: Just check that the parameter is a scalar, raise diag otherwise
         // List comprehension bodies should only be scalar expressions
+        Ok(())
     }
 
-    fn visit_if(&mut self, _graph: &mut Graph, if_node: Link<Op>) {
+    fn visit_if(&mut self, _graph: &mut Graph, if_node: Link<Op>) -> Result<(), CompileError> {
         let if_ref = if_node.as_if().unwrap();
         let condition = if_ref.condition.clone();
         let then_branch = if_ref.then_branch.clone();
@@ -384,9 +392,11 @@ impl Visitor for UnrollingFirstPass<'_> {
                     Vector::create(new_vec).as_node().borrow().clone();
             }
         };
+
+        Ok(())
     }
 
-    fn visit_boundary(&mut self, _graph: &mut Graph, boundary: Link<Op>) {
+    fn visit_boundary(&mut self, _graph: &mut Graph, boundary: Link<Op>) -> Result<(), CompileError> {
         // safe to unwrap because we just dispatched on it
         let boundary_ref = boundary.as_boundary().unwrap();
         let expr = boundary_ref.expr.clone();
@@ -401,9 +411,11 @@ impl Visitor for UnrollingFirstPass<'_> {
             }
             *boundary.as_node().borrow_mut() = Vector::create(new_vec).as_node().borrow().clone();
         };
+
+        Ok(())
     }
 
-    fn visit_accessor(&mut self, _graph: &mut Graph, accessor: Link<Op>) {
+    fn visit_accessor(&mut self, _graph: &mut Graph, accessor: Link<Op>) -> Result<(), CompileError> {
         let accessor_ref = accessor.as_accessor().unwrap();
         let indexable = accessor_ref.indexable.clone();
         let access_type = accessor_ref.access_type.clone();
@@ -467,9 +479,10 @@ impl Visitor for UnrollingFirstPass<'_> {
                 unreachable!(); // Slices are not scalar, raise diag
             }
         }
+        Ok(())
     }
 
-    fn visit_for(&mut self, _graph: &mut Graph, for_node: Link<Op>) {
+    fn visit_for(&mut self, _graph: &mut Graph, for_node: Link<Op>) -> Result<(), CompileError> {
         // For each value produced by the iterators, we need to:
         // - Duplicate the body
         // - Visit the body and replace the Variables with the value (with the correct index depending on the binding)
@@ -537,17 +550,18 @@ impl Visitor for UnrollingFirstPass<'_> {
             ));
         }
         *for_node.as_node().borrow_mut() = Vector::create(new_vec).as_node().borrow().clone();
+        Ok(())
     }
 
-    fn visit_call(&mut self, _graph: &mut Graph, _call: Link<Op>) {
+    fn visit_call(&mut self, _graph: &mut Graph, _call: Link<Op>) -> Result<(), CompileError> {
         unreachable!("Calls should have been inlined before this pass");
     }
 
-    fn visit_function(&mut self, _graph: &mut Graph, _function: Link<Root>) {
+    fn visit_function(&mut self, _graph: &mut Graph, _function: Link<Root>) -> Result<(), CompileError> {
         unreachable!("Functions should have been inlined before this pass");
     }
 
-    fn visit_evaluator(&mut self, _graph: &mut Graph, _evaluator: Link<Root>) {
+    fn visit_evaluator(&mut self, _graph: &mut Graph, _evaluator: Link<Root>) -> Result<(), CompileError> {
         unreachable!("Evaluators should have been inlined before this pass");
     }
 }
@@ -556,7 +570,7 @@ impl Visitor for UnrollingSecondPass<'_> {
     fn work_stack(&mut self) -> &mut Vec<Link<Node>> {
         &mut self.work_stack
     }
-    fn run(&mut self, graph: &mut Graph) {
+    fn run(&mut self, graph: &mut Graph) -> Result<(), CompileError> {
         for (idx, root) in self.root_nodes_to_visit(graph).iter().enumerate() {
             println!("Visiting root node: {idx} - {:?}", root);
             println!("");
@@ -578,12 +592,12 @@ impl Visitor for UnrollingSecondPass<'_> {
             self.scan_node(
                 graph,
                 self.for_inlining_context.clone().unwrap().body.as_node(),
-            );
+            )?;
 
             let mut ind = 0;
             while let Some(node) = self.work_stack().pop() {
                 ind += 1;
-                self.visit_node(graph, node);
+                self.visit_node(graph, node)?;
                 if ind > 500 {
                     unreachable!("UnrollingSecondPass::run: too many iterations");
                 }
@@ -618,6 +632,8 @@ impl Visitor for UnrollingSecondPass<'_> {
             // Reset context to None
             self.for_inlining_context = None;
         }
+
+        Ok(())
     }
     fn root_nodes_to_visit(&self, _graph: &Graph) -> Vec<Link<Node>> {
         self.bodies_to_inline
@@ -628,7 +644,7 @@ impl Visitor for UnrollingSecondPass<'_> {
             .collect::<Vec<_>>()
             .into()
     }
-    fn visit_node(&mut self, _graph: &mut Graph, node: Link<Node>) {
+    fn visit_node(&mut self, _graph: &mut Graph, node: Link<Node>) -> Result<(), CompileError> {
         if let Some(op) = node.clone().as_op() {
             duplicate_node_or_replace(
                 &mut self.nodes_to_replace,
@@ -642,5 +658,6 @@ impl Visitor for UnrollingSecondPass<'_> {
                 node
             );
         }
+        Ok(())
     }
 }

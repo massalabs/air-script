@@ -733,39 +733,6 @@ impl<'a> MirBuilder<'a> {
                         .emit();
                     return Err(CompileError::Failed);
                 }
-
-                for ((trace_segment_id, trace_segments_params), trace_segments_arg) in callee_ref.parameters.iter().enumerate().zip(arg_nodes.iter()) {
-
-                    let Some(trace_segments_arg_vector) = trace_segments_arg.as_vector() else {
-                        unreachable!("expected vector, got {:?}", trace_segments_arg);
-                    };
-                    let trace_segments_arg_vector_len = trace_segments_arg_vector.size;
-
-                    if trace_segments_params.len() != trace_segments_arg_vector_len {
-                        self.diagnostics
-                            .diagnostic(Severity::Error)
-                            .with_message("argument count mismatch")
-                            .with_primary_label(
-                                call.span(),
-                                format!(
-                                    "expected call to have {} arguments in trace segment {}, but got {}",
-                                    trace_segments_params.len(),
-                                    trace_segment_id,
-                                    trace_segments_arg_vector_len
-                                ),
-                            )
-                            .with_secondary_label(
-                                call.callee.span(),
-                                format!(
-                                    "this functions has {} parameters in trace segment {}",
-                                    trace_segments_params.len(),
-                                    trace_segment_id
-                                ),
-                            )
-                            .emit();
-                        return Err(CompileError::Failed);
-                    }
-                }
             } else {
                 panic!("Unknown function or evaluator: {:?}", resolved_callee);
             }
@@ -918,7 +885,22 @@ impl<'a> MirBuilder<'a> {
             );
         }
 
-        // Otherwise, we check the trace bindings, random value bindings, and public inputs, in that order
+        //    // If we reach here, this must be a let-bound variable
+        if let Some(let_bound_access_expr) = self
+            .bindings
+            .get(access.name.as_ref())
+            .cloned() {
+            match access.access_type {
+                AccessType::Default => return Ok(let_bound_access_expr),
+                _ => {
+                    let accessor: Link<Op> =
+                        Accessor::create(let_bound_access_expr, access.access_type.clone()).into();
+                    return Ok(accessor);
+                }
+            }
+        }
+
+        // Otherwise, we check bindings, trace bindings, random value bindings, and public inputs, in that order
         if let Some(tab) = self.trace_access_binding(access) {
             return Ok(Value::builder()
                 .value(SpannedMirValue {
@@ -959,20 +941,7 @@ impl<'a> MirBuilder<'a> {
                 .into());
         }
 
-        //    // If we reach here, this must be a let-bound variable
-        let let_bound_access_expr = self
-            .bindings
-            .get(access.name.as_ref())
-            .unwrap_or_else(|| panic!("undefined variable: {:?}", access))
-            .clone();
-        match access.access_type {
-            AccessType::Default => return Ok(let_bound_access_expr),
-            _ => {
-                let accessor: Link<Op> =
-                    Accessor::create(let_bound_access_expr, access.access_type.clone()).into();
-                Ok(accessor)
-            }
-        }
+        panic!("undefined variable: {:?}", access);
     }
 
     // Check assumptions, probably this assumed that the inlining pass did some work
