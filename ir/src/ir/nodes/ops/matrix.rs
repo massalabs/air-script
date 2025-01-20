@@ -1,4 +1,4 @@
-use crate::ir::{BackLink, Builder, Child, Link, Op, Owner, Parent};
+use crate::ir::{BackLink, Builder, Child, Link, Node, Op, Owner, Parent};
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash, Builder)]
 #[enum_wrapper(Op)]
@@ -7,6 +7,8 @@ pub struct Matrix {
     pub size: usize,
     // elements are of type Vector
     pub elements: Link<Vec<Link<Op>>>,
+    pub _node: Option<Link<Node>>,
+    pub _owner: Option<Link<Owner>>,
 }
 
 impl Matrix {

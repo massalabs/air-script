@@ -1,4 +1,4 @@
-use crate::ir::{BackLink, Builder, Child, Link, Op, Owner, Parent, Root};
+use crate::ir::{BackLink, Builder, Child, Link, Node, Op, Owner, Parent, Root};
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash, Builder)]
 #[enum_wrapper(Op)]
@@ -7,6 +7,8 @@ pub struct Call {
     pub function: Link<Root>,
     /// Parent::children only contains the arguments
     pub arguments: Link<Vec<Link<Op>>>,
+    pub _node: Option<Link<Node>>,
+    pub _owner: Option<Link<Owner>>,
 }
 
 impl Call {

@@ -5,7 +5,7 @@ use crate::ir::{
 
 use std::{
     cell::{Ref, RefMut},
-    ops::Deref,
+    ops::DerefMut,
 };
 
 /// The combined Operators and Leaves of the MIR Graph
@@ -116,24 +116,225 @@ impl Child for Op {
 impl Link<Op> {
     pub fn as_node(&self) -> Link<Node> {
         let back: BackLink<Op> = self.clone().into();
-        match self.borrow().deref() {
-            Op::Enf(_) => Node::Enf(back),
-            Op::Boundary(_) => Node::Boundary(back),
-            Op::Add(_) => Node::Add(back),
-            Op::Sub(_) => Node::Sub(back),
-            Op::Mul(_) => Node::Mul(back),
-            Op::If(_) => Node::If(back),
-            Op::For(_) => Node::For(back),
-            Op::Call(_) => Node::Call(back),
-            Op::Fold(_) => Node::Fold(back),
-            Op::Vector(_) => Node::Vector(back),
-            Op::Matrix(_) => Node::Matrix(back),
-            Op::Accessor(_) => Node::Accessor(back),
-            Op::Parameter(_) => Node::Parameter(back),
-            Op::Value(_) => Node::Value(back),
-            Op::None => Node::None,
+        match self.clone().borrow_mut().deref_mut() {
+            Op::Enf(Enf {
+                _node: Some(link), ..
+            }) => link.clone(),
+            Op::Enf(ref mut enf) => {
+                let node: Link<Node> = Node::Enf(back).into();
+                enf._node = Some(node.clone());
+                node
+            }
+            Op::Boundary(Boundary {
+                _node: Some(link), ..
+            }) => link.clone(),
+            Op::Boundary(ref mut boundary) => {
+                let node: Link<Node> = Node::Boundary(back).into();
+                boundary._node = Some(node.clone());
+                node
+            }
+            Op::Add(Add {
+                _node: Some(link), ..
+            }) => link.clone(),
+            Op::Add(ref mut add) => {
+                let node: Link<Node> = Node::Add(back).into();
+                add._node = Some(node.clone());
+                node
+            }
+            Op::Sub(Sub {
+                _node: Some(link), ..
+            }) => link.clone(),
+            Op::Sub(ref mut sub) => {
+                let node: Link<Node> = Node::Sub(back).into();
+                sub._node = Some(node.clone());
+                node
+            }
+            Op::Mul(Mul {
+                _node: Some(link), ..
+            }) => link.clone(),
+            Op::Mul(ref mut mul) => {
+                let node: Link<Node> = Node::Mul(back).into();
+                mul._node = Some(node.clone());
+                node
+            }
+            Op::If(If {
+                _node: Some(link), ..
+            }) => link.clone(),
+            Op::If(ref mut if_op) => {
+                let node: Link<Node> = Node::If(back).into();
+                if_op._node = Some(node.clone());
+                node
+            }
+            Op::For(For {
+                _node: Some(link), ..
+            }) => link.clone(),
+            Op::For(ref mut for_op) => {
+                let node: Link<Node> = Node::For(back).into();
+                for_op._node = Some(node.clone());
+                node
+            }
+            Op::Call(Call {
+                _node: Some(link), ..
+            }) => link.clone(),
+            Op::Call(ref mut call) => {
+                let node: Link<Node> = Node::Call(back).into();
+                call._node = Some(node.clone());
+                node
+            }
+            Op::Fold(Fold {
+                _node: Some(link), ..
+            }) => link.clone(),
+            Op::Fold(ref mut fold) => {
+                let node: Link<Node> = Node::Fold(back).into();
+                fold._node = Some(node.clone());
+                node
+            }
+            Op::Vector(Vector {
+                _node: Some(link), ..
+            }) => link.clone(),
+            Op::Vector(ref mut vector) => {
+                let node: Link<Node> = Node::Vector(back).into();
+                vector._node = Some(node.clone());
+                node
+            }
+            Op::Matrix(Matrix {
+                _node: Some(link), ..
+            }) => link.clone(),
+            Op::Matrix(ref mut matrix) => {
+                let node: Link<Node> = Node::Matrix(back).into();
+                matrix._node = Some(node.clone());
+                node
+            }
+            Op::Accessor(Accessor {
+                _node: Some(link), ..
+            }) => link.clone(),
+            Op::Accessor(ref mut accessor) => {
+                let node: Link<Node> = Node::Accessor(back).into();
+                accessor._node = Some(node.clone());
+                node
+            }
+            Op::Parameter(Parameter {
+                _node: Some(link), ..
+            }) => link.clone(),
+            Op::Parameter(ref mut parameter) => {
+                let node: Link<Node> = Node::Parameter(back).into();
+                parameter._node = Some(node.clone());
+                node
+            }
+            Op::Value(Value {
+                _node: Some(link), ..
+            }) => link.clone(),
+            Op::Value(ref mut value) => {
+                let node: Link<Node> = Node::Value(back).into();
+                value._node = Some(node.clone());
+                node
+            }
+            Op::None => Node::None.into(),
         }
-        .into()
+    }
+    pub fn as_owner(&self) -> Option<Link<Owner>> {
+        let back: BackLink<Op> = self.clone().into();
+        match self.clone().borrow_mut().deref_mut() {
+            Op::Enf(Enf {
+                _owner: Some(link), ..
+            }) => Some(link.clone()),
+            Op::Enf(ref mut enf) => {
+                let owner: Link<Owner> = Owner::Enf(back).into();
+                enf._owner = Some(owner.clone());
+                enf._owner.clone()
+            }
+            Op::Boundary(Boundary {
+                _owner: Some(link), ..
+            }) => Some(link.clone()),
+            Op::Boundary(ref mut boundary) => {
+                let owner: Link<Owner> = Owner::Boundary(back).into();
+                boundary._owner = Some(owner.clone());
+                boundary._owner.clone()
+            }
+            Op::Add(Add {
+                _owner: Some(link), ..
+            }) => Some(link.clone()),
+            Op::Add(ref mut add) => {
+                let owner: Link<Owner> = Owner::Add(back).into();
+                add._owner = Some(owner.clone());
+                add._owner.clone()
+            }
+            Op::Sub(Sub {
+                _owner: Some(link), ..
+            }) => Some(link.clone()),
+            Op::Sub(ref mut sub) => {
+                let owner: Link<Owner> = Owner::Sub(back).into();
+                sub._owner = Some(owner.clone());
+                sub._owner.clone()
+            }
+            Op::Mul(Mul {
+                _owner: Some(link), ..
+            }) => Some(link.clone()),
+            Op::Mul(ref mut mul) => {
+                let owner: Link<Owner> = Owner::Mul(back).into();
+                mul._owner = Some(owner.clone());
+                mul._owner.clone()
+            }
+            Op::If(If {
+                _owner: Some(link), ..
+            }) => Some(link.clone()),
+            Op::If(ref mut if_op) => {
+                let owner: Link<Owner> = Owner::If(back).into();
+                if_op._owner = Some(owner.clone());
+                if_op._owner.clone()
+            }
+            Op::For(For {
+                _owner: Some(link), ..
+            }) => Some(link.clone()),
+            Op::For(ref mut for_op) => {
+                let owner: Link<Owner> = Owner::For(back).into();
+                for_op._owner = Some(owner.clone());
+                for_op._owner.clone()
+            }
+            Op::Call(Call {
+                _owner: Some(link), ..
+            }) => Some(link.clone()),
+            Op::Call(ref mut call) => {
+                let owner: Link<Owner> = Owner::Call(back).into();
+                call._owner = Some(owner.clone());
+                call._owner.clone()
+            }
+            Op::Fold(Fold {
+                _owner: Some(link), ..
+            }) => Some(link.clone()),
+            Op::Fold(ref mut fold) => {
+                let owner: Link<Owner> = Owner::Fold(back).into();
+                fold._owner = Some(owner.clone());
+                fold._owner.clone()
+            }
+            Op::Vector(Vector {
+                _owner: Some(link), ..
+            }) => Some(link.clone()),
+            Op::Vector(ref mut vector) => {
+                let owner: Link<Owner> = Owner::Vector(back).into();
+                vector._owner = Some(owner.clone());
+                vector._owner.clone()
+            }
+            Op::Matrix(Matrix {
+                _owner: Some(link), ..
+            }) => Some(link.clone()),
+            Op::Matrix(ref mut matrix) => {
+                let owner: Link<Owner> = Owner::Matrix(back).into();
+                matrix._owner = Some(owner.clone());
+                matrix._owner.clone()
+            }
+            Op::Accessor(Accessor {
+                _owner: Some(link), ..
+            }) => Some(link.clone()),
+            Op::Accessor(ref mut accessor) => {
+                let owner: Link<Owner> = Owner::Accessor(back).into();
+                accessor._owner = Some(owner.clone());
+                accessor._owner.clone()
+            }
+            Op::Parameter(_) => None,
+            Op::Value(_) => None,
+            Op::None => None,
+        }
     }
     pub fn as_enf(&self) -> Option<Ref<Enf>> {
         get_inner(self.borrow(), |op| match op {

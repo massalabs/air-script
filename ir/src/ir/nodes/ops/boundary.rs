@@ -1,4 +1,4 @@
-use crate::ir::{BackLink, Builder, Child, Link, Op, Owner, Parent};
+use crate::ir::{BackLink, Builder, Child, Link, Node, Op, Owner, Parent};
 use air_parser::ast::Boundary as BoundaryKind;
 use std::hash::Hash;
 
@@ -8,6 +8,8 @@ pub struct Boundary {
     pub parents: Vec<BackLink<Owner>>,
     pub kind: BoundaryKind,
     pub expr: Link<Op>,
+    pub _node: Option<Link<Node>>,
+    pub _owner: Option<Link<Owner>>,
 }
 
 impl Default for Boundary {
@@ -16,6 +18,8 @@ impl Default for Boundary {
             parents: Vec::default(),
             kind: BoundaryKind::First,
             expr: Link::default(),
+            _node: None,
+            _owner: None,
         }
     }
 }

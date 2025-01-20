@@ -13,6 +13,7 @@ pub struct Parameter {
     pub ref_node: Link<Node>,
     pub position: usize,
     pub ty: MirType,
+    pub _node: Option<Link<Node>>,
 }
 
 impl Parameter {
@@ -22,6 +23,7 @@ impl Parameter {
             ref_node: Node::None.into(),
             position,
             ty,
+            _node: None,
         })
         .into()
     }

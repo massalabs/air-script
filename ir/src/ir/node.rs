@@ -162,22 +162,9 @@ impl Link<Node> {
         }
     }
     pub fn as_owner(&self) -> Option<Link<Owner>> {
-        match self.borrow().deref() {
-            Node::Accessor(op) => Some(Owner::Accessor(op.clone()).into()),
-            Node::Boundary(op) => Some(Owner::Boundary(op.clone()).into()),
-            Node::Function(op) => Some(Owner::Function(op.clone()).into()),
-            Node::Evaluator(op) => Some(Owner::Evaluator(op.clone()).into()),
-            Node::Vector(op) => Some(Owner::Vector(op.clone()).into()),
-            Node::Matrix(op) => Some(Owner::Matrix(op.clone()).into()),
-            Node::Call(op) => Some(Owner::Call(op.clone()).into()),
-            Node::Fold(op) => Some(Owner::Fold(op.clone()).into()),
-            Node::Add(op) => Some(Owner::Add(op.clone()).into()),
-            Node::Sub(op) => Some(Owner::Sub(op.clone()).into()),
-            Node::Mul(op) => Some(Owner::Mul(op.clone()).into()),
-            Node::Enf(op) => Some(Owner::Enf(op.clone()).into()),
-            Node::For(op) => Some(Owner::For(op.clone()).into()),
-            Node::If(op) => Some(Owner::If(op.clone()).into()),
-            _ => None,
+        match self.as_root() {
+            Some(root) => Some(root.as_owner()),
+            None => self.as_op().and_then(|op| op.as_owner()),
         }
     }
 }

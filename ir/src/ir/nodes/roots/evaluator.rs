@@ -1,10 +1,12 @@
-use crate::ir::{Builder, Link, Op, Parent, Root};
+use crate::ir::{Builder, Link, Node, Op, Owner, Parent, Root};
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash, Builder)]
 #[enum_wrapper(Root)]
 pub struct Evaluator {
     pub parameters: Vec<Vec<Link<Op>>>,
     pub body: Link<Vec<Link<Op>>>,
+    pub _node: Option<Link<Node>>,
+    pub _owner: Option<Link<Owner>>,
 }
 
 impl Evaluator {
@@ -12,6 +14,7 @@ impl Evaluator {
         Root::Evaluator(Self {
             parameters,
             body: Link::new(body),
+            ..Default::default()
         })
         .into()
     }

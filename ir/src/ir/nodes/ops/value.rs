@@ -1,7 +1,7 @@
 use air_parser::ast::{self, Identifier, QualifiedIdentifier, TraceSegmentId};
 use miden_diagnostics::SourceSpan;
 
-use crate::ir::{BackLink, Builder, Child, Link, Op, Owner, TraceAccess};
+use crate::ir::{BackLink, Builder, Child, Link, Node, Op, Owner, TraceAccess};
 
 /// Represents a scalar value in the [MIR]
 ///
@@ -124,6 +124,7 @@ impl Default for SpannedMirValue {
 pub struct Value {
     pub parents: Vec<BackLink<Owner>>,
     pub value: SpannedMirValue,
+    pub _node: Option<Link<Node>>,
 }
 
 impl Value {
