@@ -348,7 +348,7 @@ impl Visitor for InliningSecondPass<'_> {
         if let Some(op) = node.clone().as_op() {
             // If we visit a Call, do not visit the children (the call's arguments)
             // TODO INLINING: Check whether we should instead
-            let Some(_) = op.as_call() else {
+            if let Some(_) = op.as_call() {
                 return;
             };
             for child in node.children().borrow().iter() {
