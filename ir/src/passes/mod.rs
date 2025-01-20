@@ -35,7 +35,8 @@ use std::ops::Deref;
 use air_pass::Pass;
 
 use crate::ir::{
-    Accessor, Add, Boundary, Call, Enf, Fold, For, If, Link, Matrix, Mul, Node, Op, Parameter, Parent, Sub, Value, Vector
+    Accessor, Add, Boundary, Call, Enf, Fold, For, If, Link, Matrix, Mul, Node, Op, Parameter,
+    Parent, Sub, Value, Vector,
 };
 
 pub struct DumpAst;
@@ -131,11 +132,7 @@ pub fn duplicate_node(node: Link<Op>) -> Link<Op> {
             let children_link = vector.children().clone();
             let children_ref = children_link.borrow();
             let children = children_ref.deref();
-            let new_children = children
-                .iter()
-                .cloned()
-                .map(duplicate_node)
-                .collect();
+            let new_children = children.iter().cloned().map(duplicate_node).collect();
             Vector::create(new_children)
         }
         Op::Matrix(matrix) => {

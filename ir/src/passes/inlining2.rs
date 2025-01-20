@@ -264,11 +264,8 @@ impl Visitor for InliningSecondPass<'_> {
         let mut callee_nodes_to_inline_in_order = Vec::new();
         for callee in self.func_eval_inlining_order.iter() {
             if let Some(nodes_with_context) = self.func_eval_nodes_where_called.get(callee) {
-                callee_nodes_to_inline_in_order.extend(
-                    nodes_with_context
-                        .iter()
-                        .map(|call| call.clone().as_node()),
-                );
+                callee_nodes_to_inline_in_order
+                    .extend(nodes_with_context.iter().map(|call| call.clone().as_node()));
             }
         }
         callee_nodes_to_inline_in_order
@@ -412,8 +409,12 @@ impl Visitor for InliningSecondPass<'_> {
         // First, check if it's a known Call to inline,
         // if so, set the context and visit the body
 
-        let call_op = node.clone().as_op().unwrap_or_else(|| panic!("InliningSecondPass::visit_node on a non-Op node: {:?}",
-                node));
+        let call_op = node.clone().as_op().unwrap_or_else(|| {
+            panic!(
+                "InliningSecondPass::visit_node on a non-Op node: {:?}",
+                node
+            )
+        });
         if let Some(_) = call_op.clone().as_call() {
             self.visit_call(graph, call_op.clone())?;
         } else {
