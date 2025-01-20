@@ -637,7 +637,7 @@ impl Visitor for UnrollingSecondPass<'_> {
         &mut self.work_stack
     }
     fn run(&mut self, graph: &mut Graph) -> Result<(), CompileError> {
-        for (idx, root) in self.root_nodes_to_visit(graph).iter().enumerate() {
+        for root in self.root_nodes_to_visit(graph).iter() {
             /*println!("Visiting root node: {idx} - {:?}", root);
             println!("");*/
 
@@ -650,7 +650,7 @@ impl Visitor for UnrollingSecondPass<'_> {
                 }
             });
 
-            println!("SET NEW CONTEXT: {:?}", for_inlining_context);
+            //println!("SET NEW CONTEXT: {:?}", for_inlining_context);
 
             self.for_inlining_context = for_inlining_context;
             self.nodes_to_replace.clear();
@@ -669,7 +669,7 @@ impl Visitor for UnrollingSecondPass<'_> {
                 }
             }
 
-            println!("END Visiting root node: {idx} - {:?}", root);
+            //println!("END Visiting root node: {idx} - {:?}", root);
 
             // We have finished inlining the body, we can now replace the Root node with the body
 

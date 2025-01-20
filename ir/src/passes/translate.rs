@@ -157,18 +157,17 @@ impl<'a> MirBuilder<'a> {
                 }
             }
 
-            println!(
+            /*println!(
                 "all_params_flatten_for_trace_segment: {:#?}",
                 all_params_flatten_for_trace_segment.clone()
-            );
+            );*/
             ev = ev.parameters(all_params_flatten_for_trace_segment.clone());
         }
         let ev = ev.build();
 
         set_all_ref_nodes(all_params_flatten.clone(), ev.as_node());
 
-        println!("all_params_flatten: {:#?}", all_params_flatten);
-        println!();
+        //println!("all_params_flatten: {:#?}", all_params_flatten);
 
         if known_signature {
             self.translate_body(ident, ev.clone(), &ast_eval.body)?;
@@ -622,7 +621,7 @@ impl<'a> MirBuilder<'a> {
     }
 
     fn translate_call(&mut self, call: &'a ast::Call) -> Result<Link<Op>, CompileError> {
-        println!("CALL ARGS: {:#?}", call);
+        //println!("CALL ARGS: {:#?}", call);
 
         // First, resolve the callee, panic if it's not resolved
         let resolved_callee = call.callee.resolved().unwrap();

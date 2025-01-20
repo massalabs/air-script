@@ -271,7 +271,7 @@ impl Visitor for InliningSecondPass<'_> {
         callee_nodes_to_inline_in_order
     }
     fn run(&mut self, graph: &mut Graph) -> Result<(), CompileError> {
-        for (idx, root_node) in self.root_nodes_to_visit(graph).iter().enumerate() {
+        for root_node in self.root_nodes_to_visit(graph).iter() {
             //println!("Visiting root node: {idx} - {:?}", root_node);
 
             if let Some(op) = root_node.as_op() {
@@ -316,13 +316,13 @@ impl Visitor for InliningSecondPass<'_> {
                     }
                 }
 
-                println!("END Visiting root node: {idx} - {:?}", root_node);
+                //println!("END Visiting root node: {idx} - {:?}", root_node);
 
                 if context.pure_function {
                     // We have finished inlining the body, we can now replace the Call node with the last expression of the body
                     let last_child_of_body = context.body.borrow().last().unwrap().clone();
 
-                    println!("BEFORE update call node: {:?}", root_node);
+                    //println!("BEFORE update call node: {:?}", root_node);
                     let new_node = self
                         .nodes_to_replace
                         .get(&last_child_of_body)
@@ -418,10 +418,8 @@ impl Visitor for InliningSecondPass<'_> {
         if call_op.clone().as_call().is_some() {
             self.visit_call(graph, call_op.clone())?;
         } else {
-            println!(" ");
-            println!("Visiting node: {:?}", node);
-            println!("Nodes to replace: {:?}", self.nodes_to_replace);
-            println!(" ");
+            /*println!("Visiting node: {:?}", node);
+            println!("Nodes to replace: {:?}", self.nodes_to_replace);*/
 
             if self.call_inlining_context.clone().unwrap().pure_function {
                 duplicate_node_or_replace(
