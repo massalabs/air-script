@@ -137,15 +137,13 @@ impl<'a> MirBuilder<'a> {
         ast_eval: &'a ast::EvaluatorFunction,
         known_signature: bool,
     ) -> Result<Link<Root>, CompileError> {
-
-        let mut all_params_flatten = Vec::new(); 
+        let mut all_params_flatten = Vec::new();
 
         self.bindings.enter();
         self.root_name = Some(ident);
         let mut ev = Evaluator::builder();
         let mut i = 0;
         for trace_segment in &ast_eval.params {
-
             let mut all_params_flatten_for_trace_segment = Vec::new();
 
             //        println!("trace_segment: {:#?}", trace_segment);
@@ -159,17 +157,18 @@ impl<'a> MirBuilder<'a> {
                 }
             }
 
-            println!("all_params_flatten_for_trace_segment: {:#?}", all_params_flatten_for_trace_segment.clone());
+            println!(
+                "all_params_flatten_for_trace_segment: {:#?}",
+                all_params_flatten_for_trace_segment.clone()
+            );
             ev = ev.parameters(all_params_flatten_for_trace_segment.clone());
         }
         let ev = ev.build();
-        
-        set_all_ref_nodes(all_params_flatten.clone(), ev.as_node());
 
+        set_all_ref_nodes(all_params_flatten.clone(), ev.as_node());
 
         println!("all_params_flatten: {:#?}", all_params_flatten);
         println!("");
-
 
         if known_signature {
             self.translate_body(ident, ev.clone(), &ast_eval.body)?;
@@ -425,8 +424,6 @@ impl<'a> MirBuilder<'a> {
         unreachable!("all EnforceIf should have been transformed into EnforceAll")
     }
 
-
-
     fn translate_enforce_all(
         &mut self,
         list_comp: &'a ast::ListComprehension,
@@ -437,7 +434,7 @@ impl<'a> MirBuilder<'a> {
         for (index, binding) in list_comp.bindings.iter().enumerate() {
             let binding_node =
                 Parameter::create(/*binding.span(), */ index, ast::Type::Felt.into());
-                params.push(binding_node.clone());
+            params.push(binding_node.clone());
             self.bindings.insert(binding, binding_node.into());
         }
 
@@ -626,7 +623,6 @@ impl<'a> MirBuilder<'a> {
     }
 
     fn translate_call(&mut self, call: &'a ast::Call) -> Result<Link<Op>, CompileError> {
-
         println!("CALL ARGS: {:#?}", call);
 
         // First, resolve the callee, panic if it's not resolved
@@ -698,7 +694,8 @@ impl<'a> MirBuilder<'a> {
                         .emit();
                     return Err(CompileError::Failed);
                 }
-            } else if let Some(callee) = self.mir.constraint_graph().get_evaluator(&resolved_callee) {
+            } else if let Some(callee) = self.mir.constraint_graph().get_evaluator(&resolved_callee)
+            {
                 // TRANSLATE TODO:
                 // - For Evaluators, we need to:
                 // - differentiate between trace segments
@@ -886,10 +883,7 @@ impl<'a> MirBuilder<'a> {
         }
 
         //    // If we reach here, this must be a let-bound variable
-        if let Some(let_bound_access_expr) = self
-            .bindings
-            .get(access.name.as_ref())
-            .cloned() {
+        if let Some(let_bound_access_expr) = self.bindings.get(access.name.as_ref()).cloned() {
             match access.access_type {
                 AccessType::Default => return Ok(let_bound_access_expr),
                 _ => {

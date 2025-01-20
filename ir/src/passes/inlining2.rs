@@ -4,7 +4,10 @@ use air_pass::Pass;
 use miden_diagnostics::{DiagnosticsHandler, Severity, SourceSpan};
 
 use crate::{
-    ir::{Graph, Link, Mir, MirValue, Node, Op, Parent, Root, SpannedMirValue, TraceAccessBinding, Value, Vector},
+    ir::{
+        Graph, Link, Mir, MirValue, Node, Op, Parent, Root, SpannedMirValue, TraceAccessBinding,
+        Value, Vector,
+    },
     CompileError,
 };
 
@@ -114,9 +117,10 @@ impl Pass for Inlining<'_> {
         // The first pass only identifies the call graph dependencies and the needed calls to inline
         Visitor::run(&mut first_pass, ir.constraint_graph_mut())?;
 
-        let func_eval_inlining_order =
-            create_inlining_order(
-                self.diagnostics, first_pass.func_eval_dependency_graph.clone())?;
+        let func_eval_inlining_order = create_inlining_order(
+            self.diagnostics,
+            first_pass.func_eval_dependency_graph.clone(),
+        )?;
 
         println!("");
         println!("func_eval_inlining_order: {:?}", func_eval_inlining_order);
@@ -160,9 +164,9 @@ fn create_inlining_order<'a>(
             _ => {
                 //panic!("Circular dependency detected!"); // Circular dep?, raise diag
                 diagnostics
-                        .diagnostic(Severity::Error)
-                        .with_message("argument count mismatch")
-                        .emit();
+                    .diagnostic(Severity::Error)
+                    .with_message("argument count mismatch")
+                    .emit();
                 return Err(CompileError::Failed);
             }
         }
@@ -222,13 +226,21 @@ impl Visitor for InliningFirstPass<'_> {
             .chain(functions.into_iter().map(|f| f.as_node()));
         combined_roots.collect()
     }
-    fn visit_function(&mut self, _graph: &mut Graph, function: Link<Root>) -> Result<(), CompileError> {
+    fn visit_function(
+        &mut self,
+        _graph: &mut Graph,
+        function: Link<Root>,
+    ) -> Result<(), CompileError> {
         self.func_eval_dependency_graph
             .insert(function, self.current_callees_encountered.clone());
         self.current_callees_encountered.clear();
         Ok(())
     }
-    fn visit_evaluator(&mut self, _graph: &mut Graph, evaluator: Link<Root>) -> Result<(), CompileError> {
+    fn visit_evaluator(
+        &mut self,
+        _graph: &mut Graph,
+        evaluator: Link<Root>,
+    ) -> Result<(), CompileError> {
         self.func_eval_dependency_graph
             .insert(evaluator.clone(), self.current_callees_encountered.clone());
         self.current_callees_encountered.clear();
@@ -437,47 +449,56 @@ impl Visitor for InliningSecondPass<'_> {
                         .arguments
                         .borrow()
                         .clone(),
-                    self.call_inlining_context
-                        .clone()
-                        .unwrap()
-                        .ref_node
+                    self.call_inlining_context.clone().unwrap().ref_node,
                 );
             } else {
-
                 // We unpack the arguments for all trace_segments first
-                let args = self.call_inlining_context
+                let args = self
+                    .call_inlining_context
                     .clone()
                     .unwrap()
                     .arguments
                     .borrow()
                     .clone();
 
-                let callee_params = self.call_inlining_context.clone().unwrap().ref_node.as_root().unwrap().as_evaluator().unwrap().parameters.clone();
-                for ((trace_segment_id, trace_segments_params), trace_segments_arg) in callee_params.iter().enumerate().zip(args.iter()) {
-    
+                let callee_params = self
+                    .call_inlining_context
+                    .clone()
+                    .unwrap()
+                    .ref_node
+                    .as_root()
+                    .unwrap()
+                    .as_evaluator()
+                    .unwrap()
+                    .parameters
+                    .clone();
+                for ((trace_segment_id, trace_segments_params), trace_segments_arg) in
+                    callee_params.iter().enumerate().zip(args.iter())
+                {
                     let Some(trace_segments_arg_vector) = trace_segments_arg.as_vector() else {
                         unreachable!("expected vector, got {:?}", trace_segments_arg);
                     };
                     let children = trace_segments_arg_vector.children();
-    
+
                     let mut trace_segments_arg_vector_len = 0;
                     for child in children.borrow().deref() {
                         let Some(value) = child.as_value() else {
                             unreachable!("expected value, got {:?}", child);
                         };
-    
-                        let Value { value: SpannedMirValue { value, .. }, .. } = value.deref();
-    
+
+                        let Value {
+                            value: SpannedMirValue { value, .. },
+                            ..
+                        } = value.deref();
+
                         let param_size = match value {
-                            MirValue::TraceAccessBinding(tab) => {
-                                tab.size
-                            },
+                            MirValue::TraceAccessBinding(tab) => tab.size,
                             MirValue::TraceAccess(_) => 1,
                             _ => unreachable!("expected trace access binding, got {:?}", value),
                         };
                         trace_segments_arg_vector_len += param_size;
                     }
-    
+
                     if trace_segments_params.len() != trace_segments_arg_vector_len {
                         self.diagnostics
                             .diagnostic(Severity::Error)
@@ -504,7 +525,6 @@ impl Visitor for InliningSecondPass<'_> {
                     }
                 }
 
-
                 let mut args_unpacked = Vec::new();
                 for args_for_trace_segment in args.iter() {
                     let Some(trace_segment_vec) = args_for_trace_segment.as_vector() else {
@@ -512,23 +532,30 @@ impl Visitor for InliningSecondPass<'_> {
                     };
                     let children = trace_segment_vec.children();
                     for arg in children.borrow().deref() {
-
                         let Some(value) = arg.as_value() else {
-                            unreachable!("When unpacking EV call arguments, expected value, got {:?}", arg);
+                            unreachable!(
+                                "When unpacking EV call arguments, expected value, got {:?}",
+                                arg
+                            );
                         };
 
-                        let Value { value: SpannedMirValue { span, value, .. }, .. } = value.deref();
+                        let Value {
+                            value: SpannedMirValue { span, value, .. },
+                            ..
+                        } = value.deref();
 
                         match value {
                             MirValue::TraceAccessBinding(tab) => {
                                 if tab.size > 1 {
                                     for index in 0..tab.size {
                                         let new_arg = Value::create(SpannedMirValue {
-                                            value: MirValue::TraceAccessBinding(TraceAccessBinding {
-                                                size: 1,
-                                                segment: tab.segment.clone(),
-                                                offset: tab.offset.clone() + index,
-                                            }),
+                                            value: MirValue::TraceAccessBinding(
+                                                TraceAccessBinding {
+                                                    size: 1,
+                                                    segment: tab.segment.clone(),
+                                                    offset: tab.offset.clone() + index,
+                                                },
+                                            ),
                                             span: *span,
                                         });
                                         args_unpacked.push(new_arg);
@@ -536,11 +563,14 @@ impl Visitor for InliningSecondPass<'_> {
                                 } else {
                                     args_unpacked.push(arg.clone());
                                 }
-                            },
+                            }
                             MirValue::TraceAccess(_ta) => {
                                 args_unpacked.push(arg.clone());
                             }
-                            _ => unreachable!("expected trace access binding or trace access, got {:?}", value),
+                            _ => unreachable!(
+                                "expected trace access binding or trace access, got {:?}",
+                                value
+                            ),
                         };
                     }
                 }
@@ -549,13 +579,9 @@ impl Visitor for InliningSecondPass<'_> {
                     &mut self.nodes_to_replace,
                     call_op,
                     args_unpacked,
-                    self.call_inlining_context
-                        .clone()
-                        .unwrap()
-                        .ref_node
+                    self.call_inlining_context.clone().unwrap().ref_node,
                 );
             }
-
         }
         Ok(())
     }

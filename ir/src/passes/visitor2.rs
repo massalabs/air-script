@@ -1,4 +1,7 @@
-use crate::{ir::{Graph, Link, Node, Op, Parent, Root}, CompileError};
+use crate::{
+    ir::{Graph, Link, Node, Op, Parent, Root},
+    CompileError,
+};
 
 use std::ops::Deref;
 
@@ -41,23 +44,75 @@ pub trait Visitor {
             Node::Accessor(a) => self.visit_accessor(graph, a.clone().into()),
             Node::Parameter(p) => self.visit_parameter(graph, p.clone().into()),
             Node::Value(v) => self.visit_value(graph, v.clone().into()),
-            Node::None => {Ok(())}
+            Node::None => Ok(()),
         }
     }
-    fn visit_function(&mut self, _graph: &mut Graph, _function: Link<Root>) -> Result<(), CompileError> {Ok(())}
-    fn visit_evaluator(&mut self, _graph: &mut Graph, _evaluator: Link<Root>) -> Result<(), CompileError> {Ok(())}
-    fn visit_enf(&mut self, _graph: &mut Graph, _enf: Link<Op>) -> Result<(), CompileError> {Ok(())}
-    fn visit_boundary(&mut self, _graph: &mut Graph, _boundary: Link<Op>) -> Result<(), CompileError> {Ok(())}
-    fn visit_add(&mut self, _graph: &mut Graph, _add: Link<Op>) -> Result<(), CompileError> {Ok(())}
-    fn visit_sub(&mut self, _graph: &mut Graph, _sub: Link<Op>) -> Result<(), CompileError> {Ok(())}
-    fn visit_mul(&mut self, _graph: &mut Graph, _mul: Link<Op>) -> Result<(), CompileError> {Ok(())}
-    fn visit_if(&mut self, _graph: &mut Graph, _if_node: Link<Op>) -> Result<(), CompileError> {Ok(())}
-    fn visit_for(&mut self, _graph: &mut Graph, _for_node: Link<Op>) -> Result<(), CompileError> {Ok(())}
-    fn visit_call(&mut self, _graph: &mut Graph, _call: Link<Op>) -> Result<(), CompileError> {Ok(())}
-    fn visit_fold(&mut self, _graph: &mut Graph, _fold: Link<Op>) -> Result<(), CompileError> {Ok(())}
-    fn visit_vector(&mut self, _graph: &mut Graph, _vector: Link<Op>) -> Result<(), CompileError> {Ok(())}
-    fn visit_matrix(&mut self, _graph: &mut Graph, _matrix: Link<Op>) -> Result<(), CompileError> {Ok(())}
-    fn visit_accessor(&mut self, _graph: &mut Graph, _accessor: Link<Op>) -> Result<(), CompileError> {Ok(())}
-    fn visit_parameter(&mut self, _graph: &mut Graph, _parameter: Link<Op>) -> Result<(), CompileError> {Ok(())}
-    fn visit_value(&mut self, _graph: &mut Graph, _value: Link<Op>) -> Result<(), CompileError> {Ok(())}
+    fn visit_function(
+        &mut self,
+        _graph: &mut Graph,
+        _function: Link<Root>,
+    ) -> Result<(), CompileError> {
+        Ok(())
+    }
+    fn visit_evaluator(
+        &mut self,
+        _graph: &mut Graph,
+        _evaluator: Link<Root>,
+    ) -> Result<(), CompileError> {
+        Ok(())
+    }
+    fn visit_enf(&mut self, _graph: &mut Graph, _enf: Link<Op>) -> Result<(), CompileError> {
+        Ok(())
+    }
+    fn visit_boundary(
+        &mut self,
+        _graph: &mut Graph,
+        _boundary: Link<Op>,
+    ) -> Result<(), CompileError> {
+        Ok(())
+    }
+    fn visit_add(&mut self, _graph: &mut Graph, _add: Link<Op>) -> Result<(), CompileError> {
+        Ok(())
+    }
+    fn visit_sub(&mut self, _graph: &mut Graph, _sub: Link<Op>) -> Result<(), CompileError> {
+        Ok(())
+    }
+    fn visit_mul(&mut self, _graph: &mut Graph, _mul: Link<Op>) -> Result<(), CompileError> {
+        Ok(())
+    }
+    fn visit_if(&mut self, _graph: &mut Graph, _if_node: Link<Op>) -> Result<(), CompileError> {
+        Ok(())
+    }
+    fn visit_for(&mut self, _graph: &mut Graph, _for_node: Link<Op>) -> Result<(), CompileError> {
+        Ok(())
+    }
+    fn visit_call(&mut self, _graph: &mut Graph, _call: Link<Op>) -> Result<(), CompileError> {
+        Ok(())
+    }
+    fn visit_fold(&mut self, _graph: &mut Graph, _fold: Link<Op>) -> Result<(), CompileError> {
+        Ok(())
+    }
+    fn visit_vector(&mut self, _graph: &mut Graph, _vector: Link<Op>) -> Result<(), CompileError> {
+        Ok(())
+    }
+    fn visit_matrix(&mut self, _graph: &mut Graph, _matrix: Link<Op>) -> Result<(), CompileError> {
+        Ok(())
+    }
+    fn visit_accessor(
+        &mut self,
+        _graph: &mut Graph,
+        _accessor: Link<Op>,
+    ) -> Result<(), CompileError> {
+        Ok(())
+    }
+    fn visit_parameter(
+        &mut self,
+        _graph: &mut Graph,
+        _parameter: Link<Op>,
+    ) -> Result<(), CompileError> {
+        Ok(())
+    }
+    fn visit_value(&mut self, _graph: &mut Graph, _value: Link<Op>) -> Result<(), CompileError> {
+        Ok(())
+    }
 }

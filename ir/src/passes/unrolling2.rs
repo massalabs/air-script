@@ -348,7 +348,11 @@ impl Visitor for UnrollingFirstPass<'_> {
         Ok(())
     }
 
-    fn visit_parameter(&mut self, _graph: &mut Graph, _parameter: Link<Op>) -> Result<(), CompileError> {
+    fn visit_parameter(
+        &mut self,
+        _graph: &mut Graph,
+        _parameter: Link<Op>,
+    ) -> Result<(), CompileError> {
         // FIXME: Just check that the parameter is a scalar, raise diag otherwise
         // List comprehension bodies should only be scalar expressions
         Ok(())
@@ -401,7 +405,7 @@ impl Visitor for UnrollingFirstPass<'_> {
         let condition = if_ref.condition.clone();
         let then_branch = if_ref.then_branch.clone();
         let else_branch = if_ref.else_branch.clone();
-        
+
         let mut new_vec = vec![];
 
         if let Op::Vector(then_branch_vector) = then_branch.clone().borrow().deref() {
@@ -415,7 +419,7 @@ impl Visitor for UnrollingFirstPass<'_> {
             let new_node = Mul::create(condition.clone(), then_branch);
             new_vec.push(new_node);
         }
-        
+
         let one_constant = SpannedMirValue {
             span: Default::default(),
             value: MirValue::Constant(ConstantValue::Felt(1)),
@@ -425,20 +429,30 @@ impl Visitor for UnrollingFirstPass<'_> {
             let else_branch_vec = else_branch_vector.children().borrow().deref().clone();
 
             for else_branch in else_branch_vec {
-                let new_node = Mul::create(Sub::create(Value::create(one_constant.clone()), condition.clone()), else_branch);
+                let new_node = Mul::create(
+                    Sub::create(Value::create(one_constant.clone()), condition.clone()),
+                    else_branch,
+                );
                 new_vec.push(new_node);
             }
         } else {
-            let new_node = Mul::create(Sub::create(Value::create(one_constant.clone()), condition.clone()), else_branch);
+            let new_node = Mul::create(
+                Sub::create(Value::create(one_constant.clone()), condition.clone()),
+                else_branch,
+            );
             new_vec.push(new_node);
         }
-        
+
         *if_node.as_node().borrow_mut() = Vector::create(new_vec).as_node().borrow().clone();
 
         Ok(())
     }
 
-    fn visit_boundary(&mut self, _graph: &mut Graph, boundary: Link<Op>) -> Result<(), CompileError> {
+    fn visit_boundary(
+        &mut self,
+        _graph: &mut Graph,
+        boundary: Link<Op>,
+    ) -> Result<(), CompileError> {
         // safe to unwrap because we just dispatched on it
         let boundary_ref = boundary.as_boundary().unwrap();
         let expr = boundary_ref.expr.clone();
@@ -457,7 +471,11 @@ impl Visitor for UnrollingFirstPass<'_> {
         Ok(())
     }
 
-    fn visit_accessor(&mut self, _graph: &mut Graph, accessor: Link<Op>) -> Result<(), CompileError> {
+    fn visit_accessor(
+        &mut self,
+        _graph: &mut Graph,
+        accessor: Link<Op>,
+    ) -> Result<(), CompileError> {
         let accessor_ref = accessor.as_accessor().unwrap();
         let indexable = accessor_ref.indexable.clone();
         let access_type = accessor_ref.access_type.clone();
@@ -599,11 +617,19 @@ impl Visitor for UnrollingFirstPass<'_> {
         unreachable!("Calls should have been inlined before this pass");
     }
 
-    fn visit_function(&mut self, _graph: &mut Graph, _function: Link<Root>) -> Result<(), CompileError> {
+    fn visit_function(
+        &mut self,
+        _graph: &mut Graph,
+        _function: Link<Root>,
+    ) -> Result<(), CompileError> {
         unreachable!("Functions should have been inlined before this pass");
     }
 
-    fn visit_evaluator(&mut self, _graph: &mut Graph, _evaluator: Link<Root>) -> Result<(), CompileError> {
+    fn visit_evaluator(
+        &mut self,
+        _graph: &mut Graph,
+        _evaluator: Link<Root>,
+    ) -> Result<(), CompileError> {
         unreachable!("Evaluators should have been inlined before this pass");
     }
 }
@@ -692,7 +718,7 @@ impl Visitor for UnrollingSecondPass<'_> {
                 &mut self.nodes_to_replace,
                 op,
                 self.for_inlining_context.clone().unwrap().iterators.clone(),
-                self.for_inlining_context.clone().unwrap().ref_node
+                self.for_inlining_context.clone().unwrap().ref_node,
             );
         } else {
             unreachable!(

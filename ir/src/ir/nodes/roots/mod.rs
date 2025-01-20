@@ -25,8 +25,8 @@ impl Parameter {
         })
         .into()
     }
-    
-    pub fn set_ref_node(&mut self, ref_node: Link<Node>){
+
+    pub fn set_ref_node(&mut self, ref_node: Link<Node>) {
         self.ref_node = ref_node;
     }
 }
