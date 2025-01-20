@@ -1,8 +1,5 @@
 use crate::ir::{Evaluator, Function, Link, Op, Root};
-use std::{
-    cell::{Ref, RefMut},
-    collections::BTreeMap,
-};
+use std::{cell::RefMut, collections::BTreeMap};
 
 use air_parser::ast::QualifiedIdentifier;
 

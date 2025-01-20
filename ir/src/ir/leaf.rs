@@ -1,5 +1,4 @@
-use crate::ir::{BackLink, Child, Link, Op, Owner, Parameter, Value};
-use std::ops::Deref;
+use crate::ir::{BackLink, Child, Link, Op, Owner};
 
 /// The Final nodes of the MIR Graph.
 /// Currently unused in the structure but will be used in the next visitor pattern implementation.

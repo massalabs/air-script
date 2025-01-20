@@ -6,7 +6,7 @@ use miden_diagnostics::DiagnosticsHandler;
 //use miden_diagnostics::DiagnosticsHandler;
 
 use crate::{
-    ir::{Call, Graph, Link, Mir, Node, Op, Parent, Root, Vector},
+    ir::{Graph, Link, Mir, Node, Op, Parent, Root, Vector},
     CompileError,
 };
 

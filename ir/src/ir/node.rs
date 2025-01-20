@@ -1,13 +1,7 @@
-use crate::ir::{
-    get_inner, get_inner_mut, Accessor, Add, BackLink, Boundary, Call, Child, Enf, Fold, For, If,
-    Matrix, Mul, Op, Parameter, Sub, Value, Vector,
-};
+use crate::ir::{BackLink, Child, Op};
 
 use super::{Link, Owner, Parent, Root};
-use std::{
-    cell::{Ref, RefMut},
-    ops::{Deref, DerefMut},
-};
+use std::ops::Deref;
 
 /// All the nodes that can be in the MIR Graph
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]

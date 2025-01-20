@@ -1,4 +1,4 @@
-use crate::ir::{BackLink, Builder, Child, Link, Op, Owner, Parent, Vector};
+use crate::ir::{BackLink, Builder, Child, Link, Op, Owner, Parent};
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash, Builder)]
 #[enum_wrapper(Op)]
