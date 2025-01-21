@@ -329,7 +329,7 @@ impl Visitor for InliningSecondPass<'_> {
                         .unwrap()
                         .clone();
 
-                    *root_node.borrow_mut() = new_node.as_node().borrow().clone();
+                    root_node.as_op().unwrap().set(&new_node);
 
                     //println!("Updated call node: {:?}", root_node);
                 } else {
@@ -344,7 +344,7 @@ impl Visitor for InliningSecondPass<'_> {
                     }
                     let new_nodes_vector = Vector::create(new_nodes);
 
-                    *root_node.clone().borrow_mut() = new_nodes_vector.as_node().borrow().clone();
+                    root_node.as_op().unwrap().set(&new_nodes_vector);
 
                     //println!("Updated call node: {:?}", root_node);
                 }

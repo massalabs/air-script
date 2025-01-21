@@ -572,7 +572,7 @@ impl Unrolling {
             Node::None => None,
         };
         if let Some(new_op) = new_op {
-            *node.borrow_mut().deref_mut() = new_op.as_node().borrow().deref().clone();
+            node.set(new_op);
         }
     }
 

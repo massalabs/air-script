@@ -163,7 +163,7 @@ impl Visitor for UnrollingFirstPass<'_> {
                         });
                         vec.push(val);
                     }
-                    *value.as_node().borrow_mut() = Vector::create(vec).as_node().borrow().clone();
+                    value.set(&Vector::create(vec));
                 }
                 ConstantValue::Matrix(m) => {
                     let mut res_m = vec![];
@@ -179,8 +179,7 @@ impl Visitor for UnrollingFirstPass<'_> {
                         let res_row_vec = Vector::create(res_row);
                         res_m.push(res_row_vec);
                     }
-                    *value.as_node().borrow_mut() =
-                        Matrix::create(res_m).as_node().borrow().clone();
+                    value.set(&Matrix::create(res_m));
                 }
             },
             MirValue::TraceAccess(_) => {}
@@ -201,7 +200,7 @@ impl Visitor for UnrollingFirstPass<'_> {
                     });
                     vec.push(val);
                 }
-                *value.as_node().borrow_mut() = Vector::create(vec).as_node().borrow().clone();
+                value.set(&Vector::create(vec));
             }
             MirValue::RandomValueBinding(random_value_binding) => {
                 let mut vec = vec![];
@@ -212,7 +211,7 @@ impl Visitor for UnrollingFirstPass<'_> {
                     });
                     vec.push(val);
                 }
-                *value.as_node().borrow_mut() = Vector::create(vec).as_node().borrow().clone();
+                value.set(&Vector::create(vec));
             }
         }
         Ok(())
@@ -239,7 +238,7 @@ impl Visitor for UnrollingFirstPass<'_> {
                     let new_node = Add::create(lhs.clone(), rhs.clone());
                     new_vec.push(new_node);
                 }
-                *add.as_node().borrow_mut() = Vector::create(new_vec).as_node().borrow().clone();
+                add.set(&Vector::create(new_vec));
             }
         };
         Ok(())
@@ -265,7 +264,7 @@ impl Visitor for UnrollingFirstPass<'_> {
                     let new_node = Sub::create(lhs.clone(), rhs.clone());
                     new_vec.push(new_node);
                 }
-                *sub.as_node().borrow_mut() = Vector::create(new_vec).as_node().borrow().clone();
+                sub.set(&Vector::create(new_vec));
             }
         };
         Ok(())
@@ -290,7 +289,7 @@ impl Visitor for UnrollingFirstPass<'_> {
                     let new_node = Mul::create(lhs.clone(), rhs.clone());
                     new_vec.push(new_node);
                 }
-                *mul.as_node().borrow_mut() = Vector::create(new_vec).as_node().borrow().clone();
+                mul.set(&Vector::create(new_vec));
             }
         };
         Ok(())
@@ -306,7 +305,7 @@ impl Visitor for UnrollingFirstPass<'_> {
                 let new_node = Enf::create(op.clone());
                 new_vec.push(new_node);
             }
-            *enf.as_node().borrow_mut() = Vector::create(new_vec).as_node().borrow().clone();
+            enf.set(&Vector::create(new_vec));
         };
         Ok(())
     }
@@ -341,7 +340,7 @@ impl Visitor for UnrollingFirstPass<'_> {
         }
 
         // Finally, replace the Fold with the expanded expression
-        *fold.as_node().borrow_mut() = acc_node.as_node().borrow().clone();
+        fold.set(&acc_node);
 
         Ok(())
     }
@@ -390,8 +389,7 @@ impl Visitor for UnrollingFirstPass<'_> {
                         If::create(condition.clone(), then_branch.clone(), else_branch.clone());
                     new_vec.push(new_node);
                 }
-                *if_node.as_node().borrow_mut() =
-                    Vector::create(new_vec).as_node().borrow().clone();
+                if_node.set(&Vector::create(new_vec));
             }
         };
 
@@ -441,7 +439,7 @@ impl Visitor for UnrollingFirstPass<'_> {
             new_vec.push(new_node);
         }
 
-        *if_node.as_node().borrow_mut() = Vector::create(new_vec).as_node().borrow().clone();
+        if_node.set(&Vector::create(new_vec));
 
         Ok(())
     }
@@ -463,7 +461,7 @@ impl Visitor for UnrollingFirstPass<'_> {
                 let new_node = Boundary::create(expr.clone(), kind);
                 new_vec.push(new_node);
             }
-            *boundary.as_node().borrow_mut() = Vector::create(new_vec).as_node().borrow().clone();
+            boundary.set(&Vector::create(new_vec));
         };
 
         Ok(())
@@ -498,8 +496,7 @@ impl Visitor for UnrollingFirstPass<'_> {
                         Some(child_accessed) => child_accessed,
                         None => unreachable!(), // raise diag
                     };
-                    *accessor.as_node().borrow_mut() =
-                        child_accessed.clone().as_node().borrow().clone();
+                    accessor.set(&child_accessed);
                 } else {
                     unreachable!(); // raise diag
                 };
@@ -523,8 +520,7 @@ impl Visitor for UnrollingFirstPass<'_> {
                             Some(child_accessed) => child_accessed,
                             None => unreachable!(), // raise diag
                         };
-                        *accessor.as_node().borrow_mut() =
-                            child_accessed.clone().as_node().borrow().clone();
+                        accessor.set(child_accessed);
                     } else {
                         unreachable!(); // raise diag
                     };
@@ -607,7 +603,7 @@ impl Visitor for UnrollingFirstPass<'_> {
                 },
             ));
         }
-        *for_node.as_node().borrow_mut() = Vector::create(new_vec).as_node().borrow().clone();
+        for_node.set(&Vector::create(new_vec));
         Ok(())
     }
 
@@ -687,9 +683,7 @@ impl Visitor for UnrollingSecondPass<'_> {
                     new_node
                 };
 
-            *root.clone().borrow_mut() =
-                new_node_with_selector_if_needed.as_node().borrow().clone();
-
+            root.as_op().unwrap().set(&new_node_with_selector_if_needed);
             /*println!("");
             println!("Updated child of For node: {:?}", root);
             println!("");*/
