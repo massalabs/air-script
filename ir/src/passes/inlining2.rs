@@ -52,10 +52,10 @@ pub struct InliningFirstPass<'a> {
     in_func_or_eval: bool,
     // When encountering a call, we store it here to construct the dependency graph once reaching the root node
     current_callees_encountered: Vec<Link<Root>>,
-    // HashMap<Function, Functions where it is called>
-    func_eval_dependency_graph: HashMap<Link<Root>, Vec<Link<Root>>>,
-    // HashMap<Callee, Vec<Call nodes where called>>
-    func_eval_nodes_where_called: HashMap<Link<Root>, Vec<Link<Op>>>, // Op is a Call here
+    // HashMap<FunctionPtr, (Function, Functions where it is called)>
+    func_eval_dependency_graph: HashMap<usize, (Link<Root>, Vec<Link<Root>>)>,
+    // HashMap<CaleePtr, Callee, Vec<Call nodes where called>>
+    func_eval_nodes_where_called: HashMap<usize, (Link<Root>, Vec<Link<Op>>)>, // Op is a Call here
 }
 impl<'a> InliningFirstPass<'a> {
     pub fn new(diagnostics: &'a DiagnosticsHandler) -> Self {
@@ -79,16 +79,17 @@ pub struct InliningSecondPass<'a> {
     func_eval_inlining_order: Vec<Link<Root>>,
     // context for second pass
     call_inlining_context: Option<CallInliningContext>,
-    nodes_to_replace: HashMap<Link<Op>, Link<Op>>,
+    // HashMap<KeyPtr, (Key, Value)>
+    nodes_to_replace: HashMap<usize, (Link<Op>, Link<Op>)>,
 
-    // HashMap<Callee, Vec<Call nodes where called>>
-    func_eval_nodes_where_called: HashMap<Link<Root>, Vec<Link<Op>>>, // Op is a Call here
+    // HashMap<CaleePtr, (Callee, Vec<Call nodes where called>)>
+    func_eval_nodes_where_called: HashMap<usize, (Link<Root>, Vec<Link<Op>>)>, // Op is a Call here
 }
 impl<'a> InliningSecondPass<'a> {
     pub fn new(
         diagnostics: &'a DiagnosticsHandler,
         func_eval_inlining_order: Vec<Link<Root>>,
-        func_eval_nodes_where_called: HashMap<Link<Root>, Vec<Link<Op>>>,
+        func_eval_nodes_where_called: HashMap<usize, (Link<Root>, Vec<Link<Op>>)>,
     ) -> Self {
         Self {
             diagnostics,
@@ -141,7 +142,7 @@ impl Pass for Inlining<'_> {
 
 fn create_inlining_order(
     diagnostics: &DiagnosticsHandler,
-    mut func_eval_dependency_graph: HashMap<Link<Root>, Vec<Link<Root>>>,
+    mut func_eval_dependency_graph: HashMap<usize, (Link<Root>, Vec<Link<Root>>)>,
 ) -> Result<Vec<Link<Root>>, CompileError> {
     let mut func_eval_inlining_order = Vec::new();
 
@@ -151,11 +152,11 @@ fn create_inlining_order(
         match func_eval_dependency_graph
             .clone()
             .iter()
-            .find(|(_k, v)| v.is_empty())
+            .find(|(_, (k, v))| v.is_empty())
         {
-            Some((f, _)) => {
+            Some((f_ptr, (f, _))) => {
                 func_eval_inlining_order.push(f.clone());
-                func_eval_dependency_graph.remove(f);
+                func_eval_dependency_graph.remove(f_ptr);
             }
             _ => {
                 //panic!("Circular dependency detected!"); // Circular dep?, raise diag
@@ -170,9 +171,11 @@ fn create_inlining_order(
         let removed_fn = func_eval_inlining_order.last().unwrap();
 
         // Remove the function from the dependency graph
-        func_eval_dependency_graph.iter_mut().for_each(|(_k, v)| {
-            v.retain(|x| x != removed_fn);
-        });
+        func_eval_dependency_graph
+            .iter_mut()
+            .for_each(|(_, (_, v))| {
+                v.retain(|x| x != removed_fn);
+            });
     }
     Ok(func_eval_inlining_order)
 }
@@ -227,8 +230,10 @@ impl Visitor for InliningFirstPass<'_> {
         _graph: &mut Graph,
         function: Link<Root>,
     ) -> Result<(), CompileError> {
-        self.func_eval_dependency_graph
-            .insert(function, self.current_callees_encountered.clone());
+        self.func_eval_dependency_graph.insert(
+            function.get_ptr(),
+            (function, self.current_callees_encountered.clone()),
+        );
         self.current_callees_encountered.clear();
         Ok(())
     }
@@ -237,8 +242,10 @@ impl Visitor for InliningFirstPass<'_> {
         _graph: &mut Graph,
         evaluator: Link<Root>,
     ) -> Result<(), CompileError> {
-        self.func_eval_dependency_graph
-            .insert(evaluator.clone(), self.current_callees_encountered.clone());
+        self.func_eval_dependency_graph.insert(
+            evaluator.get_ptr(),
+            (evaluator.clone(), self.current_callees_encountered.clone()),
+        );
         self.current_callees_encountered.clear();
         Ok(())
     }
@@ -249,9 +256,9 @@ impl Visitor for InliningFirstPass<'_> {
             self.current_callees_encountered.push(callee.clone());
         }
         self.func_eval_nodes_where_called
-            .entry(callee.clone())
-            .and_modify(|v| v.push(call.clone()))
-            .or_insert(vec![call.clone()]);
+            .entry(callee.get_ptr())
+            .and_modify(|(_, v)| v.push(call.clone()))
+            .or_insert((callee.clone(), vec![call.clone()]));
         Ok(())
     }
 }
@@ -263,7 +270,9 @@ impl Visitor for InliningSecondPass<'_> {
     fn root_nodes_to_visit(&self, _graph: &Graph) -> Vec<Link<Node>> {
         let mut callee_nodes_to_inline_in_order = Vec::new();
         for callee in self.func_eval_inlining_order.iter() {
-            if let Some(nodes_with_context) = self.func_eval_nodes_where_called.get(callee) {
+            if let Some((_, nodes_with_context)) =
+                self.func_eval_nodes_where_called.get(&callee.get_ptr())
+            {
                 callee_nodes_to_inline_in_order
                     .extend(nodes_with_context.iter().map(|call| call.clone().as_node()));
             }
@@ -323,9 +332,9 @@ impl Visitor for InliningSecondPass<'_> {
                     let last_child_of_body = context.body.borrow().last().unwrap().clone();
 
                     //println!("BEFORE update call node: {:?}", root_node);
-                    let new_node = self
+                    let (_, new_node) = self
                         .nodes_to_replace
-                        .get(&last_child_of_body)
+                        .get(&last_child_of_body.get_ptr())
                         .unwrap()
                         .clone();
 
@@ -340,7 +349,13 @@ impl Visitor for InliningSecondPass<'_> {
                         // Depends if additional nodes change things (e.g. the Vector size..)
                         // For now I think we can keep all nodes, and just ignore the non-Enf nodes
                         // When building the constraints during lowering Mir -> Air
-                        new_nodes.push(self.nodes_to_replace.get(body_node).unwrap().clone());
+                        new_nodes.push(
+                            self.nodes_to_replace
+                                .get(&body_node.get_ptr())
+                                .unwrap()
+                                .1
+                                .clone(),
+                        );
                     }
                     let new_nodes_vector = Vector::create(new_nodes);
 

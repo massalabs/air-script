@@ -28,6 +28,9 @@ impl<T> Link<T> {
     {
         *self.borrow_mut() = other.borrow().clone();
     }
+    pub fn get_ptr(&self) -> usize {
+        Rc::as_ptr(&self.link) as usize
+    }
 }
 
 impl<T: Debug> Debug for Link<T> {
@@ -55,9 +58,9 @@ impl<T> Clone for Link<T> {
     }
 }
 
-impl<T> PartialEq for Link<T> {
+impl<T: PartialEq> PartialEq for Link<T> {
     fn eq(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.link, &other.link)
+        self.link == other.link
     }
 }
 

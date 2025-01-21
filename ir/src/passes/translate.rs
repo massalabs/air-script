@@ -172,9 +172,8 @@ impl<'a> MirBuilder<'a> {
         if known_signature {
             self.translate_body(ident, ev.clone(), &ast_eval.body)?;
             let original = self.mir
-                .constraint_graph_mut()
-                .get_evaluator_mut(ident)
-                .unwrap_or_else(|| panic!("missing evaluator signature for {:?}\nuse self.translate_evaluator_signature(ident, ast_eval) before self.translate_evaluator(ident, ast_eval)", ident));
+                .constraint_graph()
+                .get_evaluator(ident).unwrap_or_else(||panic!("missing evaluator signature for {:?}\nuse self.translate_evaluator_signature(ident, ast_eval) before self.translate_evaluator(ident, ast_eval)", ident));
             if original.parameters != ev.as_evaluator().unwrap().parameters {
                 panic!(
                     "evaluator parameter mismatch for {:?}\nexpected: {:#?}\nbut got: {:#?}",
@@ -183,8 +182,13 @@ impl<'a> MirBuilder<'a> {
                     ev.as_evaluator().unwrap().parameters
                 );
             }
+            drop(original);
+            let original_mut = self.mir
+                .constraint_graph_mut()
+                .get_evaluator_mut(ident)
+                .unwrap_or_else(|| panic!("missing evaluator signature for {:?}\nuse self.translate_evaluator_signature(ident, ast_eval) before self.translate_evaluator(ident, ast_eval)", ident));
             let body = ev.as_evaluator().unwrap().body.borrow().clone();
-            original.body.borrow_mut().clone_from(&body);
+            original_mut.body.borrow_mut().clone_from(&body);
         } else {
             self.mir
                 .constraint_graph_mut()
@@ -659,7 +663,11 @@ impl<'a> MirBuilder<'a> {
             // Get the known callee in the functions hashmap
             // Then, get the node index of the function definition
             let callee_node;
-            if let Some(callee) = self.mir.constraint_graph().get_function(&resolved_callee) {
+            if let Some(callee) = self
+                .mir
+                .constraint_graph()
+                .get_function_root(&resolved_callee)
+            {
                 callee_node = callee.clone();
                 arg_nodes = call
                     .args
@@ -690,7 +698,10 @@ impl<'a> MirBuilder<'a> {
                         .emit();
                     return Err(CompileError::Failed);
                 }
-            } else if let Some(callee) = self.mir.constraint_graph().get_evaluator(&resolved_callee)
+            } else if let Some(callee) = self
+                .mir
+                .constraint_graph()
+                .get_evaluator_root(&resolved_callee)
             {
                 // TRANSLATE TODO:
                 // - For Evaluators, we need to:

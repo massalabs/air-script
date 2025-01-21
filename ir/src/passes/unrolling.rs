@@ -65,14 +65,16 @@ impl VisitContext for Unrolling {
                 .iter()
                 .cloned()
                 .map(|bc| bc.as_node())
-                .chain(graph
-                    .integrity_constraints_roots
-                    .borrow()
-                    .deref()
-                    .iter()
-                    .cloned()
-                    .map(|ic| ic.as_node())
-                ).collect::<Vec<_>>()
+                .chain(
+                    graph
+                        .integrity_constraints_roots
+                        .borrow()
+                        .deref()
+                        .iter()
+                        .cloned()
+                        .map(|ic| ic.as_node()),
+                )
+                .collect::<Vec<_>>()
                 .into();
         } else {
             return self

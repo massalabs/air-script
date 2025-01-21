@@ -1,5 +1,8 @@
 use crate::ir::{Evaluator, Function, Link, Op, Root};
-use std::{cell::RefMut, collections::BTreeMap};
+use std::{
+    cell::{Ref, RefMut},
+    collections::BTreeMap,
+};
 
 use air_parser::ast::QualifiedIdentifier;
 
@@ -19,8 +22,12 @@ impl Graph {
         self.functions.insert(ident, node);
     }
 
-    pub fn get_function(&self, ident: &QualifiedIdentifier) -> Option<Link<Root>> {
+    pub fn get_function_root(&self, ident: &QualifiedIdentifier) -> Option<Link<Root>> {
         self.functions.get(ident).cloned()
+    }
+
+    pub fn get_function(&self, ident: &QualifiedIdentifier) -> Option<Ref<Function>> {
+        self.functions.get(ident).map(|n| n.as_function().unwrap())
     }
 
     pub fn get_function_mut(&mut self, ident: &QualifiedIdentifier) -> Option<RefMut<Function>> {
@@ -37,8 +44,14 @@ impl Graph {
         self.evaluators.insert(ident, node);
     }
 
-    pub fn get_evaluator(&self, ident: &QualifiedIdentifier) -> Option<Link<Root>> {
+    pub fn get_evaluator_root(&self, ident: &QualifiedIdentifier) -> Option<Link<Root>> {
         self.evaluators.get(ident).cloned()
+    }
+
+    pub fn get_evaluator(&self, ident: &QualifiedIdentifier) -> Option<Ref<Evaluator>> {
+        self.evaluators
+            .get(ident)
+            .map(|n| n.as_evaluator().unwrap())
     }
 
     pub fn get_evaluator_mut(&mut self, ident: &QualifiedIdentifier) -> Option<RefMut<Evaluator>> {
