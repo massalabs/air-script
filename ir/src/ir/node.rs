@@ -4,7 +4,7 @@ use super::{Link, Owner, Parent, Root};
 use std::ops::Deref;
 
 /// All the nodes that can be in the MIR Graph
-#[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
+#[derive(Default, Clone, Eq, Debug)]
 pub enum Node {
     Function(BackLink<Root>),
     Evaluator(BackLink<Root>),
@@ -24,6 +24,55 @@ pub enum Node {
     Value(BackLink<Op>),
     #[default]
     None,
+}
+
+impl PartialEq for Node {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Node::Function(lhs), Node::Function(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Node::Evaluator(lhs), Node::Evaluator(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Node::Enf(lhs), Node::Enf(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Node::Boundary(lhs), Node::Boundary(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Node::Add(lhs), Node::Add(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Node::Sub(lhs), Node::Sub(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Node::Mul(lhs), Node::Mul(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Node::If(lhs), Node::If(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Node::For(lhs), Node::For(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Node::Call(lhs), Node::Call(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Node::Fold(lhs), Node::Fold(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Node::Vector(lhs), Node::Vector(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Node::Matrix(lhs), Node::Matrix(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Node::Accessor(lhs), Node::Accessor(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Node::Parameter(lhs), Node::Parameter(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Node::Value(lhs), Node::Value(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Node::None, Node::None) => true,
+            _ => false,
+        }
+    }
+}
+
+impl std::hash::Hash for Node {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        match self {
+            Node::Function(f) => f.to_link().hash(state),
+            Node::Evaluator(e) => e.to_link().hash(state),
+            Node::Enf(e) => e.to_link().hash(state),
+            Node::Boundary(b) => b.to_link().hash(state),
+            Node::Add(a) => a.to_link().hash(state),
+            Node::Sub(s) => s.to_link().hash(state),
+            Node::Mul(m) => m.to_link().hash(state),
+            Node::If(i) => i.to_link().hash(state),
+            Node::For(f) => f.to_link().hash(state),
+            Node::Call(c) => c.to_link().hash(state),
+            Node::Fold(f) => f.to_link().hash(state),
+            Node::Vector(v) => v.to_link().hash(state),
+            Node::Matrix(m) => m.to_link().hash(state),
+            Node::Accessor(a) => a.to_link().hash(state),
+            Node::Parameter(p) => p.to_link().hash(state),
+            Node::Value(v) => v.to_link().hash(state),
+            Node::None => Node::None.hash(state),
+        }
+    }
 }
 
 impl Parent for Node {

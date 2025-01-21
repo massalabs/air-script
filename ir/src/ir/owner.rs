@@ -3,7 +3,7 @@ use std::ops::Deref;
 use crate::ir::{BackLink, Child, Link, Op, Parent, Root};
 
 /// The nodes that can own Op nodes
-#[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
+#[derive(Default, Clone, Eq, Debug)]
 pub enum Owner {
     Function(BackLink<Root>),
     Evaluator(BackLink<Root>),
@@ -103,6 +103,51 @@ impl Child for Owner {
             Owner::Matrix(m) => m.remove_parent(parent),
             Owner::Accessor(a) => a.remove_parent(parent),
             Owner::None => (),
+        }
+    }
+}
+
+impl PartialEq for Owner {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Owner::Function(lhs), Owner::Function(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Owner::Evaluator(lhs), Owner::Evaluator(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Owner::Enf(lhs), Owner::Enf(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Owner::Boundary(lhs), Owner::Boundary(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Owner::Add(lhs), Owner::Add(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Owner::Sub(lhs), Owner::Sub(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Owner::Mul(lhs), Owner::Mul(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Owner::If(lhs), Owner::If(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Owner::For(lhs), Owner::For(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Owner::Call(lhs), Owner::Call(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Owner::Fold(lhs), Owner::Fold(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Owner::Vector(lhs), Owner::Vector(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Owner::Matrix(lhs), Owner::Matrix(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Owner::Accessor(lhs), Owner::Accessor(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Owner::None, Owner::None) => true,
+            _ => false,
+        }
+    }
+}
+
+impl std::hash::Hash for Owner {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        match self {
+            Owner::Function(f) => f.to_link().hash(state),
+            Owner::Evaluator(e) => e.to_link().hash(state),
+            Owner::Enf(e) => e.to_link().hash(state),
+            Owner::Boundary(b) => b.to_link().hash(state),
+            Owner::Add(a) => a.to_link().hash(state),
+            Owner::Sub(s) => s.to_link().hash(state),
+            Owner::Mul(m) => m.to_link().hash(state),
+            Owner::If(i) => i.to_link().hash(state),
+            Owner::For(f) => f.to_link().hash(state),
+            Owner::Call(c) => c.to_link().hash(state),
+            Owner::Fold(f) => f.to_link().hash(state),
+            Owner::Vector(v) => v.to_link().hash(state),
+            Owner::Matrix(m) => m.to_link().hash(state),
+            Owner::Accessor(a) => a.to_link().hash(state),
+            Owner::None => Owner::None.hash(state),
         }
     }
 }

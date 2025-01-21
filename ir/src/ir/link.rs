@@ -55,12 +55,9 @@ impl<T> Clone for Link<T> {
     }
 }
 
-impl<T> PartialEq for Link<T>
-where
-    T: PartialEq,
-{
+impl<T> PartialEq for Link<T> {
     fn eq(&self, other: &Self) -> bool {
-        self.link == other.link
+        Rc::ptr_eq(&self.link, &other.link)
     }
 }
 
