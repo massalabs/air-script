@@ -230,7 +230,7 @@ fn make_builder_struct_fields<'a>(fields: &[(&'a syn::Ident, &'a syn::Type)]) ->
                         *ident,
                         *ty,
                         quote! {#ident: #ty},
-                        quote! {self, value: crate::ir::Link<#second_ty>},
+                        quote! {mut self, value: crate::ir::Link<#second_ty>},
                         quote! {self.#ident = value.into();},
                         quote! {#ident: self.#ident.clone()},
                     )
@@ -684,7 +684,7 @@ mod tests {
             // [1, 0, 1, 1, 0, 0],
             // [0, 1, 0, 0, 2, 3],
             impl FooBuilderState0 {
-                pub fn parent(self, value: crate::ir::Link<Owner>) -> Self {
+                pub fn parent(mut self, value: crate::ir::Link<Owner>) -> Self {
                     self.parent = value.into();
                     self
                 }
@@ -712,7 +712,7 @@ mod tests {
             // state:       [1, 1, 1, 1, 0, 0],
             // transitions: [1, 1, 1, 1, 4, 5],
             impl FooBuilderState1 {
-                pub fn parent(self, value: crate::ir::Link<Owner>) -> Self {
+                pub fn parent(mut self, value: crate::ir::Link<Owner>) -> Self {
                     self.parent = value.into();
                     self
                 }
@@ -740,7 +740,7 @@ mod tests {
             // state:       [1, 0, 1, 1, 1, 0],
             // transitions: [2, 4, 2, 2, 2, 6],
             impl FooBuilderState2 {
-                pub fn parent(self, value: crate::ir::Link<Owner>) -> Self {
+                pub fn parent(mut self, value: crate::ir::Link<Owner>) -> Self {
                     self.parent = value.into();
                     self
                 }
@@ -768,7 +768,7 @@ mod tests {
             // state:       [1, 0, 1, 1, 0, 1],
             // transitions: [3, 5, 3, 3, 6, 3],
             impl FooBuilderState3 {
-                pub fn parent(self, value: crate::ir::Link<Owner>) -> Self {
+                pub fn parent(mut self, value: crate::ir::Link<Owner>) -> Self {
                     self.parent = value.into();
                     self
                 }
@@ -796,7 +796,7 @@ mod tests {
             // state:       [1, 1, 1, 1, 1, 0],
             // transitions: [4, 4, 4, 4, 4, 7],
             impl FooBuilderState4 {
-                pub fn parent(self, value: crate::ir::Link<Owner>) -> Self {
+                pub fn parent(mut self, value: crate::ir::Link<Owner>) -> Self {
                     self.parent = value.into();
                     self
                 }
@@ -824,7 +824,7 @@ mod tests {
             // state:       [1, 1, 1, 1, 0, 1],
             // transitions: [5, 5, 5, 5, 7, 5],
             impl FooBuilderState5 {
-                pub fn parent(self, value: crate::ir::Link<Owner>) -> Self {
+                pub fn parent(mut self, value: crate::ir::Link<Owner>) -> Self {
                     self.parent = value.into();
                     self
                 }
@@ -852,7 +852,7 @@ mod tests {
             // state:       [1, 0, 1, 1, 1, 1],
             // transitions: [6, 7, 6, 6, 6, 6],
             impl FooBuilderState6 {
-                pub fn parent(self, value: crate::ir::Link<Owner>) -> Self {
+                pub fn parent(mut self, value: crate::ir::Link<Owner>) -> Self {
                     self.parent = value.into();
                     self
                 }
@@ -880,7 +880,7 @@ mod tests {
             // state:       [1, 1, 1, 1, 1, 1]
             // transitions: [7, 7, 7, 7, 7, 7]
             impl FooBuilderState7 {
-                pub fn parent(self, value: crate::ir::Link<Owner>) -> Self {
+                pub fn parent(mut self, value: crate::ir::Link<Owner>) -> Self {
                     self.parent = value.into();
                     self
                 }
