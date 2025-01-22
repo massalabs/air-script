@@ -1,4 +1,7 @@
-use crate::{ir::{Evaluator, Function, Link, Op, Root}, CompileError};
+use crate::{
+    ir::{Evaluator, Function, Link, Op, Root},
+    CompileError,
+};
 use std::{
     cell::{Ref, RefMut},
     collections::BTreeMap,
@@ -20,7 +23,11 @@ impl Graph {
     pub fn create() -> Link<Self> {
         Graph::default().into()
     }
-    pub fn insert_function(&mut self, ident: QualifiedIdentifier, node: Link<Root>) -> Result<(), CompileError>{
+    pub fn insert_function(
+        &mut self,
+        ident: QualifiedIdentifier,
+        node: Link<Root>,
+    ) -> Result<(), CompileError> {
         match self.functions.insert(ident, node) {
             None => Ok(()),
             Some(link) => {
@@ -28,8 +35,8 @@ impl Graph {
                     Ok(())
                 } else {
                     Err(CompileError::Failed)
-                }   
-            },
+                }
+            }
         }
     }
 
@@ -51,7 +58,11 @@ impl Graph {
         self.functions.values().cloned().collect()
     }
 
-    pub fn insert_evaluator(&mut self, ident: QualifiedIdentifier, node: Link<Root>) -> Result<(), CompileError> {
+    pub fn insert_evaluator(
+        &mut self,
+        ident: QualifiedIdentifier,
+        node: Link<Root>,
+    ) -> Result<(), CompileError> {
         match self.evaluators.insert(ident, node) {
             None => Ok(()),
             Some(link) => {
@@ -59,8 +70,8 @@ impl Graph {
                     Ok(())
                 } else {
                     Err(CompileError::Failed)
-                }   
-            },
+                }
+            }
         }
     }
 
