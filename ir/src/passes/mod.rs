@@ -165,7 +165,11 @@ pub fn duplicate_node(node: Link<Op>) -> Link<Op> {
             let new_indexable = duplicate_node(indexable);
             Accessor::create(new_indexable, access_type)
         }
-        Op::Parameter(parameter) => Parameter::create(parameter.position, parameter.ty.clone()),
+        Op::Parameter(parameter) => {
+            let new_param = Parameter::create(parameter.position, parameter.ty.clone());
+            new_param.as_parameter_mut().unwrap().set_ref_node(parameter.ref_node.clone());
+            new_param               
+        },
         Op::Value(value) => Value::create(value.value.clone()),
         Op::None => Op::None.into(),
     }
@@ -350,7 +354,7 @@ pub fn duplicate_node_or_replace(
         }
         Op::Parameter(parameter) => {
             // Only replace the parameter if it is one we are looking for
-            if parameter.ref_node == ref_node {
+            if parameter.ref_node.get_ptr() == ref_node.get_ptr() {
                 let new_node = replace_parameter_list[parameter.position].clone();
                 current_replace_map.insert(node.get_ptr(), (node.clone(), new_node));
             } else {

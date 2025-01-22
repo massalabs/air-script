@@ -1,10 +1,12 @@
-use crate::ir::{Evaluator, Function, Link, Op, Root};
+use crate::{ir::{Evaluator, Function, Link, Op, Root}, CompileError};
 use std::{
     cell::{Ref, RefMut},
     collections::BTreeMap,
 };
 
 use air_parser::ast::QualifiedIdentifier;
+
+use super::Node;
 
 #[derive(Debug, Default)]
 pub struct Graph {
@@ -18,8 +20,17 @@ impl Graph {
     pub fn create() -> Link<Self> {
         Graph::default().into()
     }
-    pub fn insert_function(&mut self, ident: QualifiedIdentifier, node: Link<Root>) {
-        self.functions.insert(ident, node);
+    pub fn insert_function(&mut self, ident: QualifiedIdentifier, node: Link<Root>) -> Result<(), CompileError>{
+        match self.functions.insert(ident, node) {
+            None => Ok(()),
+            Some(link) => {
+                if let Root::None = *link.borrow() {
+                    Ok(())
+                } else {
+                    Err(CompileError::Failed)
+                }   
+            },
+        }
     }
 
     pub fn get_function_root(&self, ident: &QualifiedIdentifier) -> Option<Link<Root>> {
@@ -40,8 +51,17 @@ impl Graph {
         self.functions.values().cloned().collect()
     }
 
-    pub fn insert_evaluator(&mut self, ident: QualifiedIdentifier, node: Link<Root>) {
-        self.evaluators.insert(ident, node);
+    pub fn insert_evaluator(&mut self, ident: QualifiedIdentifier, node: Link<Root>) -> Result<(), CompileError> {
+        match self.evaluators.insert(ident, node) {
+            None => Ok(()),
+            Some(link) => {
+                if let Root::None = *link.borrow() {
+                    Ok(())
+                } else {
+                    Err(CompileError::Failed)
+                }   
+            },
+        }
     }
 
     pub fn get_evaluator_root(&self, ident: &QualifiedIdentifier) -> Option<Link<Root>> {

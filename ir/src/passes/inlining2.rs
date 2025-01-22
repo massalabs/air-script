@@ -282,6 +282,7 @@ impl Visitor for InliningSecondPass<'_> {
     fn run(&mut self, graph: &mut Graph) -> Result<(), CompileError> {
         for root_node in self.root_nodes_to_visit(graph).iter() {
             //println!("Visiting root node: {idx} - {:?}", root_node);
+            let mut updated_op = None;
 
             if let Some(op) = root_node.as_op() {
                 // Set context for inlining this call
@@ -338,7 +339,7 @@ impl Visitor for InliningSecondPass<'_> {
                         .unwrap()
                         .clone();
 
-                    root_node.as_op().unwrap().set(&new_node);
+                    updated_op = Some(new_node);
 
                     //println!("Updated call node: {:?}", root_node);
                 } else {
@@ -359,13 +360,17 @@ impl Visitor for InliningSecondPass<'_> {
                     }
                     let new_nodes_vector = Vector::create(new_nodes);
 
-                    root_node.as_op().unwrap().set(&new_nodes_vector);
+                    updated_op = Some(new_nodes_vector);
 
                     //println!("Updated call node: {:?}", root_node);
                 }
 
                 // Reset context to None
                 self.call_inlining_context = None;
+            }
+            
+            if let Some(updated_op) = updated_op {
+                root_node.as_op().unwrap().set(&updated_op);
             }
         }
         Ok(())

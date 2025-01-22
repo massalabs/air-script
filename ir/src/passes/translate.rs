@@ -171,18 +171,6 @@ impl<'a> MirBuilder<'a> {
 
         if known_signature {
             self.translate_body(ident, ev.clone(), &ast_eval.body)?;
-            let original = self.mir
-                .constraint_graph()
-                .get_evaluator(ident).unwrap_or_else(||panic!("missing evaluator signature for {:?}\nuse self.translate_evaluator_signature(ident, ast_eval) before self.translate_evaluator(ident, ast_eval)", ident));
-            if original.parameters != ev.as_evaluator().unwrap().parameters {
-                panic!(
-                    "evaluator parameter mismatch for {:?}\nexpected: {:#?}\nbut got: {:#?}",
-                    ident,
-                    original.parameters,
-                    ev.as_evaluator().unwrap().parameters
-                );
-            }
-            drop(original);
             let original_mut = self.mir
                 .constraint_graph_mut()
                 .get_evaluator_mut(ident)
@@ -192,7 +180,7 @@ impl<'a> MirBuilder<'a> {
         } else {
             self.mir
                 .constraint_graph_mut()
-                .insert_evaluator(*ident, ev.clone());
+                .insert_evaluator(*ident, ev.clone())?;
         }
         self.bindings.exit();
         Ok(ev)
@@ -242,28 +230,15 @@ impl<'a> MirBuilder<'a> {
 
         if known_signature {
             self.translate_body(ident, func.clone(), &ast_func.body)?;
-            let original = self.mir
+            let original_mut = self.mir
                 .constraint_graph_mut()
                 .get_function_mut(ident).unwrap_or_else(||panic!("missing function signature for {:?}\nuse self.translate_function_signature(ident, ast_func) before self.translate_function(ident, ast_func)", ident));
-            let orig_sig = original.clone();
-            let new_sig = func.as_function().unwrap();
-            if orig_sig.parameters != new_sig.parameters {
-                panic!(
-                    "function parameter mismatch for {:?}\nexpected: {:#?}\nbut got: {:#?}",
-                    ident, original.parameters, new_sig.parameters
-                );
-            } else if orig_sig.return_type != new_sig.return_type {
-                panic!(
-                    "function return mismatch for {:?}\nexpected: {:#?}\nbut got: {:#?}",
-                    ident, original.return_type, new_sig.return_type
-                );
-            }
-            let body = new_sig.body.borrow().clone();
-            original.body.borrow_mut().clone_from(&body);
+            let body = func.as_function().unwrap().body.borrow().clone();
+            original_mut.body.borrow_mut().clone_from(&body);
         } else {
             self.mir
                 .constraint_graph_mut()
-                .insert_function(*ident, func.clone());
+                .insert_function(*ident, func.clone())?;
         }
         self.bindings.exit();
         Ok(func)
