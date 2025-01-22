@@ -66,7 +66,7 @@ pub struct UnrollingSecondPass<'a> {
 
     bodies_to_inline: Vec<(Link<Op>, ForInliningContext)>,
     for_inlining_context: Option<ForInliningContext>,
-    nodes_to_replace: HashMap<Link<Op>, Link<Op>>,
+    nodes_to_replace: HashMap<usize, (Link<Op>, Link<Op>)>,
 }
 impl<'a> UnrollingSecondPass<'a> {
     pub fn new(
@@ -670,7 +670,12 @@ impl Visitor for UnrollingSecondPass<'_> {
             // We have finished inlining the body, we can now replace the Root node with the body
 
             let body = self.for_inlining_context.clone().unwrap().body;
-            let new_node = self.nodes_to_replace.get(&body).unwrap().clone();
+            let new_node = self
+                .nodes_to_replace
+                .get(&body.get_ptr())
+                .unwrap()
+                .1
+                .clone();
 
             let new_node_with_selector_if_needed =
                 if let Some(selector) = self.for_inlining_context.clone().unwrap().selector {

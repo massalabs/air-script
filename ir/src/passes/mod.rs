@@ -258,8 +258,9 @@ pub fn duplicate_node_or_replace(
                 .into();
             let new_body = current_replace_map.get(&body.get_ptr()).unwrap().1.clone();
             let new_selector = current_replace_map
-                .get(&selector)
-                .unwrap_or(&Link::new(Op::None))
+                .get(&selector.get_ptr())
+                .map(|selector| selector.1.clone())
+                .unwrap_or(Link::new(Op::None))
                 .clone();
             let new_node = For::create(new_iterators, new_body, new_selector);
             current_replace_map.insert(node.get_ptr(), (node.clone(), new_node));
