@@ -6,7 +6,7 @@ use air_parser::{ast, symbols, LexicalScope, SemanticAnalysisError};
 use air_pass::Pass;
 use miden_diagnostics::{DiagnosticsHandler, Severity, SourceSpan, Span, Spanned};
 
-use crate::ir::{Accessor, Add, Boundary, Enf, Evaluator, Matrix, Mul, Node, Root, Sub};
+use crate::ir::{Accessor, Add, Boundary, Enf, Evaluator, Matrix, Mul, Node, Owner, Root, Sub};
 use crate::{
     ir::{
         Builder, Call, ConstantValue, Fold, FoldOperator, For, Function, Link, Mir, MirType,
@@ -165,7 +165,7 @@ impl<'a> MirBuilder<'a> {
         }
         let ev = ev.build();
 
-        set_all_ref_nodes(all_params_flatten.clone(), ev.as_node());
+        set_all_ref_nodes(all_params_flatten.clone(), ev.as_owner());
 
         //println!("all_params_flatten: {:#?}", all_params_flatten);
 
@@ -226,7 +226,7 @@ impl<'a> MirBuilder<'a> {
 
         let func = func.return_type(ret).build();
 
-        set_all_ref_nodes(params, func.as_node());
+        set_all_ref_nodes(params, func.as_owner());
 
         if known_signature {
             self.translate_body(ident, func.clone(), &ast_func.body)?;
@@ -430,7 +430,7 @@ impl<'a> MirBuilder<'a> {
         let body_node = self.translate_scalar_expr(&list_comp.body)?;
 
         let for_node = For::create(iterator_nodes.into(), body_node, selector_node);
-        set_all_ref_nodes(params, for_node.as_node());
+        set_all_ref_nodes(params, for_node.as_owner().unwrap());
 
         let enf_node: Link<Op> = Enf::create(for_node);
         let node = self.insert_enforce(enf_node);
@@ -1051,7 +1051,7 @@ impl<'a> MirBuilder<'a> {
     }
 }
 
-fn set_all_ref_nodes(params: Vec<Link<Op>>, ref_node: Link<Node>) {
+fn set_all_ref_nodes(params: Vec<Link<Op>>, ref_node: Link<Owner>) {
     for param in params {
         let Some(mut param) = param.as_parameter_mut() else {
             unreachable!("expected parameter, got {:?}", param);

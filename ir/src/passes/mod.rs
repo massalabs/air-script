@@ -167,9 +167,12 @@ pub fn duplicate_node(node: Link<Op>) -> Link<Op> {
         }
         Op::Parameter(parameter) => {
             let new_param = Parameter::create(parameter.position, parameter.ty.clone());
-            new_param.as_parameter_mut().unwrap().set_ref_node(parameter.ref_node.clone());
-            new_param               
-        },
+            new_param
+                .as_parameter_mut()
+                .unwrap()
+                .set_ref_node(parameter.ref_node.clone().into());
+            new_param
+        }
         Op::Value(value) => Value::create(value.value.clone()),
         Op::None => Op::None.into(),
     }

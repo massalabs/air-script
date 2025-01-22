@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use std::{ops::Deref, rc::Rc};
 
 use crate::ir::{BackLink, Child, Link, Op, Parent, Root};
 
@@ -190,5 +190,29 @@ impl Link<Owner> {
             Owner::If(back) => back.to_link(),
             Owner::None => None,
         }
+    }
+}
+
+impl BackLink<Owner> {
+    pub fn get_ptr(&self) -> usize {
+        self.to_link()
+            .map(|l| match l.borrow().deref() {
+                Owner::Function(back) => back.to_link().map(|l| l.get_ptr()).unwrap_or(0),
+                Owner::Evaluator(back) => back.to_link().map(|l| l.get_ptr()).unwrap_or(0),
+                Owner::Accessor(back) => back.to_link().map(|l| l.get_ptr()).unwrap_or(0),
+                Owner::Boundary(back) => back.to_link().map(|l| l.get_ptr()).unwrap_or(0),
+                Owner::Vector(back) => back.to_link().map(|l| l.get_ptr()).unwrap_or(0),
+                Owner::Matrix(back) => back.to_link().map(|l| l.get_ptr()).unwrap_or(0),
+                Owner::Call(back) => back.to_link().map(|l| l.get_ptr()).unwrap_or(0),
+                Owner::Fold(back) => back.to_link().map(|l| l.get_ptr()).unwrap_or(0),
+                Owner::Add(back) => back.to_link().map(|l| l.get_ptr()).unwrap_or(0),
+                Owner::Sub(back) => back.to_link().map(|l| l.get_ptr()).unwrap_or(0),
+                Owner::Mul(back) => back.to_link().map(|l| l.get_ptr()).unwrap_or(0),
+                Owner::Enf(back) => back.to_link().map(|l| l.get_ptr()).unwrap_or(0),
+                Owner::For(back) => back.to_link().map(|l| l.get_ptr()).unwrap_or(0),
+                Owner::If(back) => back.to_link().map(|l| l.get_ptr()).unwrap_or(0),
+                Owner::None => 0,
+            })
+            .unwrap_or(0)
     }
 }

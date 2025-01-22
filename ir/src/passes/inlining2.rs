@@ -368,7 +368,7 @@ impl Visitor for InliningSecondPass<'_> {
                 // Reset context to None
                 self.call_inlining_context = None;
             }
-            
+
             if let Some(updated_op) = updated_op {
                 root_node.as_op().unwrap().set(&updated_op);
             }
@@ -481,11 +481,10 @@ impl Visitor for InliningSecondPass<'_> {
                         unreachable!("expected vector, got {:?}", trace_segments_arg);
                     };
                     let children = trace_segments_arg_vector.children();
-
                     let mut trace_segments_arg_vector_len = 0;
                     for child in children.borrow().deref() {
                         let Some(value) = child.as_value() else {
-                            unreachable!("expected value, got {:?}", child);
+                            unreachable!("expected value, got {:#?}", child);
                         };
 
                         let Value {

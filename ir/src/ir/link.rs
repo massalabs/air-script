@@ -94,12 +94,7 @@ impl<T> BackLink<T> {
     }
     pub fn to_link(&self) -> Option<Link<T>> {
         match self.link.as_ref() {
-            Some(link) => {
-                match link.upgrade() {
-                    Some(link) => Some(Link { link }),
-                    None => None,
-                }
-            }
+            Some(link) => link.upgrade().map(|link| Link { link }),
             None => None,
         }
     }
