@@ -10,7 +10,7 @@ use crate::ir::{BackLink, Builder, Child, Link, Node, Op, Owner};
 #[enum_wrapper(Op)]
 pub struct Parameter {
     parents: Vec<BackLink<Owner>>,
-    pub ref_node: BackLink<Owner>,
+    pub ref_node: Option<usize>,
     pub position: usize,
     pub ty: MirType,
     pub _node: Option<Link<Node>>,
@@ -18,9 +18,10 @@ pub struct Parameter {
 
 impl Parameter {
     pub fn create(position: usize, ty: MirType) -> Link<Op> {
+        //println!("Create param : p:{:?} t:{:?} ", position, ty);
         Op::Parameter(Self {
             parents: Vec::default(),
-            ref_node: BackLink::none(),
+            ref_node: None,
             position,
             ty,
             _node: None,
@@ -28,8 +29,10 @@ impl Parameter {
         .into()
     }
 
-    pub fn set_ref_node(&mut self, ref_node: Link<Owner>) {
-        self.ref_node = ref_node.into();
+    pub fn set_ref_node_ptr(&mut self, ref_node_ptr: usize) {
+        //println!("set_ref_node_ptr for param: {:?}", self);
+        //println!("  ref_node_ptr: {:?}", ref_node_ptr);
+        self.ref_node = Some(ref_node_ptr);
     }
 }
 

@@ -729,9 +729,11 @@ impl<'a> MirBuilder<'a> {
         list_comp: &'a ast::ListComprehension,
     ) -> Result<Link<Op>, CompileError> {
         self.bindings.enter();
+        let mut params = Vec::new();
         for (index, binding) in list_comp.bindings.iter().enumerate() {
             let binding_node =
                 Parameter::create(/*binding.span(), */ index, ast::Type::Felt.into());
+            params.push(binding_node.clone());
             self.bindings.insert(binding, binding_node);
         }
 
@@ -749,6 +751,7 @@ impl<'a> MirBuilder<'a> {
         let body_node = self.translate_scalar_expr(&list_comp.body)?;
 
         let for_node = For::create(iterator_nodes, body_node, selector_node);
+        set_all_ref_nodes(params, for_node.as_owner().unwrap());
 
         self.bindings.exit();
         Ok(for_node)
@@ -863,10 +866,17 @@ impl<'a> MirBuilder<'a> {
         //    // If we reach here, this must be a let-bound variable
         if let Some(let_bound_access_expr) = self.bindings.get(access.name.as_ref()).cloned() {
             match access.access_type {
-                AccessType::Default => return Ok(let_bound_access_expr),
+                AccessType::Default => {
+                    return Ok(duplicate_node(
+                        let_bound_access_expr,
+                        &mut Default::default(),
+                    ))
+                }
                 _ => {
-                    let accessor: Link<Op> =
-                        Accessor::create(let_bound_access_expr, access.access_type.clone());
+                    let accessor: Link<Op> = Accessor::create(
+                        duplicate_node(let_bound_access_expr, &mut Default::default()),
+                        access.access_type.clone(),
+                    );
                     return Ok(accessor);
                 }
             }
@@ -1031,17 +1041,17 @@ impl<'a> MirBuilder<'a> {
         // n (n pair) ->
         match rhs {
             0 => self.translate_const(&ast::ConstantExpr::Scalar(1)),
-            1 => Ok(duplicate_node(lhs.clone())),
+            1 => Ok(duplicate_node(lhs.clone(), &mut Default::default())),
             n if n % 2 == 0 => {
-                let new_lhs = duplicate_node(lhs.clone());
-                let new_rhs = duplicate_node(lhs.clone());
+                let new_lhs = duplicate_node(lhs.clone(), &mut Default::default());
+                let new_rhs = duplicate_node(lhs.clone(), &mut Default::default());
                 let square = Mul::create(new_lhs, new_rhs);
                 self.expand_exp(square, n / 2)
             }
             n => {
-                let new_lhs = duplicate_node(lhs.clone());
-                let new_rhs = duplicate_node(lhs.clone());
-                let new_lhs_clone = duplicate_node(lhs.clone());
+                let new_lhs = duplicate_node(lhs.clone(), &mut Default::default());
+                let new_rhs = duplicate_node(lhs.clone(), &mut Default::default());
+                let new_lhs_clone = duplicate_node(lhs.clone(), &mut Default::default());
                 let square = Mul::create(new_lhs, new_rhs);
                 let rec: Link<Op> = self.expand_exp(square, (n - 1) / 2)?;
                 let node = Mul::builder().lhs(new_lhs_clone).rhs(rec).build();
@@ -1056,6 +1066,6 @@ fn set_all_ref_nodes(params: Vec<Link<Op>>, ref_node: Link<Owner>) {
         let Some(mut param) = param.as_parameter_mut() else {
             unreachable!("expected parameter, got {:?}", param);
         };
-        param.set_ref_node(ref_node.clone());
+        param.set_ref_node_ptr(ref_node.clone().get_ptr());
     }
 }

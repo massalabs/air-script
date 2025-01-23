@@ -115,14 +115,70 @@ impl Child for Op {
 
 impl Link<Op> {
     pub fn set(&self, other: &Link<Op>) {
-        self.as_node().update(&other.as_node());
-        if let Some(owner) = self.as_owner() {
+
+        let other_node = other.as_node();
+        let self_node = self.as_node();
+        other_node.update(&self_node);
+        other.update_inner_node(&self_node);
+        
+        /*if let Some(owner) = self.as_owner() {
             if let Some(other_owner) = other.as_owner() {
                 owner.update(&other_owner);
             }
-        }
+        }*/
+
         self.update(other);
+
+        self_node.update_variant();
     }
+    fn update_inner_node(&self, node: &Link<Node>) {
+        match self.clone().borrow_mut().deref_mut() {
+            Op::Enf(ref mut enf) => {
+                enf._node = Some(node.clone());
+            }
+            Op::Boundary(ref mut boundary) => {
+                boundary._node = Some(node.clone());
+            }
+            Op::Add(ref mut add) => {
+                add._node = Some(node.clone());
+            }
+            Op::Sub(ref mut sub) => {
+                sub._node = Some(node.clone());
+            }
+            Op::Mul(ref mut mul) => {
+                mul._node = Some(node.clone());
+            }
+            Op::If(ref mut if_op) => {
+                if_op._node = Some(node.clone());
+            }
+            Op::For(ref mut for_op) => {
+                for_op._node = Some(node.clone());
+            }
+            Op::Call(ref mut call) => {
+                call._node = Some(node.clone());
+            }
+            Op::Fold(ref mut fold) => {
+                fold._node = Some(node.clone());
+            }
+            Op::Vector(ref mut vector) => {
+                vector._node = Some(node.clone());
+            }
+            Op::Matrix(ref mut matrix) => {
+                matrix._node = Some(node.clone());
+            }
+            Op::Accessor(ref mut accessor) => {
+                accessor._node = Some(node.clone());
+            }
+            Op::Parameter(ref mut parameter) => {
+                parameter._node = Some(node.clone());
+            }
+            Op::Value(ref mut value) => {
+                value._node = Some(node.clone());
+            }
+            Op::None => {},
+        }
+    }
+
     pub fn as_node(&self) -> Link<Node> {
         let back: BackLink<Op> = self.clone().into();
         match self.clone().borrow_mut().deref_mut() {

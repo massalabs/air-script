@@ -9,8 +9,6 @@ use std::{
 
 use air_parser::ast::QualifiedIdentifier;
 
-use super::Node;
-
 #[derive(Debug, Default)]
 pub struct Graph {
     functions: BTreeMap<QualifiedIdentifier, Link<Root>>,
