@@ -483,6 +483,7 @@ impl Visitor for InliningSecondPass<'_> {
                     let children = trace_segments_arg_vector.children();
                     let mut trace_segments_arg_vector_len = 0;
                     for child in children.borrow().deref() {
+                        eprintln!("child: {}", child.debug());
                         let Some(value) = child.as_value() else {
                             unreachable!("expected value, got {:#?}", child);
                         };

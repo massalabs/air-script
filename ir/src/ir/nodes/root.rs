@@ -1,6 +1,6 @@
 use std::{
     cell::{Ref, RefMut},
-    ops::DerefMut,
+    ops::{Deref, DerefMut},
 };
 
 use crate::ir::{
@@ -29,6 +29,13 @@ impl Parent for Root {
 }
 
 impl Link<Root> {
+    pub fn debug(&self) -> String {
+        match self.borrow().deref() {
+            Root::Function(f) => format!("Root::Function: {:#?}", f),
+            Root::Evaluator(e) => format!("Root::Evaluator: {:#?}", e),
+            Root::None => format!("Root::None"),
+        }
+    }
     pub fn set(&self, other: &Link<Root>) {
         self.as_node().update(&other.as_node());
         self.as_owner().update(&other.as_owner());

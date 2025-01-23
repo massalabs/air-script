@@ -5,7 +5,7 @@ use crate::ir::{
 
 use std::{
     cell::{Ref, RefMut},
-    ops::DerefMut,
+    ops::{Deref, DerefMut},
 };
 
 /// The combined Operators and Leaves of the MIR Graph
@@ -114,6 +114,25 @@ impl Child for Op {
 }
 
 impl Link<Op> {
+    pub fn debug(&self) -> String {
+        match self.borrow().deref() {
+            Op::Enf(e) => format!("Op::Enf@{}({:#?})", self.get_ptr(), e),
+            Op::Boundary(b) => format!("Op::Boundary@{}({:#?})", self.get_ptr(), b),
+            Op::Add(a) => format!("Op::Add@{}({:#?})", self.get_ptr(), a),
+            Op::Sub(s) => format!("Op::Sub@{}({:#?})", self.get_ptr(), s),
+            Op::Mul(m) => format!("Op::Mul@{}({:#?})", self.get_ptr(), m),
+            Op::If(i) => format!("Op::If@{}({:#?})", self.get_ptr(), i),
+            Op::For(f) => format!("Op::For@{}({:#?})", self.get_ptr(), f),
+            Op::Call(c) => format!("Op::Call@{}({:#?})", self.get_ptr(), c),
+            Op::Fold(f) => format!("Op::Fold@{}({:#?})", self.get_ptr(), f),
+            Op::Vector(v) => format!("Op::Vector@{}({:#?})", self.get_ptr(), v),
+            Op::Matrix(m) => format!("Op::Matrix@{}({:#?})", self.get_ptr(), m),
+            Op::Accessor(a) => format!("Op::Accessor@{}({:#?})", self.get_ptr(), a),
+            Op::Parameter(p) => format!("Op::Parameter@{}({:#?})", self.get_ptr(), p),
+            Op::Value(v) => format!("Op::Value@{}({:#?})", self.get_ptr(), v),
+            Op::None => "Op::None".to_string(),
+        }
+    }
     pub fn set(&self, other: &Link<Op>) {
         self.as_node().update(&other.as_node());
         if let Some(owner) = self.as_owner() {
