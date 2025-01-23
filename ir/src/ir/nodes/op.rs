@@ -138,6 +138,8 @@ impl Link<Op> {
         if let Some(owner) = self.as_owner() {
             if let Some(other_owner) = other.as_owner() {
                 owner.update(&other_owner);
+            } else {
+                owner.update(&Link::default());
             }
         }
         self.update(other);
