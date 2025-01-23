@@ -5,8 +5,7 @@ use miden_diagnostics::{DiagnosticsHandler, Severity, SourceSpan};
 
 use crate::{
     ir::{
-        Graph, Link, Mir, MirValue, Node, Op, Parent, Root, SpannedMirValue, TraceAccessBinding,
-        Value, Vector,
+        Graph, Link, Mir, MirType, MirValue, Node, Op, Parameter, Parent, Root, SpannedMirValue, TraceAccessBinding, Value, Vector
     },
     CompileError,
 };
@@ -528,21 +527,36 @@ impl Visitor for InliningSecondPass<'_> {
                     let children = trace_segments_arg_vector.children();
                     let mut trace_segments_arg_vector_len = 0;
                     for child in children.borrow().deref() {
-                        let Some(value) = child.as_value() else {
-                            unreachable!("expected value, got {:#?}", child);
-                        };
+                        if let Some(value) = child.as_value() {
+                            
+                            let Value {
+                                value: SpannedMirValue { value, .. },
+                                ..
+                            } = value.deref();
 
-                        let Value {
-                            value: SpannedMirValue { value, .. },
-                            ..
-                        } = value.deref();
+                            let param_size = match value {
+                                MirValue::TraceAccessBinding(tab) => tab.size,
+                                MirValue::TraceAccess(_) => 1,
+                                _ => unreachable!("expected trace access binding, got {:?}", value),
+                            };
+                            trace_segments_arg_vector_len += param_size;
+                        } else if let Some(parameter) = child.as_parameter() {
+                            let Parameter {
+                                ty,
+                                position,
+                                ref_node,
+                                ..
+                            } = parameter.deref();
+                            let size = match ty {
+                                MirType::Felt => 1,
+                                MirType::Vector(len) => *len,
+                                _ => unreachable!("expected felt or vector, got {:?}", ty),
+                            };
+                            trace_segments_arg_vector_len += size;
+                        } else {
+                            unreachable!("expected value or parameter, got {:?}", child);
+                        }
 
-                        let param_size = match value {
-                            MirValue::TraceAccessBinding(tab) => tab.size,
-                            MirValue::TraceAccess(_) => 1,
-                            _ => unreachable!("expected trace access binding, got {:?}", value),
-                        };
-                        trace_segments_arg_vector_len += param_size;
                     }
 
                     if trace_segments_params.len() != trace_segments_arg_vector_len {
@@ -578,46 +592,53 @@ impl Visitor for InliningSecondPass<'_> {
                     };
                     let children = trace_segment_vec.children();
                     for arg in children.borrow().deref() {
-                        let Some(value) = arg.as_value() else {
-                            unreachable!(
-                                "When unpacking EV call arguments, expected value, got {:?}",
-                                arg
-                            );
-                        };
+                        if let Some(value) = arg.as_value() {
+                            let Value {
+                                value: SpannedMirValue { span, value, .. },
+                                ..
+                            } = value.deref();
 
-                        let Value {
-                            value: SpannedMirValue { span, value, .. },
-                            ..
-                        } = value.deref();
-
-                        match value {
-                            MirValue::TraceAccessBinding(tab) => {
-                                if tab.size > 1 {
-                                    for index in 0..tab.size {
-                                        let new_arg = Value::create(SpannedMirValue {
-                                            value: MirValue::TraceAccessBinding(
-                                                TraceAccessBinding {
-                                                    size: 1,
-                                                    segment: tab.segment,
-                                                    offset: tab.offset + index,
-                                                },
-                                            ),
-                                            span: *span,
-                                        });
-                                        args_unpacked.push(new_arg);
+                            match value {
+                                MirValue::TraceAccessBinding(tab) => {
+                                    if tab.size > 1 {
+                                        for index in 0..tab.size {
+                                            let new_arg = Value::create(SpannedMirValue {
+                                                value: MirValue::TraceAccessBinding(
+                                                    TraceAccessBinding {
+                                                        size: 1,
+                                                        segment: tab.segment,
+                                                        offset: tab.offset + index,
+                                                    },
+                                                ),
+                                                span: *span,
+                                            });
+                                            args_unpacked.push(new_arg);
+                                        }
+                                    } else {
+                                        args_unpacked.push(arg.clone());
                                     }
-                                } else {
+                                }
+                                MirValue::TraceAccess(_ta) => {
                                     args_unpacked.push(arg.clone());
                                 }
-                            }
-                            MirValue::TraceAccess(_ta) => {
-                                args_unpacked.push(arg.clone());
-                            }
-                            _ => unreachable!(
-                                "expected trace access binding or trace access, got {:?}",
-                                value
-                            ),
-                        };
+                                _ => unreachable!(
+                                    "expected trace access binding or trace access, got {:?}",
+                                    value
+                                ),
+                            };
+                        } else if let Some(parameter) = arg.as_parameter() {
+                            let Parameter {
+                                ty,
+                                position,
+                                ref_node,
+                                ..
+                            } = parameter.deref();
+
+                            args_unpacked.push(arg.clone());
+                        } else {
+                            unreachable!("expected value or parameter, got {:?}", arg);
+                        }
+
                     }
                 }
 
