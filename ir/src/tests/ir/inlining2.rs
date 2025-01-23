@@ -53,7 +53,7 @@ mod tests {
         }
         ";
         let mir = compile(code).unwrap();
-        eprintln!("{:#?}", mir);
+        //eprintln!("{:#?}", mir);
         todo!()
     }
 }

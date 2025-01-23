@@ -43,6 +43,6 @@ mod tests {
         }
         ";
         let mir = translate(code).unwrap();
-        eprintln!("{:#?}", mir);
+        //eprintln!("{:#?}", mir);
     }
 }
