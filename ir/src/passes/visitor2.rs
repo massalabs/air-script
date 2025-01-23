@@ -27,6 +27,9 @@ pub trait Visitor {
         Ok(())
     }
     fn visit_node(&mut self, graph: &mut Graph, node: Link<Node>) -> Result<(), CompileError> {
+        if node.is_stale() {
+            return Ok(());
+        }
         match node.borrow().deref() {
             Node::Function(f) => self.visit_function(graph, f.clone().into()),
             Node::Evaluator(e) => self.visit_evaluator(graph, e.clone().into()),

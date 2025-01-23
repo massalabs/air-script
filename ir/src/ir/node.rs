@@ -168,6 +168,12 @@ impl Child for Node {
 }
 
 impl Link<Node> {
+    pub fn is_stale(&self) -> bool {
+        match self.as_root() {
+            Some(_) => false,
+            None => self.as_op().is_none(),
+        }
+    }
     pub fn debug(&self) -> String {
         match self.as_root() {
             Some(root) => format!("Node::Root({})", root.debug()),

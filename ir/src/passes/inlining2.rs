@@ -425,10 +425,11 @@ impl Visitor for InliningSecondPass<'_> {
             println!("        encountering a node we haven't updated! {:?}", node);
         }
         println!("");*/
-
+        if node.is_stale() {
+            return Ok(());
+        }
         // First, check if it's a known Call to inline,
         // if so, set the context and visit the body
-
         let call_op = node.clone().as_op().unwrap_or_else(|| {
             panic!(
                 "InliningSecondPass::visit_node on a non-Op node: {:?}",
