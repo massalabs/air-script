@@ -833,6 +833,9 @@ impl Visitor for UnrollingSecondPass<'_> {
             .collect::<Vec<_>>()
     }
     fn visit_node(&mut self, _graph: &mut Graph, node: Link<Node>) -> Result<(), CompileError> {
+        if node.is_stale() {
+            return Ok(());
+        }
         if let Some(op) = node.clone().as_op() {
             duplicate_node_or_replace(
                 &mut self.nodes_to_replace,

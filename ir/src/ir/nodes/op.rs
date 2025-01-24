@@ -5,7 +5,7 @@ use crate::ir::{
 
 use std::{
     cell::{Ref, RefMut},
-    ops::DerefMut,
+    ops::{Deref, DerefMut},
 };
 
 /// The combined Operators and Leaves of the MIR Graph
@@ -114,13 +114,31 @@ impl Child for Op {
 }
 
 impl Link<Op> {
+    pub fn debug(&self) -> String {
+        match self.borrow().deref() {
+            Op::Enf(e) => format!("Op::Enf@{}({:#?})", self.get_ptr(), e),
+            Op::Boundary(b) => format!("Op::Boundary@{}({:#?})", self.get_ptr(), b),
+            Op::Add(a) => format!("Op::Add@{}({:#?})", self.get_ptr(), a),
+            Op::Sub(s) => format!("Op::Sub@{}({:#?})", self.get_ptr(), s),
+            Op::Mul(m) => format!("Op::Mul@{}({:#?})", self.get_ptr(), m),
+            Op::If(i) => format!("Op::If@{}({:#?})", self.get_ptr(), i),
+            Op::For(f) => format!("Op::For@{}({:#?})", self.get_ptr(), f),
+            Op::Call(c) => format!("Op::Call@{}({:#?})", self.get_ptr(), c),
+            Op::Fold(f) => format!("Op::Fold@{}({:#?})", self.get_ptr(), f),
+            Op::Vector(v) => format!("Op::Vector@{}({:#?})", self.get_ptr(), v),
+            Op::Matrix(m) => format!("Op::Matrix@{}({:#?})", self.get_ptr(), m),
+            Op::Accessor(a) => format!("Op::Accessor@{}({:#?})", self.get_ptr(), a),
+            Op::Parameter(p) => format!("Op::Parameter@{}({:#?})", self.get_ptr(), p),
+            Op::Value(v) => format!("Op::Value@{}({:#?})", self.get_ptr(), v),
+            Op::None => "Op::None".to_string(),
+        }
+    }
     pub fn set(&self, other: &Link<Op>) {
-
         let other_node = other.as_node();
         let self_node = self.as_node();
         other_node.update(&self_node);
         other.update_inner_node(&self_node);
-        
+
         if let Some(other_owner) = other.as_owner() {
             if let Some(self_owner) = self.as_owner() {
                 other_owner.update(&self_owner);
@@ -178,10 +196,10 @@ impl Link<Op> {
             Op::Value(ref mut value) => {
                 value._node = Some(node.clone());
             }
-            Op::None => {},
+            Op::None => {}
         }
     }
-    
+
     fn update_inner_owner(&self, owner: &Link<Owner>) {
         match self.clone().borrow_mut().deref_mut() {
             Op::Enf(ref mut enf) => {
@@ -222,7 +240,7 @@ impl Link<Op> {
             }
             Op::Parameter(ref mut parameter) => {}
             Op::Value(ref mut value) => {}
-            Op::None => {},
+            Op::None => {}
         }
     }
 

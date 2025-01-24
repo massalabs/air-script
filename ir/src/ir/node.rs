@@ -199,9 +199,23 @@ impl Link<Node> {
         }
 
         *self.borrow_mut() = to_update;
-
     }
 
+    pub fn is_stale(&self) -> bool {
+        match self.as_root() {
+            Some(_) => false,
+            None => self.as_op().is_none(),
+        }
+    }
+    pub fn debug(&self) -> String {
+        match self.as_root() {
+            Some(root) => format!("Node::Root({})", root.debug()),
+            None => match self.as_op() {
+                Some(op) => format!("Node::Op({})", op.debug()),
+                None => "Node::None".to_string(),
+            },
+        }
+    }
     pub fn as_root(&self) -> Option<Link<Root>> {
         match self.borrow().deref() {
             Node::Function(f) => f.to_link(),

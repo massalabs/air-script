@@ -5,7 +5,8 @@ use miden_diagnostics::{DiagnosticsHandler, Severity, SourceSpan};
 
 use crate::{
     ir::{
-        Graph, Link, Mir, MirType, MirValue, Node, Op, Parameter, Parent, Root, SpannedMirValue, TraceAccessBinding, Value, Vector
+        Graph, Link, Mir, MirType, MirValue, Node, Op, Parameter, Parent, Root, SpannedMirValue,
+        TraceAccessBinding, Value, Vector,
     },
     CompileError,
 };
@@ -279,7 +280,6 @@ impl Visitor for InliningSecondPass<'_> {
         callee_nodes_to_inline_in_order
     }
     fn run(&mut self, graph: &mut Graph) -> Result<(), CompileError> {
-
         for root_node in self.root_nodes_to_visit(graph).iter() {
             //println!("Visiting root node: {idx} - {:?}", root_node);
             let mut updated_op = None;
@@ -425,10 +425,11 @@ impl Visitor for InliningSecondPass<'_> {
             println!("        encountering a node we haven't updated! {:?}", node);
         }
         println!("");*/
-
+        if node.is_stale() {
+            return Ok(());
+        }
         // First, check if it's a known Call to inline,
         // if so, set the context and visit the body
-
         let call_op = node.clone().as_op().unwrap_or_else(|| {
             panic!(
                 "InliningSecondPass::visit_node on a non-Op node: {:?}",
@@ -484,7 +485,6 @@ impl Visitor for InliningSecondPass<'_> {
                     let mut trace_segments_arg_vector_len = 0;
                     for child in children.borrow().deref() {
                         if let Some(value) = child.as_value() {
-                            
                             let Value {
                                 value: SpannedMirValue { value, .. },
                                 ..
@@ -512,7 +512,6 @@ impl Visitor for InliningSecondPass<'_> {
                         } else {
                             unreachable!("expected value or parameter, got {:?}", child);
                         }
-
                     }
 
                     if trace_segments_params.len() != trace_segments_arg_vector_len {

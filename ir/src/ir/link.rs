@@ -26,7 +26,10 @@ impl<T> Link<T> {
     where
         T: Clone + Debug,
     {
+        eprintln!("update:\n    {:#?}\n  ->{:#?}", self, other);
+        eprintln!("old_ptr: {}", self.get_ptr());
         *self.borrow_mut() = other.borrow().clone();
+        eprintln!("new_ptr: {}", self.get_ptr());
     }
     pub fn get_ptr(&self) -> usize {
         Rc::as_ptr(&self.link) as usize
@@ -108,9 +111,12 @@ impl<T> Default for BackLink<T> {
 
 impl<T: std::fmt::Debug> Debug for BackLink<T> {
     fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match &self.to_link() {
-            Some(link) => write!(_f, "Some, ptr: {:?}", link.get_ptr()),
-            None => write!(_f, "None"),
+        match self.link.as_ref() {
+            Some(_) => match self.to_link() {
+                Some(link) => write!(_f, "BackLink@{:?}", link.get_ptr()),
+                None => write!(_f, "BackLink@None"),
+            },
+            None => write!(_f, "BackLink@None"),
         }
     }
 }
