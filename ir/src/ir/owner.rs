@@ -153,6 +153,39 @@ impl std::hash::Hash for Owner {
 }
 
 impl Link<Owner> {
+    pub fn update_variant(&self) {
+        let to_update;
+        if let Some(op_inner_val) = self.as_op() {
+            to_update = match op_inner_val.clone().borrow().deref() {
+                Op::Enf(_) => Owner::Enf(BackLink::from(op_inner_val)),
+                Op::Boundary(_) => Owner::Boundary(BackLink::from(op_inner_val)),
+                Op::Add(_) => Owner::Add(BackLink::from(op_inner_val)),
+                Op::Sub(_) => Owner::Sub(BackLink::from(op_inner_val)),
+                Op::Mul(_) => Owner::Mul(BackLink::from(op_inner_val)),
+                Op::If(_) => Owner::If(BackLink::from(op_inner_val)),
+                Op::For(_) => Owner::For(BackLink::from(op_inner_val)),
+                Op::Call(_) => Owner::Call(BackLink::from(op_inner_val)),
+                Op::Fold(_) => Owner::Fold(BackLink::from(op_inner_val)),
+                Op::Vector(_) => Owner::Vector(BackLink::from(op_inner_val)),
+                Op::Matrix(_) => Owner::Matrix(BackLink::from(op_inner_val)),
+                Op::Accessor(_) => Owner::Accessor(BackLink::from(op_inner_val)),
+                Op::Parameter(_) => unreachable!(),
+                Op::Value(_) => unreachable!(),
+                Op::None => Owner::None,
+            };
+        } else if let Some(root_inner_val) = self.as_root() {
+            to_update = match root_inner_val.clone().borrow().deref() {
+                Root::Function(_) => Owner::Function(BackLink::from(root_inner_val)),
+                Root::Evaluator(_) => Owner::Evaluator(BackLink::from(root_inner_val)),
+                Root::None => Owner::None,
+            };
+        } else {
+            unreachable!();
+        }
+
+        *self.borrow_mut() = to_update;
+    }
+
     pub fn as_root(&self) -> Option<Link<Root>> {
         match self.borrow().deref() {
             Owner::Function(f) => f.to_link(),

@@ -279,16 +279,12 @@ impl Visitor for InliningSecondPass<'_> {
         callee_nodes_to_inline_in_order
     }
     fn run(&mut self, graph: &mut Graph) -> Result<(), CompileError> {
-        println!("root_nodes_to_visit: {:?}", self.root_nodes_to_visit(graph));
 
         for root_node in self.root_nodes_to_visit(graph).iter() {
             //println!("Visiting root node: {idx} - {:?}", root_node);
             let mut updated_op = None;
 
             if let Some(op) = root_node.as_op() {
-                println!("");
-                println!("Visiting root node: - {:?}", op);
-                println!("");
                 // Set context for inlining this call
                 let Some(call_node) = op.as_call() else {
                     return Ok(());
@@ -373,38 +369,9 @@ impl Visitor for InliningSecondPass<'_> {
                 self.call_inlining_context = None;
             }
 
-            println!();
-            println!("Updating root node: {:?} at ptr: {:?}", root_node, root_node.get_ptr());
-            println!();
-
             if let Some(updated_op) = updated_op {
                 root_node.as_op().unwrap().set(&updated_op);
             }
-
-            println!();
-            println!("Updated root node: {:?}  at ptr: {:?}", root_node, root_node.get_ptr());
-            println!();
-
-            let root_op = root_node.as_op().unwrap();
-            
-            println!();
-            println!("Updated root op: {:?} at ptr: {:?}", root_op, root_op.get_ptr());
-            println!();
-
-            let root_op_as_node = root_op.as_node();
-
-            println!();
-            println!("Updated root op then as_node: {:?} at ptr: {:?}", root_op_as_node, root_op_as_node.get_ptr());
-            println!();
-
-            
-            let root_op_as_node_as_op = root_op_as_node.as_op().expect("FAAAAIL");
-            
-            println!();
-            println!("root_op_as_node_as_op: {:?} at ptr: {:?}", root_op_as_node_as_op, root_op_as_node_as_op.get_ptr());
-            println!();
-            
-            let root_op = root_node.as_op().unwrap();
         }
         Ok(())
     }
@@ -463,17 +430,6 @@ impl Visitor for InliningSecondPass<'_> {
         // if so, set the context and visit the body
 
         let call_op = node.clone().as_op().unwrap_or_else(|| {
-
-            println!();
-            println!("Call op returns None: root node: {:?}  at ptr: {:?}", node, node.get_ptr());
-            println!();
-
-            let node_op = node.as_op().unwrap();
-            
-            println!();
-            println!("Updated root op: {:?} at ptr: {:?}", node_op, node_op.get_ptr());
-            println!();
-
             panic!(
                 "InliningSecondPass::visit_node on a non-Op node: {:?}",
                 node
@@ -638,9 +594,10 @@ impl Visitor for InliningSecondPass<'_> {
                         } else {
                             unreachable!("expected value or parameter, got {:?}", arg);
                         }
-
                     }
                 }
+
+                println!("args_unpacked: {:?}", args_unpacked);
 
                 duplicate_node_or_replace(
                     &mut self.nodes_to_replace,

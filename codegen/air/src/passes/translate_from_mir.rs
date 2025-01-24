@@ -148,6 +148,7 @@ impl<'a> AirBuilder<'a> {
             Op::Enf(enf) => {
                 let child_op = enf.expr.clone();
 
+                println!("ENF child_op: {:?}", child_op);
                 let Op::Sub(_sub) = child_op.borrow().deref().clone() else {
                     unreachable!(); // Raise diag
                 };
@@ -156,13 +157,13 @@ impl<'a> AirBuilder<'a> {
                 Ok(())
             }
             Op::Sub(sub) => {
+
                 // Check that lhs is a Bounded trace access
                 let lhs = sub.lhs.clone();
                 let rhs = sub.rhs.clone();
 
-                let Op::Boundary(boundary) = lhs.borrow().deref().clone() else {
-                    unreachable!(); // Raise diag
-                };
+                let boundary = lhs.as_boundary().unwrap().clone();
+
                 let expected_trace_access_expr = boundary.expr.clone();
                 let Op::Value(value) = expected_trace_access_expr.borrow().deref().clone() else {
                     unreachable!(); // Raise diag

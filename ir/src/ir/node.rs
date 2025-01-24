@@ -186,13 +186,13 @@ impl Link<Node> {
                 Op::Accessor(_) => Node::Accessor(BackLink::from(op_inner_val)),
                 Op::Parameter(_) => Node::Parameter(BackLink::from(op_inner_val)),
                 Op::Value(_) => Node::Value(BackLink::from(op_inner_val)),
-                Op::None => unreachable!(),
+                Op::None => Node::None,
             };
         } else if let Some(root_inner_val) = self.as_root() {
             to_update = match root_inner_val.clone().borrow().deref() {
                 Root::Function(_) => Node::Function(BackLink::from(root_inner_val)),
                 Root::Evaluator(_) => Node::Evaluator(BackLink::from(root_inner_val)),
-                Root::None => unreachable!(),
+                Root::None => Node::None,
             };
         } else {
             unreachable!();

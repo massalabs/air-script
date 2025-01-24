@@ -121,15 +121,18 @@ impl Link<Op> {
         other_node.update(&self_node);
         other.update_inner_node(&self_node);
         
-        /*if let Some(owner) = self.as_owner() {
-            if let Some(other_owner) = other.as_owner() {
-                owner.update(&other_owner);
+        if let Some(other_owner) = other.as_owner() {
+            if let Some(self_owner) = self.as_owner() {
+                other_owner.update(&self_owner);
+                other.update_inner_owner(&self_owner);
             }
-        }*/
-
+        }
         self.update(other);
 
         self_node.update_variant();
+        if let Some(self_owner) = self.as_owner() {
+            self_owner.update_variant();
+        }
     }
     fn update_inner_node(&self, node: &Link<Node>) {
         match self.clone().borrow_mut().deref_mut() {
@@ -175,6 +178,50 @@ impl Link<Op> {
             Op::Value(ref mut value) => {
                 value._node = Some(node.clone());
             }
+            Op::None => {},
+        }
+    }
+    
+    fn update_inner_owner(&self, owner: &Link<Owner>) {
+        match self.clone().borrow_mut().deref_mut() {
+            Op::Enf(ref mut enf) => {
+                enf._owner = Some(owner.clone());
+            }
+            Op::Boundary(ref mut boundary) => {
+                boundary._owner = Some(owner.clone());
+            }
+            Op::Add(ref mut add) => {
+                add._owner = Some(owner.clone());
+            }
+            Op::Sub(ref mut sub) => {
+                sub._owner = Some(owner.clone());
+            }
+            Op::Mul(ref mut mul) => {
+                mul._owner = Some(owner.clone());
+            }
+            Op::If(ref mut if_op) => {
+                if_op._owner = Some(owner.clone());
+            }
+            Op::For(ref mut for_op) => {
+                for_op._owner = Some(owner.clone());
+            }
+            Op::Call(ref mut call) => {
+                call._owner = Some(owner.clone());
+            }
+            Op::Fold(ref mut fold) => {
+                fold._owner = Some(owner.clone());
+            }
+            Op::Vector(ref mut vector) => {
+                vector._owner = Some(owner.clone());
+            }
+            Op::Matrix(ref mut matrix) => {
+                matrix._owner = Some(owner.clone());
+            }
+            Op::Accessor(ref mut accessor) => {
+                accessor._owner = Some(owner.clone());
+            }
+            Op::Parameter(ref mut parameter) => {}
+            Op::Value(ref mut value) => {}
             Op::None => {},
         }
     }

@@ -25,7 +25,7 @@ pub struct ForInliningContext {
     body: Link<Op>,
     iterators: Vec<Link<Op>>,
     selector: Option<Link<Op>>,
-    ref_node: Link<Node>,
+    ref_node: Link<Op>,
 }
 
 impl ForInliningContext {}
@@ -106,10 +106,12 @@ impl Pass for Unrolling<'_> {
         /*println!("****************************");
         println!("Starting first UNROLLING pass");
         println!("****************************");*/
+        
 
         // The first pass unrolls all nodes fully, except for For nodes
         let mut first_pass = UnrollingFirstPass::new(self.diagnostics);
         Visitor::run(&mut first_pass, ir.constraint_graph_mut())?;
+
 
         /*println!(
             "first_pass.bodies_to_inline.clone(): {:?}",
@@ -175,19 +177,31 @@ impl<'a> UnrollingFirstPass<'a> {
                 MirValue::RandomValue(_) => {}
                 MirValue::TraceAccessBinding(trace_access_binding) => {
                     // Create Trace Access based on this binding
-                    let mut vec = vec![];
-                    for index in 0..trace_access_binding.size {
+                    if trace_access_binding.size == 1 {
                         let val = Value::create(SpannedMirValue {
-                            span: value_ref.value.span,
-                            value: MirValue::TraceAccess(TraceAccess {
-                                segment: trace_access_binding.segment,
-                                column: trace_access_binding.offset + index,
-                                row_offset: 0, // ???
-                            }),
-                        });
-                        vec.push(val);
+                                span: value_ref.value.span,
+                                value: MirValue::TraceAccess(TraceAccess {
+                                    segment: trace_access_binding.segment,
+                                    column: trace_access_binding.offset,
+                                    row_offset: 0, // ???
+                                }),
+                            });
+                        updated_value = Some(val);
+                    } else {
+                        let mut vec = vec![];
+                        for index in 0..trace_access_binding.size {
+                            let val = Value::create(SpannedMirValue {
+                                span: value_ref.value.span,
+                                value: MirValue::TraceAccess(TraceAccess {
+                                    segment: trace_access_binding.segment,
+                                    column: trace_access_binding.offset + index,
+                                    row_offset: 0, // ???
+                                }),
+                            });
+                            vec.push(val);
+                        }
+                        updated_value = Some(Vector::create(vec));
                     }
-                    updated_value = Some(Vector::create(vec));
                 }
                 MirValue::RandomValueBinding(random_value_binding) => {
                     let mut vec = vec![];
@@ -602,7 +616,7 @@ impl<'a> UnrollingFirstPass<'a> {
             let iterator_expected_len = iterators[0]
                 .clone()
                 .as_vector()
-                .expect("Iterators should be vectors")
+                .unwrap_or_else(|| unreachable!("Iterators should be vectors, got {:?}", iterators[0]))
                 .children()
                 .borrow()
                 .len();
@@ -611,7 +625,7 @@ impl<'a> UnrollingFirstPass<'a> {
                 if iterator
                     .clone()
                     .as_vector()
-                    .expect("Iterators should be vectors")
+                    .unwrap_or_else(|| unreachable!("Iterators should be vectors, got {:?}", iterator))
                     .children()
                     .borrow()
                     .len()
@@ -623,7 +637,7 @@ impl<'a> UnrollingFirstPass<'a> {
 
             let mut new_vec = vec![];
             for i in 0..iterator_expected_len {
-                let new_node = Link::new(Op::None);
+                let new_node = Parameter::create(i, MirType::Felt);
                 new_vec.push(new_node.clone());
 
                 let iterators_i = iterators
@@ -645,12 +659,16 @@ impl<'a> UnrollingFirstPass<'a> {
                         body: expr.clone(),
                         iterators: iterators_i,
                         selector,
-                        ref_node: for_node.clone().as_node(),
+                        ref_node: for_node.clone(),
                     },
                 ));
             }
 
-            updated_for = Some(Vector::create(new_vec));
+            let new_vec_op = Vector::create(new_vec.clone());
+            for param in new_vec {
+                param.as_parameter_mut().unwrap().set_ref_node(new_vec_op.as_owner().unwrap());
+            }
+            updated_for = Some(new_vec_op);
         }
 
         Ok(updated_for)
@@ -705,6 +723,7 @@ impl Visitor for UnrollingFirstPass<'_> {
     }
     
     fn visit_node(&mut self, graph: &mut Graph, node: Link<Node>) -> Result<(), CompileError> {
+
         let updated_op = match node.borrow().deref() {
             Node::Function(f) => self.visit_function_bis(graph, f.clone().into()),
             Node::Evaluator(e) => self.visit_evaluator_bis(graph, e.clone().into()),
@@ -724,10 +743,11 @@ impl Visitor for UnrollingFirstPass<'_> {
             Node::Value(v) => self.visit_value_bis(graph, v.clone().into()),
             Node::None => Ok(None),
         };
-
+        
         if let Some(updated_op) = updated_op? {
             node.as_op().unwrap().set(&updated_op);
         }
+
         Ok(())
     }
 
@@ -818,7 +838,7 @@ impl Visitor for UnrollingSecondPass<'_> {
                 &mut self.nodes_to_replace,
                 op,
                 self.for_inlining_context.clone().unwrap().iterators.clone(),
-                self.for_inlining_context.clone().unwrap().ref_node,
+                self.for_inlining_context.clone().unwrap().ref_node.as_node(),
             );
         } else {
             unreachable!(
