@@ -107,6 +107,36 @@ impl Pass for Inlining<'_> {
     type Error = CompileError;
 
     fn run<'a>(&mut self, mut ir: Self::Input<'a>) -> Result<Self::Output<'a>, Self::Error> {
+
+        /*let graph = ir.constraint_graph();
+        let functions = graph.get_function_nodes();
+        let evaluators = graph.get_evaluator_nodes();
+        let bc = graph.boundary_constraints_roots.borrow().deref().clone();
+        let ic = graph.integrity_constraints_roots.borrow().deref().clone();
+
+        println!();
+        println!();
+        println!("Before Inlining pass");
+        println!();
+        for fns in functions {
+            println!("fns: {:?}", fns);
+        }
+        println!();
+        for evs in evaluators {
+            println!("evs: {:?}", evs);
+        }
+        println!();
+
+        for bc in bc {
+            println!("bc: {:?}", bc);
+        }
+        println!();
+        for ic in ic {
+            println!("ic: {:?}", ic);
+        }
+        println!();*/
+
+
         let mut first_pass = InliningFirstPass::new(self.diagnostics);
 
         /*println!("****************************");
@@ -121,7 +151,11 @@ impl Pass for Inlining<'_> {
             first_pass.func_eval_dependency_graph.clone(),
         )?;
 
-        //println!("func_eval_inlining_order: {:?}", func_eval_inlining_order);
+        /*println!();
+        println!("func_eval_inlining_order: {:?}", func_eval_inlining_order);
+        println!();
+        println!("func_eval_nodes_where_called: {:?}", first_pass.func_eval_nodes_where_called.clone());
+        println!();*/
 
         let mut second_pass = InliningSecondPass::new(
             self.diagnostics,
@@ -135,6 +169,36 @@ impl Pass for Inlining<'_> {
 
         // The second pass actually inlines the calls
         Visitor::run(&mut second_pass, ir.constraint_graph_mut())?;
+
+        /*let graph = ir.constraint_graph();
+        let functions = graph.get_function_nodes();
+        let evaluators = graph.get_evaluator_nodes();
+        let bc = graph.boundary_constraints_roots.borrow().deref().clone();
+        let ic = graph.integrity_constraints_roots.borrow().deref().clone();*/
+
+        /*println!();
+        println!();
+        println!("After Inlining pass");
+        println!();
+        for fns in functions {
+            println!("fns: {:?}", fns);
+        }
+        println!();
+        for evs in evaluators {
+            println!("evs: {:?}", evs);
+        }
+        println!();
+
+        for bc in bc {
+            println!("bc: {:?}", bc);
+        }
+        println!();
+        for ic in ic {
+            println!("ic: {:?}", ic);
+        }
+        println!();*/
+
+
         Ok(ir)
     }
 }
@@ -184,6 +248,10 @@ impl Visitor for InliningFirstPass<'_> {
         &mut self.work_stack
     }
     fn run(&mut self, graph: &mut Graph) -> Result<(), CompileError> {
+
+        //println!("InliningFirstPass::run");
+        //println!("root_nodes_to_visit: {:?}", self.root_nodes_to_visit(graph));
+
         for root_node in self.root_nodes_to_visit(graph) {
             if let Some(root) = root_node.as_root() {
                 if let Some(_function) = root.clone().as_function() {
@@ -251,6 +319,8 @@ impl Visitor for InliningFirstPass<'_> {
     fn visit_call(&mut self, _graph: &mut Graph, call: Link<Op>) -> Result<(), CompileError> {
         // safe to unwrap because we just dispatched on it
         let callee = &call.as_call().unwrap().function;
+
+        println!("VISIT CALL WITH CALLEE {:?}", callee);
         if self.in_func_or_eval {
             self.current_callees_encountered.push(callee.clone());
         }
@@ -258,6 +328,7 @@ impl Visitor for InliningFirstPass<'_> {
             .entry(callee.get_ptr())
             .and_modify(|(_, v)| v.push(call.clone()))
             .or_insert((callee.clone(), vec![call.clone()]));
+
         Ok(())
     }
 }
@@ -269,6 +340,8 @@ impl Visitor for InliningSecondPass<'_> {
     fn root_nodes_to_visit(&self, _graph: &Graph) -> Vec<Link<Node>> {
         let mut callee_nodes_to_inline_in_order = Vec::new();
         for callee in self.func_eval_inlining_order.iter() {
+            //println!("callee: {:?}", callee);
+            //println!("self.func_eval_nodes_where_called.get(&callee.get_ptr()) {:?}", self.func_eval_nodes_where_called.get(&callee.get_ptr()));
             if let Some((_, nodes_with_context)) =
                 self.func_eval_nodes_where_called.get(&callee.get_ptr())
             {
@@ -279,6 +352,9 @@ impl Visitor for InliningSecondPass<'_> {
         callee_nodes_to_inline_in_order
     }
     fn run(&mut self, graph: &mut Graph) -> Result<(), CompileError> {
+        
+        println!("InliningSecondPass::run");
+        println!("InliningSecondPass root_nodes_to_visit: {:?}", self.root_nodes_to_visit(graph));
 
         for root_node in self.root_nodes_to_visit(graph).iter() {
             //println!("Visiting root node: {idx} - {:?}", root_node);
