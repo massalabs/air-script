@@ -6,7 +6,7 @@ use air_parser::{ast, symbols, LexicalScope, SemanticAnalysisError};
 use air_pass::Pass;
 use miden_diagnostics::{DiagnosticsHandler, Severity, SourceSpan, Span, Spanned};
 
-use crate::ir::{Accessor, Add, Boundary, Enf, Evaluator, Matrix, Mul, Node, Owner, Root, Sub};
+use crate::ir::{Accessor, Add, Boundary, Enf, Evaluator, Matrix, Mul, Owner, Root, Sub};
 use crate::{
     ir::{
         Builder, Call, ConstantValue, Fold, FoldOperator, For, Function, Link, Mir, MirType,

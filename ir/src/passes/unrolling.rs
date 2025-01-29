@@ -1,4 +1,3 @@
-use core::panic;
 use std::{collections::HashMap, ops::Deref, rc::Rc};
 
 use air_parser::ast::AccessType;
@@ -8,7 +7,7 @@ use miden_diagnostics::DiagnosticsHandler;
 
 use crate::{ir::*, CompileError};
 
-use super::{duplicate_node_or_replace, visitor2::Visitor};
+use super::{duplicate_node_or_replace, visitor::Visitor};
 
 /// This pass follows a similar approach as the Inlining pass.
 /// It requires that this Inlining pass has already been done.

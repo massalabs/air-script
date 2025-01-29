@@ -1,33 +1,12 @@
-/*mod constant_propagation;
-mod value_numbering;
 
-pub use self::constant_propagation::ConstantPropagation;
-pub use self::value_numbering::ValueNumbering;
-
-mod inlining_old;
-mod translate_old;
-mod unrolling_old;
-mod visitor_old;
-pub use self::inlining_old::InliningOld;
-pub use self::translate_old::AstToMirOld;
-pub use self::unrolling_old::UnrollingOld;
-pub use self::visitor_old::{Graph, VisitContextOld, VisitOld, VisitOrderOld};*/
-
-//mod visitor;
 mod translate;
-mod visitor2;
-//mod inlining;
-mod inlining2;
-//mod unrolling;
-mod unrolling2;
+mod visitor;
+mod inlining;
+mod unrolling;
 
-//pub use self::visitor::{Visit, VisitContext};
-//pub use self::translate::AstToMir;
 pub use self::translate::AstToMir;
-// pub use self::inlining::Inlining;
-pub use self::inlining2::Inlining;
-//pub use self::unrolling::Unrolling;
-pub use self::unrolling2::Unrolling;
+pub use self::inlining::Inlining;
+pub use self::unrolling::Unrolling;
 
 use std::collections::HashMap;
 use std::ops::Deref;

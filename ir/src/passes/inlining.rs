@@ -11,7 +11,7 @@ use crate::{
     CompileError,
 };
 
-use super::{duplicate_node_or_replace, visitor2::Visitor};
+use super::{duplicate_node_or_replace, visitor::Visitor};
 
 /// This pass handles inlining of Call nodes at there call sites.
 ///
