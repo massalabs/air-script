@@ -80,7 +80,7 @@ impl<'a> MirBuilder<'a> {
     }
 
     pub fn translate_program(&mut self) -> Result<(), CompileError> {
-        self.mir = Mir::default();
+        self.mir = Mir::new(self.program.name);
         let random_values = &self.program.random_values;
         let trace_columns = &self.program.trace_columns;
         let boundary_constraints = &self.program.boundary_constraints;
