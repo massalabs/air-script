@@ -11,7 +11,7 @@ pub trait Visitor {
     fn run(&mut self, graph: &mut Graph) -> Result<(), CompileError> {
         for root in self.root_nodes_to_visit(graph) {
             self.scan_node(graph, root.clone())?;
-            
+
             while let Some(node) = self.work_stack().pop() {
                 self.visit_node(graph, node)?;
             }

@@ -119,12 +119,10 @@ impl Pass for Unrolling<'_> {
         /*println!("****************************");
         println!("Starting first UNROLLING pass");
         println!("****************************");*/
-        
 
         // The first pass unrolls all nodes fully, except for For nodes
         let mut first_pass = UnrollingFirstPass::new(self.diagnostics);
         Visitor::run(&mut first_pass, ir.constraint_graph_mut())?;
-
 
         /*println!(
             "first_pass.bodies_to_inline.clone(): {:?}",
@@ -173,9 +171,11 @@ impl Pass for Unrolling<'_> {
 }
 
 impl<'a> UnrollingFirstPass<'a> {
-    
-    fn visit_value_bis(&mut self, _graph: &mut Graph, value: Link<Op>) -> Result<Option<Link<Op>>, CompileError> {
-
+    fn visit_value_bis(
+        &mut self,
+        _graph: &mut Graph,
+        value: Link<Op>,
+    ) -> Result<Option<Link<Op>>, CompileError> {
         // safe to un wrap because we just dispatched on it
         let mut updated_value = None;
 
@@ -221,13 +221,13 @@ impl<'a> UnrollingFirstPass<'a> {
                     // Create Trace Access based on this binding
                     if trace_access_binding.size == 1 {
                         let val = Value::create(SpannedMirValue {
-                                span: value_ref.value.span,
-                                value: MirValue::TraceAccess(TraceAccess {
-                                    segment: trace_access_binding.segment,
-                                    column: trace_access_binding.offset,
-                                    row_offset: 0, // ???
-                                }),
-                            });
+                            span: value_ref.value.span,
+                            value: MirValue::TraceAccess(TraceAccess {
+                                segment: trace_access_binding.segment,
+                                column: trace_access_binding.offset,
+                                row_offset: 0, // ???
+                            }),
+                        });
                         updated_value = Some(val);
                     } else {
                         let mut vec = vec![];
@@ -263,7 +263,11 @@ impl<'a> UnrollingFirstPass<'a> {
         Ok(updated_value)
     }
 
-    fn visit_add_bis(&mut self, _graph: &mut Graph, add: Link<Op>) -> Result<Option<Link<Op>>, CompileError>{
+    fn visit_add_bis(
+        &mut self,
+        _graph: &mut Graph,
+        add: Link<Op>,
+    ) -> Result<Option<Link<Op>>, CompileError> {
         // safe to un wrap because we just dispatched on it
 
         let mut updated_add = None;
@@ -296,7 +300,11 @@ impl<'a> UnrollingFirstPass<'a> {
         Ok(updated_add)
     }
 
-    fn visit_sub_bis(&mut self, _graph: &mut Graph, sub: Link<Op>) -> Result<Option<Link<Op>>, CompileError>{
+    fn visit_sub_bis(
+        &mut self,
+        _graph: &mut Graph,
+        sub: Link<Op>,
+    ) -> Result<Option<Link<Op>>, CompileError> {
         // safe to unwrap because we just dispatched on it
 
         let mut updated_sub = None;
@@ -326,7 +334,11 @@ impl<'a> UnrollingFirstPass<'a> {
         Ok(updated_sub)
     }
 
-    fn visit_mul_bis(&mut self, _graph: &mut Graph, mul: Link<Op>) -> Result<Option<Link<Op>>, CompileError>{
+    fn visit_mul_bis(
+        &mut self,
+        _graph: &mut Graph,
+        mul: Link<Op>,
+    ) -> Result<Option<Link<Op>>, CompileError> {
         let mut updated_mul = None;
 
         {
@@ -356,7 +368,11 @@ impl<'a> UnrollingFirstPass<'a> {
         Ok(updated_mul)
     }
 
-    fn visit_enf_bis(&mut self, _graph: &mut Graph, enf: Link<Op>) -> Result<Option<Link<Op>>, CompileError>{
+    fn visit_enf_bis(
+        &mut self,
+        _graph: &mut Graph,
+        enf: Link<Op>,
+    ) -> Result<Option<Link<Op>>, CompileError> {
         let mut updated_enf = None;
 
         {
@@ -376,7 +392,11 @@ impl<'a> UnrollingFirstPass<'a> {
         Ok(updated_enf)
     }
 
-    fn visit_fold_bis(&mut self, _graph: &mut Graph, fold: Link<Op>) -> Result<Option<Link<Op>>, CompileError>{
+    fn visit_fold_bis(
+        &mut self,
+        _graph: &mut Graph,
+        fold: Link<Op>,
+    ) -> Result<Option<Link<Op>>, CompileError> {
         let mut updated_fold = None;
 
         {
@@ -417,7 +437,7 @@ impl<'a> UnrollingFirstPass<'a> {
         &mut self,
         _graph: &mut Graph,
         _parameter: Link<Op>,
-    ) -> Result<Option<Link<Op>>, CompileError>{
+    ) -> Result<Option<Link<Op>>, CompileError> {
         // FIXME: Just check that the parameter is a scalar, raise diag otherwise
         // List comprehension bodies should only be scalar expressions
         Ok(None)
@@ -464,7 +484,11 @@ impl<'a> UnrollingFirstPass<'a> {
         Ok(())
     }*/
 
-    fn visit_if_bis(&mut self, _graph: &mut Graph, if_node: Link<Op>) -> Result<Option<Link<Op>>, CompileError>{
+    fn visit_if_bis(
+        &mut self,
+        _graph: &mut Graph,
+        if_node: Link<Op>,
+    ) -> Result<Option<Link<Op>>, CompileError> {
         let mut updated_if = None;
 
         {
@@ -520,7 +544,7 @@ impl<'a> UnrollingFirstPass<'a> {
         &mut self,
         _graph: &mut Graph,
         boundary: Link<Op>,
-    ) -> Result<Option<Link<Op>>, CompileError>{
+    ) -> Result<Option<Link<Op>>, CompileError> {
         let mut updated_boundary = None;
 
         {
@@ -547,7 +571,7 @@ impl<'a> UnrollingFirstPass<'a> {
         &mut self,
         _graph: &mut Graph,
         accessor: Link<Op>,
-    ) -> Result<Option<Link<Op>>, CompileError>{
+    ) -> Result<Option<Link<Op>>, CompileError> {
         let mut updated_accessor = None;
 
         {
@@ -605,12 +629,13 @@ impl<'a> UnrollingFirstPass<'a> {
                         };
                     } else {
                         if let Op::Matrix(indexable_matrix) = indexable.borrow().deref() {
-                            let indexable_vec = indexable_matrix.children().borrow().deref().clone();
+                            let indexable_vec =
+                                indexable_matrix.children().borrow().deref().clone();
                             let row_accessed = match indexable_vec.get(row) {
                                 Some(row_accessed) => row_accessed,
                                 None => unreachable!(), // raise diag
                             };
-    
+
                             if let Op::Vector(row_accessed_vector) = row_accessed.borrow().deref() {
                                 let row_accessed_vec =
                                     row_accessed_vector.children().borrow().deref().clone();
@@ -635,7 +660,11 @@ impl<'a> UnrollingFirstPass<'a> {
         Ok(updated_accessor)
     }
 
-    fn visit_for_bis(&mut self, _graph: &mut Graph, for_node: Link<Op>) -> Result<Option<Link<Op>>, CompileError>{
+    fn visit_for_bis(
+        &mut self,
+        _graph: &mut Graph,
+        for_node: Link<Op>,
+    ) -> Result<Option<Link<Op>>, CompileError> {
         let mut updated_for = None;
 
         {
@@ -658,7 +687,9 @@ impl<'a> UnrollingFirstPass<'a> {
             let iterator_expected_len = iterators[0]
                 .clone()
                 .as_vector()
-                .unwrap_or_else(|| unreachable!("Iterators should be vectors, got {:?}", iterators[0]))
+                .unwrap_or_else(|| {
+                    unreachable!("Iterators should be vectors, got {:?}", iterators[0])
+                })
                 .children()
                 .borrow()
                 .len();
@@ -667,7 +698,9 @@ impl<'a> UnrollingFirstPass<'a> {
                 if iterator
                     .clone()
                     .as_vector()
-                    .unwrap_or_else(|| unreachable!("Iterators should be vectors, got {:?}", iterator))
+                    .unwrap_or_else(|| {
+                        unreachable!("Iterators should be vectors, got {:?}", iterator)
+                    })
                     .children()
                     .borrow()
                     .len()
@@ -708,7 +741,10 @@ impl<'a> UnrollingFirstPass<'a> {
 
             let new_vec_op = Vector::create(new_vec.clone());
             for param in new_vec {
-                param.as_parameter_mut().unwrap().set_ref_node(new_vec_op.as_owner().unwrap());
+                param
+                    .as_parameter_mut()
+                    .unwrap()
+                    .set_ref_node(new_vec_op.as_owner().unwrap());
             }
             updated_for = Some(new_vec_op);
         }
@@ -716,7 +752,11 @@ impl<'a> UnrollingFirstPass<'a> {
         Ok(updated_for)
     }
 
-    fn visit_call_bis(&mut self, _graph: &mut Graph, _call: Link<Op>) -> Result<Option<Link<Op>>, CompileError>{
+    fn visit_call_bis(
+        &mut self,
+        _graph: &mut Graph,
+        _call: Link<Op>,
+    ) -> Result<Option<Link<Op>>, CompileError> {
         unreachable!("Calls should have been inlined before this pass");
     }
 
@@ -724,7 +764,7 @@ impl<'a> UnrollingFirstPass<'a> {
         &mut self,
         _graph: &mut Graph,
         _function: Link<Root>,
-    ) -> Result<Option<Link<Op>>, CompileError>{
+    ) -> Result<Option<Link<Op>>, CompileError> {
         unreachable!("Functions should have been inlined before this pass");
     }
 
@@ -732,11 +772,15 @@ impl<'a> UnrollingFirstPass<'a> {
         &mut self,
         _graph: &mut Graph,
         _evaluator: Link<Root>,
-    ) -> Result<Option<Link<Op>>, CompileError>{
+    ) -> Result<Option<Link<Op>>, CompileError> {
         unreachable!("Evaluators should have been inlined before this pass");
     }
-    fn visit_vector_bis(&mut self, _graph: &mut Graph, _vector: Link<Op>) -> Result<Option<Link<Op>>, CompileError> {
-       /*let mut updated_vector = None;
+    fn visit_vector_bis(
+        &mut self,
+        _graph: &mut Graph,
+        _vector: Link<Op>,
+    ) -> Result<Option<Link<Op>>, CompileError> {
+        /*let mut updated_vector = None;
 
         {
             // safe to unwrap because we just dispatched on it
@@ -753,7 +797,11 @@ impl<'a> UnrollingFirstPass<'a> {
         Ok(updated_vector)*/
         Ok(None)
     }
-    fn visit_matrix_bis(&mut self, _graph: &mut Graph, _matrix: Link<Op>) -> Result<Option<Link<Op>>, CompileError> {
+    fn visit_matrix_bis(
+        &mut self,
+        _graph: &mut Graph,
+        _matrix: Link<Op>,
+    ) -> Result<Option<Link<Op>>, CompileError> {
         Ok(None)
     }
 }
@@ -778,9 +826,8 @@ impl Visitor for UnrollingFirstPass<'_> {
             );
         combined_roots.collect()
     }
-    
-    fn visit_node(&mut self, graph: &mut Graph, node: Link<Node>) -> Result<(), CompileError> {
 
+    fn visit_node(&mut self, graph: &mut Graph, node: Link<Node>) -> Result<(), CompileError> {
         let updated_op = match node.borrow().deref() {
             Node::Function(f) => self.visit_function_bis(graph, f.clone().into()),
             Node::Evaluator(e) => self.visit_evaluator_bis(graph, e.clone().into()),
@@ -800,14 +847,13 @@ impl Visitor for UnrollingFirstPass<'_> {
             Node::Value(v) => self.visit_value_bis(graph, v.clone().into()),
             Node::None => Ok(None),
         };
-        
+
         if let Some(updated_op) = updated_op? {
             node.as_op().unwrap().set(&updated_op);
         }
 
         Ok(())
     }
-
 }
 
 impl Visitor for UnrollingSecondPass<'_> {
@@ -898,7 +944,11 @@ impl Visitor for UnrollingSecondPass<'_> {
                 &mut self.nodes_to_replace,
                 op,
                 self.for_inlining_context.clone().unwrap().iterators.clone(),
-                self.for_inlining_context.clone().unwrap().ref_node.as_node(),
+                self.for_inlining_context
+                    .clone()
+                    .unwrap()
+                    .ref_node
+                    .as_node(),
             );
         } else {
             unreachable!(

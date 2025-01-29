@@ -29,8 +29,7 @@ impl Test {
         let air = air_parser::parse_file(&diagnostics, codemap, &self.input_path)
             .map_err(CompileError::Parse)
             .and_then(|ast| {
-                let mut pipeline =
-                air_parser::transforms::ConstantPropagation::new(&diagnostics)
+                let mut pipeline = air_parser::transforms::ConstantPropagation::new(&diagnostics)
                     .chain(mir::passes::AstToMir::new(&diagnostics))
                     .chain(mir::passes::Inlining::new(&diagnostics))
                     .chain(mir::passes::Unrolling::new(&diagnostics))

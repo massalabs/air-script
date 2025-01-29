@@ -26,9 +26,10 @@ fn binary() {
 
 #[test]
 fn periodic_columns() {
-    let generated_air = Test::new("tests/tests_wo_mir/periodic_columns/periodic_columns.air".to_string())
-        .transpile(Target::Winterfell)
-        .unwrap();
+    let generated_air =
+        Test::new("tests/tests_wo_mir/periodic_columns/periodic_columns.air".to_string())
+            .transpile(Target::Winterfell)
+            .unwrap();
 
     let expected = expect_file!["../periodic_columns/periodic_columns.rs"];
     expected.assert_eq(&generated_air);
@@ -76,9 +77,10 @@ fn constants() {
 
 #[test]
 fn constant_in_range() {
-    let generated_air = Test::new("tests/tests_wo_mir/constant_in_range/constant_in_range.air".to_string())
-        .transpile(Target::Winterfell)
-        .unwrap();
+    let generated_air =
+        Test::new("tests/tests_wo_mir/constant_in_range/constant_in_range.air".to_string())
+            .transpile(Target::Winterfell)
+            .unwrap();
 
     let expected = expect_file!["../constant_in_range/constant_in_range.rs"];
     expected.assert_eq(&generated_air);
@@ -108,9 +110,10 @@ fn functions_simple() {
 fn functions_simple_inlined() {
     // make sure that the constraints generated using inlined functions are the same as the ones
     // generated using regular functions
-    let generated_air = Test::new("tests/tests_wo_mir/functions/inlined_functions_simple.air".to_string())
-        .transpile(Target::Winterfell)
-        .unwrap();
+    let generated_air =
+        Test::new("tests/tests_wo_mir/functions/inlined_functions_simple.air".to_string())
+            .transpile(Target::Winterfell)
+            .unwrap();
 
     let expected = expect_file!["../functions/functions_simple.rs"];
     expected.assert_eq(&generated_air);
@@ -138,9 +141,10 @@ fn variables() {
 
 #[test]
 fn trace_col_groups() {
-    let generated_air = Test::new("tests/tests_wo_mir/trace_col_groups/trace_col_groups.air".to_string())
-        .transpile(Target::Winterfell)
-        .unwrap();
+    let generated_air =
+        Test::new("tests/tests_wo_mir/trace_col_groups/trace_col_groups.air".to_string())
+            .transpile(Target::Winterfell)
+            .unwrap();
 
     let expected = expect_file!["../trace_col_groups/trace_col_groups.rs"];
     expected.assert_eq(&generated_air);
@@ -159,16 +163,18 @@ fn indexed_trace_access() {
 
 #[test]
 fn random_values() {
-    let generated_air = Test::new("tests/tests_wo_mir/random_values/random_values_simple.air".to_string())
-        .transpile(Target::Winterfell)
-        .unwrap();
+    let generated_air =
+        Test::new("tests/tests_wo_mir/random_values/random_values_simple.air".to_string())
+            .transpile(Target::Winterfell)
+            .unwrap();
 
     let expected = expect_file!["../random_values/random_values.rs"];
     expected.assert_eq(&generated_air);
 
-    let generated_air = Test::new("tests/tests_wo_mir/random_values/random_values_bindings.air".to_string())
-        .transpile(Target::Winterfell)
-        .unwrap();
+    let generated_air =
+        Test::new("tests/tests_wo_mir/random_values/random_values_bindings.air".to_string())
+            .transpile(Target::Winterfell)
+            .unwrap();
 
     let expected = expect_file!["../random_values/random_values.rs"];
     expected.assert_eq(&generated_air);
@@ -176,9 +182,10 @@ fn random_values() {
 
 #[test]
 fn list_comprehension() {
-    let generated_air = Test::new("tests/tests_wo_mir/list_comprehension/list_comprehension.air".to_string())
-        .transpile(Target::Winterfell)
-        .unwrap();
+    let generated_air =
+        Test::new("tests/tests_wo_mir/list_comprehension/list_comprehension.air".to_string())
+            .transpile(Target::Winterfell)
+            .unwrap();
 
     let expected = expect_file!["../list_comprehension/list_comprehension.rs"];
     expected.assert_eq(&generated_air);
@@ -203,9 +210,10 @@ fn selectors() {
     let expected = expect_file!["../selectors/selectors.rs"];
     expected.assert_eq(&generated_air);
 
-    let generated_air = Test::new("tests/tests_wo_mir/selectors/selectors_with_evaluators.air".to_string())
-        .transpile(Target::Winterfell)
-        .unwrap();
+    let generated_air =
+        Test::new("tests/tests_wo_mir/selectors/selectors_with_evaluators.air".to_string())
+            .transpile(Target::Winterfell)
+            .unwrap();
 
     let expected = expect_file!["../selectors/selectors.rs"];
     expected.assert_eq(&generated_air);
@@ -213,10 +221,11 @@ fn selectors() {
 
 #[test]
 fn constraint_comprehension() {
-    let generated_air =
-        Test::new("tests/tests_wo_mir/constraint_comprehension/constraint_comprehension.air".to_string())
-            .transpile(Target::Winterfell)
-            .unwrap();
+    let generated_air = Test::new(
+        "tests/tests_wo_mir/constraint_comprehension/constraint_comprehension.air".to_string(),
+    )
+    .transpile(Target::Winterfell)
+    .unwrap();
 
     let expected = expect_file!["../constraint_comprehension/constraint_comprehension.rs"];
     expected.assert_eq(&generated_air);

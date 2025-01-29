@@ -37,5 +37,4 @@ fn test_ir_mutability() {
     eprintln!("a_node = {}", a_node.debug());
     eprintln!("a_with_node = {}", a_with_node.debug());
     eprintln!("============================");
-
 }

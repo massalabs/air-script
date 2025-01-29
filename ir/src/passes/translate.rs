@@ -120,7 +120,6 @@ impl<'a> MirBuilder<'a> {
         ident: &'a ast::QualifiedIdentifier,
         ast_eval: &'a ast::EvaluatorFunction,
     ) -> Result<Link<Root>, CompileError> {
-        
         let mut all_params_flatten = Vec::new();
 
         self.root_name = Some(ident);
@@ -135,7 +134,7 @@ impl<'a> MirBuilder<'a> {
                 //            println!("binding: {:#?}", binding);
                 let params =
                     self.translate_params_ev(ident, binding.name.as_ref(), &binding.ty, &mut i)?;
-                
+
                 for param in params {
                     all_params_flatten_for_trace_segment.push(param.clone());
                     all_params_flatten.push(param.clone());
@@ -168,8 +167,9 @@ impl<'a> MirBuilder<'a> {
         self.bindings.enter();
         self.root_name = Some(ident);
 
-        for (trace_segment, all_params_flatten_for_trace_segment) in ast_eval.params.iter().zip(params.iter()) {
-
+        for (trace_segment, all_params_flatten_for_trace_segment) in
+            ast_eval.params.iter().zip(params.iter())
+        {
             let mut i = 0;
             for binding in trace_segment.bindings.iter() {
                 let name = binding.name.as_ref();
@@ -183,14 +183,13 @@ impl<'a> MirBuilder<'a> {
                         }
                         let vector_node = Vector::create(params_vec);
                         self.bindings.insert(name.unwrap(), vector_node.clone());
-
-                    },
+                    }
                     ast::Type::Felt => {
                         let param = all_params_flatten_for_trace_segment[i].clone();
                         i += 1;
                         self.bindings.insert(name.unwrap(), param.clone());
-                    },
-                    _ => unreachable!()
+                    }
+                    _ => unreachable!(),
                 };
             }
         }
@@ -236,7 +235,6 @@ impl<'a> MirBuilder<'a> {
         ident: &'a ast::QualifiedIdentifier,
         ast_func: &'a ast::Function,
     ) -> Result<Link<Root>, CompileError> {
-        
         let original_root = self.mir
             .constraint_graph()
             .get_function_root(ident).unwrap_or_else(||panic!("missing function signature for {:?}\nuse self.translate_function_signature(ident, ast_func) before self.translate_function(ident, ast_func)", ident));
@@ -412,7 +410,6 @@ impl<'a> MirBuilder<'a> {
         &mut self,
         list_comp: &'a ast::ListComprehension,
     ) -> Result<Link<Op>, CompileError> {
-
         let mut iterator_nodes: Vec<Link<Op>> = Vec::new();
         for iterator in list_comp.iterables.iter() {
             let iterator_node = self.translate_expr(iterator)?;
@@ -438,8 +435,18 @@ impl<'a> MirBuilder<'a> {
         } else {
             Link::default()
         };
-        for_node.as_for_mut().unwrap().expr.borrow_mut().clone_from(&body_node.borrow());
-        for_node.as_for_mut().unwrap().selector.borrow_mut().clone_from(&selector_node.borrow());
+        for_node
+            .as_for_mut()
+            .unwrap()
+            .expr
+            .borrow_mut()
+            .clone_from(&body_node.borrow());
+        for_node
+            .as_for_mut()
+            .unwrap()
+            .selector
+            .borrow_mut()
+            .clone_from(&selector_node.borrow());
 
         let enf_node: Link<Op> = Enf::create(for_node);
         let node = self.insert_enforce(enf_node);
@@ -471,7 +478,7 @@ impl<'a> MirBuilder<'a> {
                         self.mir
                             .constraint_graph_mut()
                             .insert_integrity_constraints_root(node_to_add.clone());
-                    },
+                    }
                     _ => {}
                 };
                 /*if parent == Link::new(Owner::default()) {
@@ -738,7 +745,6 @@ impl<'a> MirBuilder<'a> {
         &mut self,
         list_comp: &'a ast::ListComprehension,
     ) -> Result<Link<Op>, CompileError> {
-
         let iterator_nodes = Link::new(Vec::new());
         for iterator in list_comp.iterables.iter() {
             let iterator_node = self.translate_expr(iterator)?;
@@ -753,7 +759,7 @@ impl<'a> MirBuilder<'a> {
             params.push(binding_node.clone());
             self.bindings.insert(binding, binding_node);
         }
-        
+
         let for_node = For::create(iterator_nodes, Op::None.into(), Op::None.into());
         set_all_ref_nodes(params, for_node.as_owner().unwrap());
 
@@ -764,8 +770,18 @@ impl<'a> MirBuilder<'a> {
         };
         let body_node = self.translate_scalar_expr(&list_comp.body)?;
 
-        for_node.as_for_mut().unwrap().expr.borrow_mut().clone_from(&body_node.borrow());
-        for_node.as_for_mut().unwrap().selector.borrow_mut().clone_from(&selector_node.borrow());
+        for_node
+            .as_for_mut()
+            .unwrap()
+            .expr
+            .borrow_mut()
+            .clone_from(&body_node.borrow());
+        for_node
+            .as_for_mut()
+            .unwrap()
+            .selector
+            .borrow_mut()
+            .clone_from(&selector_node.borrow());
 
         self.bindings.exit();
         Ok(for_node)

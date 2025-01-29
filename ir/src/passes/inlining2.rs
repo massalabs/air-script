@@ -108,7 +108,6 @@ impl Pass for Inlining<'_> {
     type Error = CompileError;
 
     fn run<'a>(&mut self, mut ir: Self::Input<'a>) -> Result<Self::Output<'a>, Self::Error> {
-
         /*let graph = ir.constraint_graph();
         let functions = graph.get_function_nodes();
         let evaluators = graph.get_evaluator_nodes();
@@ -136,7 +135,6 @@ impl Pass for Inlining<'_> {
             println!("ic: {:?}", ic);
         }
         println!();*/
-
 
         let mut first_pass = InliningFirstPass::new(self.diagnostics);
 
@@ -199,7 +197,6 @@ impl Pass for Inlining<'_> {
         }
         println!();*/
 
-
         Ok(ir)
     }
 }
@@ -249,7 +246,6 @@ impl Visitor for InliningFirstPass<'_> {
         &mut self.work_stack
     }
     fn run(&mut self, graph: &mut Graph) -> Result<(), CompileError> {
-
         //println!("InliningFirstPass::run");
         //println!("root_nodes_to_visit: {:?}", self.root_nodes_to_visit(graph));
 

@@ -183,7 +183,6 @@ fn fn_call_in_ev() {
         enf evaluator([a]);
     }";
 
-    
     assert!(compile(source).is_ok());
 }
 

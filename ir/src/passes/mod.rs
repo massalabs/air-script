@@ -98,7 +98,8 @@ pub fn duplicate_node(
             If::create(new_condition, new_then_branch, new_else_branch)
         }
         Op::For(for_node) => {
-            let new_for_node: Link<Op> = For::create(Link::default(), Link::default(), Link::default());
+            let new_for_node: Link<Op> =
+                For::create(Link::default(), Link::default(), Link::default());
             current_replace_map.insert(node.get_ptr(), (node, new_for_node.clone()));
 
             let iterators = for_node.iterators.clone();
@@ -115,7 +116,8 @@ pub fn duplicate_node(
             let new_body = duplicate_node(body, current_replace_map);
 
             *new_for_node.as_for_mut().unwrap().iterators.borrow_mut() = new_iterators;
-            *new_for_node.as_for_mut().unwrap().selector.borrow_mut() = new_selector.borrow().clone();
+            *new_for_node.as_for_mut().unwrap().selector.borrow_mut() =
+                new_selector.borrow().clone();
             *new_for_node.as_for_mut().unwrap().expr.borrow_mut() = new_body.borrow().clone();
 
             new_for_node
@@ -181,20 +183,30 @@ pub fn duplicate_node(
             Accessor::create(new_indexable, access_type)
         }
         Op::Parameter(parameter) => {
-            let owner_ref = parameter.ref_node.to_link().unwrap_or_else(
-                || panic!("invalid ref_node for parameter {:?}", parameter)
-            );
+            let owner_ref = parameter
+                .ref_node
+                .to_link()
+                .unwrap_or_else(|| panic!("invalid ref_node for parameter {:?}", parameter));
             let new_param = Parameter::create(parameter.position, parameter.ty.clone());
 
             if let Some(_root_ref) = owner_ref.as_root() {
-                new_param.as_parameter_mut().unwrap().set_ref_node(owner_ref);
+                new_param
+                    .as_parameter_mut()
+                    .unwrap()
+                    .set_ref_node(owner_ref);
             } else {
                 if let Some((_replaced_node, replaced_by)) =
                     current_replace_map.get(&owner_ref.as_op().unwrap().get_ptr())
                 {
-                    new_param.as_parameter_mut().unwrap().set_ref_node(replaced_by.clone().as_owner().unwrap());
+                    new_param
+                        .as_parameter_mut()
+                        .unwrap()
+                        .set_ref_node(replaced_by.clone().as_owner().unwrap());
                 } else {
-                    new_param.as_parameter_mut().unwrap().set_ref_node(owner_ref);
+                    new_param
+                        .as_parameter_mut()
+                        .unwrap()
+                        .set_ref_node(owner_ref);
                 }
             }
             new_param
@@ -382,32 +394,38 @@ pub fn duplicate_node_or_replace(
             current_replace_map.insert(node.get_ptr(), (node.clone(), new_node));
         }
         Op::Parameter(parameter) => {
-
-            let owner_ref = parameter.ref_node.to_link().unwrap_or_else(
-                || {
-                    println!("replace_parameter_list: {:?}", replace_parameter_list);
-                    panic!("invalid ref_node for parameter {:?}", parameter)
-                }
-            );
+            let owner_ref = parameter.ref_node.to_link().unwrap_or_else(|| {
+                println!("replace_parameter_list: {:?}", replace_parameter_list);
+                panic!("invalid ref_node for parameter {:?}", parameter)
+            });
 
             if owner_ref == ref_node.as_owner().unwrap() {
                 let new_node = replace_parameter_list[parameter.position].clone();
                 current_replace_map.insert(node.get_ptr(), (node.clone(), new_node));
             } else {
                 let new_param = Parameter::create(parameter.position, parameter.ty.clone());
-    
+
                 if let Some(_root_ref) = owner_ref.as_root() {
-                    new_param.as_parameter_mut().unwrap().set_ref_node(owner_ref);
+                    new_param
+                        .as_parameter_mut()
+                        .unwrap()
+                        .set_ref_node(owner_ref);
                 } else {
                     if let Some((_replaced_node, replaced_by)) =
                         current_replace_map.get(&owner_ref.as_op().unwrap().get_ptr())
                     {
-                        new_param.as_parameter_mut().unwrap().set_ref_node(replaced_by.clone().as_owner().unwrap());
+                        new_param
+                            .as_parameter_mut()
+                            .unwrap()
+                            .set_ref_node(replaced_by.clone().as_owner().unwrap());
                     } else {
-                        new_param.as_parameter_mut().unwrap().set_ref_node(owner_ref);
+                        new_param
+                            .as_parameter_mut()
+                            .unwrap()
+                            .set_ref_node(owner_ref);
                     }
                 }
-                
+
                 current_replace_map.insert(node.get_ptr(), (node.clone(), new_param));
             }
         }

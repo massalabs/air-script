@@ -26,9 +26,10 @@ fn binary() {
 
 #[test]
 fn periodic_columns() {
-    let generated_masm = Test::new("tests/tests_from_mir/periodic_columns/periodic_columns.air".to_string())
-        .transpile(Target::Masm)
-        .unwrap();
+    let generated_masm =
+        Test::new("tests/tests_from_mir/periodic_columns/periodic_columns.air".to_string())
+            .transpile(Target::Masm)
+            .unwrap();
 
     let expected = expect_file!["../periodic_columns/periodic_columns.masm"];
     expected.assert_eq(&generated_masm);
@@ -76,9 +77,10 @@ fn constants() {
 
 #[test]
 fn constant_in_range() {
-    let generated_masm = Test::new("tests/tests_from_mir/constant_in_range/constant_in_range.air".to_string())
-        .transpile(Target::Masm)
-        .unwrap();
+    let generated_masm =
+        Test::new("tests/tests_from_mir/constant_in_range/constant_in_range.air".to_string())
+            .transpile(Target::Masm)
+            .unwrap();
 
     let expected = expect_file!["../constant_in_range/constant_in_range.masm"];
     expected.assert_eq(&generated_masm);
@@ -96,9 +98,10 @@ fn evaluators() {
 
 #[test]
 fn functions_simple() {
-    let generated_masm = Test::new("tests/tests_from_mir/functions/functions_simple.air".to_string())
-        .transpile(Target::Masm)
-        .unwrap();
+    let generated_masm =
+        Test::new("tests/tests_from_mir/functions/functions_simple.air".to_string())
+            .transpile(Target::Masm)
+            .unwrap();
 
     let expected = expect_file!["../functions/functions_simple.masm"];
     expected.assert_eq(&generated_masm);
@@ -108,18 +111,20 @@ fn functions_simple() {
 fn functions_simple_inlined() {
     // make sure that the constraints generated using inlined functions are the same as the ones
     // generated using regular functions
-    let generated_masm = Test::new("tests/tests_from_mir/functions/inlined_functions_simple.air".to_string())
-        .transpile(Target::Masm)
-        .unwrap();
+    let generated_masm =
+        Test::new("tests/tests_from_mir/functions/inlined_functions_simple.air".to_string())
+            .transpile(Target::Masm)
+            .unwrap();
     let expected = expect_file!["../functions/functions_simple.masm"];
     expected.assert_eq(&generated_masm);
 }
 
 #[test]
 fn functions_complex() {
-    let generated_masm = Test::new("tests/tests_from_mir/functions/functions_complex.air".to_string())
-        .transpile(Target::Masm)
-        .unwrap();
+    let generated_masm =
+        Test::new("tests/tests_from_mir/functions/functions_complex.air".to_string())
+            .transpile(Target::Masm)
+            .unwrap();
 
     let expected = expect_file!["../functions/functions_complex.masm"];
     expected.assert_eq(&generated_masm);
@@ -137,9 +142,10 @@ fn variables() {
 
 #[test]
 fn trace_col_groups() {
-    let generated_masm = Test::new("tests/tests_from_mir/trace_col_groups/trace_col_groups.air".to_string())
-        .transpile(Target::Masm)
-        .unwrap();
+    let generated_masm =
+        Test::new("tests/tests_from_mir/trace_col_groups/trace_col_groups.air".to_string())
+            .transpile(Target::Masm)
+            .unwrap();
 
     let expected = expect_file!["../trace_col_groups/trace_col_groups.masm"];
     expected.assert_eq(&generated_masm);
@@ -159,24 +165,27 @@ fn indexed_trace_access() {
 #[test]
 #[ignore] // TODO: There is some non-determinism in the IR creation, unskip this test once it is fixed
 fn random_values() {
-    let generated_masm = Test::new("tests/tests_from_mir/random_values/random_values_simple.air".to_string())
-        .transpile(Target::Masm)
-        .unwrap();
+    let generated_masm =
+        Test::new("tests/tests_from_mir/random_values/random_values_simple.air".to_string())
+            .transpile(Target::Masm)
+            .unwrap();
     let expected = expect_file!["../random_values/random_values.masm"];
     expected.assert_eq(&generated_masm);
 
-    let generated_masm = Test::new("tests/tests_from_mir/random_values/random_values_bindings.air".to_string())
-        .transpile(Target::Masm)
-        .unwrap();
+    let generated_masm =
+        Test::new("tests/tests_from_mir/random_values/random_values_bindings.air".to_string())
+            .transpile(Target::Masm)
+            .unwrap();
     let expected = expect_file!["../random_values/random_values.masm"];
     expected.assert_eq(&generated_masm);
 }
 
 #[test]
 fn list_comprehension() {
-    let generated_masm = Test::new("tests/tests_from_mir/list_comprehension/list_comprehension.air".to_string())
-        .transpile(Target::Masm)
-        .unwrap();
+    let generated_masm =
+        Test::new("tests/tests_from_mir/list_comprehension/list_comprehension.air".to_string())
+            .transpile(Target::Masm)
+            .unwrap();
 
     let expected = expect_file!["../list_comprehension/list_comprehension.masm"];
     expected.assert_eq(&generated_masm);
@@ -184,9 +193,10 @@ fn list_comprehension() {
 
 #[test]
 fn list_folding() {
-    let generated_masm = Test::new("tests/tests_from_mir/list_folding/list_folding.air".to_string())
-        .transpile(Target::Masm)
-        .unwrap();
+    let generated_masm =
+        Test::new("tests/tests_from_mir/list_folding/list_folding.air".to_string())
+            .transpile(Target::Masm)
+            .unwrap();
 
     let expected = expect_file!["../list_folding/list_folding.masm"];
     expected.assert_eq(&generated_masm);
@@ -201,27 +211,30 @@ fn selectors() {
     let expected = expect_file!["../selectors/selectors.masm"];
     expected.assert_eq(&generated_masm);
 
-    let generated_masm = Test::new("tests/tests_from_mir/selectors/selectors_with_evaluators.air".to_string())
-        .transpile(Target::Masm)
-        .unwrap();
+    let generated_masm =
+        Test::new("tests/tests_from_mir/selectors/selectors_with_evaluators.air".to_string())
+            .transpile(Target::Masm)
+            .unwrap();
     let expected = expect_file!["../selectors/selectors.masm"];
     expected.assert_eq(&generated_masm);
 }
 
 #[test]
 fn constraint_comprehension() {
-    let generated_masm =
-        Test::new("tests/tests_from_mir/constraint_comprehension/constraint_comprehension.air".to_string())
-            .transpile(Target::Masm)
-            .unwrap();
+    let generated_masm = Test::new(
+        "tests/tests_from_mir/constraint_comprehension/constraint_comprehension.air".to_string(),
+    )
+    .transpile(Target::Masm)
+    .unwrap();
 
     let expected = expect_file!["../constraint_comprehension/constraint_comprehension.masm"];
     expected.assert_eq(&generated_masm);
 
-    let generated_masm =
-        Test::new("tests/tests_from_mir/constraint_comprehension/cc_with_evaluators.air".to_string())
-            .transpile(Target::Masm)
-            .unwrap();
+    let generated_masm = Test::new(
+        "tests/tests_from_mir/constraint_comprehension/cc_with_evaluators.air".to_string(),
+    )
+    .transpile(Target::Masm)
+    .unwrap();
 
     let expected = expect_file!["../constraint_comprehension/constraint_comprehension.masm"];
     expected.assert_eq(&generated_masm);

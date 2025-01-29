@@ -63,7 +63,6 @@ struct AirBuilder<'a> {
 }
 
 impl<'a> AirBuilder<'a> {
-
     fn vec_to_scalar(mir_node: &Link<Op>) -> Link<Op> {
         if let Some(vector) = mir_node.as_vector() {
             let size = vector.size;
@@ -148,7 +147,7 @@ impl<'a> AirBuilder<'a> {
                 };
 
                 self.insert_op(Operation::Value(value))
-            },
+            }
             Op::Enf(enf) => {
                 let child = enf.expr.clone();
                 self.insert_mir_operation(&child)
@@ -177,7 +176,6 @@ impl<'a> AirBuilder<'a> {
                 Ok(())
             }
             Op::Enf(enf) => {
-
                 let child_op = enf.expr.clone();
                 let child_op = Self::vec_to_scalar(&child_op);
 
@@ -190,7 +188,6 @@ impl<'a> AirBuilder<'a> {
                 Ok(())
             }
             Op::Sub(sub) => {
-
                 // Check that lhs is a Bounded trace access
                 let lhs = sub.lhs.clone();
                 let lhs = Self::vec_to_scalar(&lhs);
@@ -237,14 +234,14 @@ impl<'a> AirBuilder<'a> {
                     boundary.kind,
                 ) {
                     self.diagnostics
-                                .diagnostic(Severity::Error)
-                                .with_message("overlapping boundary constraints")
-                                /*.with_primary_label(
-                                    /*lhs_span*/
-                                    "this constrains a column and boundary that has already been constrained",
-                                )
-                                .with_secondary_label(prev, "previous constraint occurs here")*/
-                                .emit();
+                        .diagnostic(Severity::Error)
+                        .with_message("overlapping boundary constraints")
+                        /*.with_primary_label(
+                            /*lhs_span*/
+                            "this constrains a column and boundary that has already been constrained",
+                        )
+                        .with_secondary_label(prev, "previous constraint occurs here")*/
+                        .emit();
                     return Err(CompileError::Failed);
                 }
 
@@ -360,7 +357,7 @@ impl<'a> AirBuilder<'a> {
                     /*Op::Vector(vector) => {
                         let size = vector.size;
                         let children = vector.elements.borrow().deref().clone();
-                        
+
                         if size != 1 {
                             panic!("Vector of len >1 after unrolling");
                         }
@@ -378,13 +375,13 @@ impl<'a> AirBuilder<'a> {
                                 let cond_node_index = self.insert_mir_operation(&cond);
                                 let then_node_index = self.insert_mir_operation(&then_branch);
                                 let else_node_index = self.insert_mir_operation(&else_branch);
-        
+
                                 let pos_root =
                                     self.insert_op(Operation::Mul(then_node_index, cond_node_index));
                                 let one = self.insert_op(Operation::Value(crate::ir::Value::Constant(1)));
                                 let neg_cond = self.insert_op(Operation::Sub(one, cond_node_index));
                                 let neg_root = self.insert_op(Operation::Mul(else_node_index, neg_cond));
-        
+
                                 let (trace_segment, domain) = self
                                     .air
                                     .constraint_graph()
