@@ -862,13 +862,30 @@ impl<'a> MirBuilder<'a> {
             }
 
             // Must be a trace segment name
-            if let Some(ta) = self.trace_access(access) {
+            if let Some(trace_access) = self.trace_access(access) {
                 return Ok(Value::builder()
+                    .value(SpannedMirValue {
+                        span: Default::default(),
+                        value: MirValue::TraceAccess(trace_access),
+                    })
+                    .build()
+                );
+
+                /*let mut node = Value::builder()
                     .value(SpannedMirValue {
                         span: Default::default(),
                         value: MirValue::TraceAccess(ta),
                     })
-                    .build());
+                    .build();
+                if access.offset != 0 {
+                    let accessor: Link<Op> = Accessor::create(
+                        duplicate_node(node, &mut Default::default()),
+                        AccessType::Default,
+                        access.offset
+                    );
+                    node = accessor;
+                }
+                return Ok(node);*/
             }
 
             // It should never be possible to reach this point - semantic analysis
@@ -881,8 +898,17 @@ impl<'a> MirBuilder<'a> {
 
         //    // If we reach here, this must be a let-bound variable
         if let Some(let_bound_access_expr) = self.bindings.get(access.name.as_ref()).cloned() {
-            match access.access_type {
+
+            let accessor: Link<Op> = Accessor::create(
+                duplicate_node(let_bound_access_expr, &mut Default::default()),
+                access.access_type.clone(),
+                access.offset
+            );
+            return Ok(accessor);
+
+            /*match access.access_type {
                 AccessType::Default => {
+
                     return Ok(duplicate_node(
                         let_bound_access_expr,
                         &mut Default::default(),
@@ -892,14 +918,44 @@ impl<'a> MirBuilder<'a> {
                     let accessor: Link<Op> = Accessor::create(
                         duplicate_node(let_bound_access_expr, &mut Default::default()),
                         access.access_type.clone(),
+                        access.offset
                     );
                     return Ok(accessor);
                 }
+            }*/
+        }
+
+        if let Some(trace_access) = self.trace_access(access) {
+            
+            return Ok(Value::builder()
+                .value(SpannedMirValue {
+                    span: Default::default(),
+                    value: MirValue::TraceAccess(trace_access),
+                })
+                .build()
+            );
+            
+            /*let mut node = Value::builder()
+                .value(SpannedMirValue {
+                    span: Default::default(),
+                    value: MirValue::TraceAccess(trace_access),
+                })
+                .build();
+            if access.offset != 0 {
+                let accessor: Link<Op> = Accessor::create(
+                    duplicate_node(node, &mut Default::default()),
+                    access.access_type.clone(),
+                    access.offset
+                );
+                node = accessor;
             }
+            return Ok(node);*/
         }
 
         // Otherwise, we check bindings, trace bindings, random value bindings, and public inputs, in that order
         if let Some(tab) = self.trace_access_binding(access) {
+            
+
             return Ok(Value::builder()
                 .value(SpannedMirValue {
                     span: Default::default(),
@@ -908,14 +964,6 @@ impl<'a> MirBuilder<'a> {
                 .build());
         }
 
-        if let Some(trace_access) = self.trace_access(access) {
-            return Ok(Value::builder()
-                .value(SpannedMirValue {
-                    span: Default::default(),
-                    value: MirValue::TraceAccess(trace_access),
-                })
-                .build());
-        }
 
         if let Some(random_value) = self.random_value_access(access) {
             return Ok(Value::builder()
@@ -1040,10 +1088,11 @@ impl<'a> MirBuilder<'a> {
                         access.offset,
                     )),
                     // This should have been caught earlier during compilation
-                    _ => unreachable!(
+                    /*_ => unreachable!(
                         "unexpected trace access type encountered during lowering: {:#?}",
                         access
-                    ),
+                    ),*/
+                    _ => None
                 };
             }
         }

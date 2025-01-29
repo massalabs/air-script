@@ -8,6 +8,7 @@ pub struct Accessor {
     pub parents: Vec<BackLink<Owner>>,
     pub indexable: Link<Op>,
     pub access_type: AccessType,
+    pub offset: usize,
     pub _node: Option<Link<Node>>,
     pub _owner: Option<Link<Owner>>,
 }
@@ -18,6 +19,7 @@ impl Default for Accessor {
             parents: Vec::default(),
             indexable: Link::default(),
             access_type: AccessType::Default,
+            offset: 0,
             _node: None,
             _owner: None,
         }
@@ -63,15 +65,17 @@ impl Hash for Accessor {
                 y.hash(state);
             }
         }
+        self.offset.hash(state);
         self.indexable.hash(state);
     }
 }
 
 impl Accessor {
-    pub fn create(indexable: Link<Op>, access_type: AccessType) -> Link<Op> {
+    pub fn create(indexable: Link<Op>, access_type: AccessType, offset: usize) -> Link<Op> {
         Op::Accessor(Self {
             access_type,
             indexable,
+            offset,
             ..Default::default()
         })
         .into()

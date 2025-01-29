@@ -573,20 +573,42 @@ impl<'a> UnrollingFirstPass<'a> {
         _graph: &mut Graph,
         accessor: Link<Op>,
     ) -> Result<Option<Link<Op>>, CompileError> {
+
         let mut updated_accessor = None;
 
         {
             let accessor_ref = accessor.as_accessor().unwrap();
             let indexable = accessor_ref.indexable.clone();
             let access_type = accessor_ref.access_type.clone();
+            let offset = accessor_ref.offset;
             match access_type {
                 AccessType::Default => {
-                    // Check that the child node is a scalar, raise diag otherwise
+                    /*// Check that the child node is a scalar, raise diag otherwise
                     if indexable.clone().as_vector().is_some() {
                         unreachable!(); // raise diag
                     }
                     if indexable.clone().as_matrix().is_some() {
                         unreachable!(); // raise diag
+                    }*/
+                    updated_accessor = Some(indexable.clone());
+
+                    if let Some(value) = indexable.clone().as_value() {
+                        let mir_value = value.value.value.clone();
+
+                        match mir_value {
+                            MirValue::TraceAccess(trace_access) => {
+                                let new_node = Value::create(SpannedMirValue {
+                                    span: Default::default(),
+                                    value: MirValue::TraceAccess(TraceAccess {
+                                        segment: trace_access.segment,
+                                        column: trace_access.column,
+                                        row_offset: offset,
+                                    }),
+                                });
+                                updated_accessor = Some(new_node);
+                            },
+                            _ => unreachable!()
+                        }
                     }
                 }
                 AccessType::Index(index) => {
@@ -600,9 +622,29 @@ impl<'a> UnrollingFirstPass<'a> {
                             Some(child_accessed) => child_accessed,
                             None => unreachable!(), // raise diag
                         };
-                        updated_accessor = Some(child_accessed.clone());
+                        if let Some(value) = child_accessed.clone().as_value() {
+                            let mir_value = value.value.value.clone();
+                            match mir_value {
+                                MirValue::TraceAccess(trace_access) => {
+                                    let new_node = Value::create(SpannedMirValue {
+                                        span: Default::default(),
+                                        value: MirValue::TraceAccess(TraceAccess {
+                                            segment: trace_access.segment,
+                                            column: trace_access.column,
+                                            row_offset: offset,
+                                        }),
+                                    });
+                                    updated_accessor = Some(new_node);
+                                },
+                                _ => {
+                                    updated_accessor = Some(child_accessed.clone());
+                                }
+                            }
+                        } else {
+                            updated_accessor = Some(child_accessed.clone());
+                        }
                     } else {
-                        unreachable!(); // raise diag
+                        unreachable!("indexable is {:?}", indexable); // raise diag
                     };
                 }
                 AccessType::Matrix(row, col) => {
@@ -882,13 +924,8 @@ impl Visitor for UnrollingSecondPass<'_> {
                 self.for_inlining_context.clone().unwrap().body.as_node(),
             )?;
 
-            let mut ind = 0;
             while let Some(node) = self.work_stack().pop() {
-                ind += 1;
                 self.visit_node(graph, node)?;
-                if ind > 500 {
-                    unreachable!("UnrollingSecondPass::run: too many iterations");
-                }
             }
 
             //println!("END Visiting root node: {idx} - {:?}", root);

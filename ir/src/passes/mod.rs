@@ -156,8 +156,9 @@ pub fn duplicate_node(
         Op::Accessor(accessor) => {
             let indexable = accessor.indexable.clone();
             let access_type = accessor.access_type.clone();
+            let offset = accessor.offset;
             let new_indexable = duplicate_node(indexable, current_replace_map);
-            Accessor::create(new_indexable, access_type)
+            Accessor::create(new_indexable, access_type, offset)
         }
         Op::Parameter(parameter) => {
             let owner_ref = parameter
@@ -360,12 +361,13 @@ pub fn duplicate_node_or_replace(
         Op::Accessor(accessor) => {
             let indexable = accessor.indexable.clone();
             let access_type = accessor.access_type.clone();
+            let offset = accessor.offset;
             let new_indexable = current_replace_map
                 .get(&indexable.get_ptr())
                 .unwrap()
                 .1
                 .clone();
-            let new_node = Accessor::create(new_indexable, access_type);
+            let new_node = Accessor::create(new_indexable, access_type, offset);
             current_replace_map.insert(node.get_ptr(), (node.clone(), new_node));
         }
         Op::Parameter(parameter) => {
