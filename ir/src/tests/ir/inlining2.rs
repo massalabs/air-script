@@ -52,7 +52,7 @@ mod tests {
             return a + vec_sum;
         }
         ";
-        let mir = compile(code).unwrap();
+        let _mir = compile(code).unwrap();
         //eprintln!("{:#?}", mir);
         todo!()
     }

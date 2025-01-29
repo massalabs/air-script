@@ -45,6 +45,7 @@ impl<'a> Inlining<'a> {
 }
 
 pub struct InliningFirstPass<'a> {
+    #[allow(unused)]
     diagnostics: &'a DiagnosticsHandler,
 
     // general context
@@ -213,7 +214,7 @@ fn create_inlining_order(
         match func_eval_dependency_graph
             .clone()
             .iter()
-            .find(|(_, (k, v))| v.is_empty())
+            .find(|(_, (_k, v))| v.is_empty())
         {
             Some((f_ptr, (f, _))) => {
                 func_eval_inlining_order.push(f.clone());
@@ -566,12 +567,7 @@ impl Visitor for InliningSecondPass<'_> {
                             };
                             trace_segments_arg_vector_len += param_size;
                         } else if let Some(parameter) = child.as_parameter() {
-                            let Parameter {
-                                ty,
-                                position,
-                                ref_node,
-                                ..
-                            } = parameter.deref();
+                            let Parameter { ty, .. } = parameter.deref();
                             let size = match ty {
                                 MirType::Felt => 1,
                                 MirType::Vector(len) => *len,
@@ -650,13 +646,13 @@ impl Visitor for InliningSecondPass<'_> {
                                     value
                                 ),
                             };
-                        } else if let Some(parameter) = arg.as_parameter() {
-                            let Parameter {
+                        } else if let Some(_parameter) = arg.as_parameter() {
+                            /*let Parameter {
                                 ty,
                                 position,
                                 ref_node,
                                 ..
-                            } = parameter.deref();
+                            } = parameter.deref();*/
 
                             args_unpacked.push(arg.clone());
                         } else {

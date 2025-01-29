@@ -164,5 +164,5 @@ impl<T> From<Rc<RefCell<T>>> for BackLink<T> {
 }
 
 impl<T> Hash for BackLink<T> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {}
+    fn hash<H: std::hash::Hasher>(&self, _state: &mut H) {}
 }

@@ -42,7 +42,7 @@ mod tests {
             return a + vec_sum;
         }
         ";
-        let mir = translate(code).unwrap();
+        let _mir = translate(code).unwrap();
         //eprintln!("{:#?}", mir);
     }
 }

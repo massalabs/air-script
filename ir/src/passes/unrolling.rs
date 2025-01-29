@@ -40,6 +40,7 @@ impl<'a> Unrolling<'a> {
 }
 
 pub struct UnrollingFirstPass<'a> {
+    #[allow(unused)]
     diagnostics: &'a DiagnosticsHandler,
 
     // general context
@@ -59,6 +60,7 @@ impl<'a> UnrollingFirstPass<'a> {
 }
 
 pub struct UnrollingSecondPass<'a> {
+    #[allow(unused)]
     diagnostics: &'a DiagnosticsHandler,
 
     // general context
@@ -396,7 +398,7 @@ impl<'a> UnrollingFirstPass<'a> {
         _graph: &mut Graph,
         fold: Link<Op>,
     ) -> Result<Option<Link<Op>>, CompileError> {
-        let mut updated_fold = None;
+        let updated_fold;
 
         {
             let fold_ref = fold.as_fold().unwrap();
@@ -488,7 +490,7 @@ impl<'a> UnrollingFirstPass<'a> {
         _graph: &mut Graph,
         if_node: Link<Op>,
     ) -> Result<Option<Link<Op>>, CompileError> {
-        let mut updated_if = None;
+        let updated_if;
 
         {
             let if_ref = if_node.as_if().unwrap();
@@ -664,7 +666,7 @@ impl<'a> UnrollingFirstPass<'a> {
         _graph: &mut Graph,
         for_node: Link<Op>,
     ) -> Result<Option<Link<Op>>, CompileError> {
-        let mut updated_for = None;
+        let updated_for;
 
         {
             // For each value produced by the iterators, we need to:

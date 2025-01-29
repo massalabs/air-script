@@ -1,4 +1,4 @@
-use std::{ops::Deref, rc::Rc};
+use std::ops::Deref;
 
 use crate::ir::{BackLink, Child, Link, Op, Parent, Root};
 

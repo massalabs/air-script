@@ -3,7 +3,7 @@ use std::ops::Deref;
 use air_parser::ast::TraceSegment;
 use air_pass::Pass;
 
-use miden_diagnostics::{DiagnosticsHandler, Severity, SourceSpan};
+use miden_diagnostics::{DiagnosticsHandler, Severity /*, SourceSpan*/};
 use mir::ir::{ConstantValue, Link, Mir, MirValue, Op, Parent, SpannedMirValue};
 
 use crate::{graph::NodeIndex, ir::*, CompileError};
@@ -228,7 +228,7 @@ impl<'a> AirBuilder<'a> {
                     _ => unreachable!("Expected TraceAccess, received {:?}", value.value), // Raise diag
                 };
 
-                if let Some(prev) = self.trace_columns[trace_access.segment].mark_constrained(
+                if let Some(_prev) = self.trace_columns[trace_access.segment].mark_constrained(
                     lhs_span,
                     trace_access.column,
                     boundary.kind,
@@ -266,8 +266,8 @@ impl<'a> AirBuilder<'a> {
                     if lhs_segment < rhs_segment {
                         // trace segment inference defaults to the lowest segment (the main trace) and is
                         // adjusted according to the use of random values and trace columns.
-                        let lhs_segment_name = self.trace_columns[lhs_segment].name;
-                        let rhs_segment_name = self.trace_columns[rhs_segment].name;
+                        //let lhs_segment_name = self.trace_columns[lhs_segment].name;
+                        //let rhs_segment_name = self.trace_columns[rhs_segment].name;
                         self.diagnostics.diagnostic(Severity::Error)
                                     .with_message("invalid boundary constraint")
                                     //.with_primary_label(lhs_span, format!("this constrains a column in the '{lhs_segment_name}' trace segment"))

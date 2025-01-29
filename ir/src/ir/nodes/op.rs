@@ -238,8 +238,8 @@ impl Link<Op> {
             Op::Accessor(ref mut accessor) => {
                 accessor._owner = Some(owner.clone());
             }
-            Op::Parameter(ref mut parameter) => {}
-            Op::Value(ref mut value) => {}
+            Op::Parameter(ref mut _parameter) => {}
+            Op::Value(ref mut _value) => {}
             Op::None => {}
         }
     }

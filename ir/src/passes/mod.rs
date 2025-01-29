@@ -1,11 +1,10 @@
-
-mod translate;
-mod visitor;
 mod inlining;
+mod translate;
 mod unrolling;
+mod visitor;
 
-pub use self::translate::AstToMir;
 pub use self::inlining::Inlining;
+pub use self::translate::AstToMir;
 pub use self::unrolling::Unrolling;
 
 use std::collections::HashMap;
