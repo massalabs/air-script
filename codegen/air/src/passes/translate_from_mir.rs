@@ -63,8 +63,35 @@ struct AirBuilder<'a> {
 }
 
 impl<'a> AirBuilder<'a> {
+
+    fn vec_to_scalar(mir_node: &Link<Op>) -> Link<Op> {
+        if let Some(vector) = mir_node.as_vector() {
+            let size = vector.size;
+            let children = vector.elements.borrow().deref().clone();
+            if size != 1 {
+                panic!("Vector of len >1 after unrolling");
+            }
+            let child = children.first().unwrap();
+            let child = Self::vec_to_scalar(child);
+            child.clone()
+        } else {
+            mir_node.clone()
+        }
+    }
+    fn enf_to_scalar(mir_node: &Link<Op>) -> Link<Op> {
+        if let Some(enf) = mir_node.as_enf() {
+            let child = enf.expr.clone();
+            let child = Self::enf_to_scalar(&child);
+            child.clone()
+        } else {
+            mir_node.clone()
+        }
+    }
+
     fn insert_mir_operation(&mut self, mir_node: &Link<Op>) -> NodeIndex {
-        match mir_node.borrow().deref() {
+        let mir_node = Self::vec_to_scalar(&mir_node);
+        let mir_node_ref = mir_node.borrow();
+        match mir_node_ref.deref() {
             Op::Add(add) => {
                 let lhs = add.lhs.clone();
                 let rhs = add.rhs.clone();
@@ -121,8 +148,12 @@ impl<'a> AirBuilder<'a> {
                 };
 
                 self.insert_op(Operation::Value(value))
+            },
+            Op::Enf(enf) => {
+                let child = enf.expr.clone();
+                self.insert_mir_operation(&child)
             }
-            _ => unreachable!(),
+            _ => panic!("Should not have Mir op in graph: {:?}", mir_node),
         }
     }
 
@@ -146,12 +177,14 @@ impl<'a> AirBuilder<'a> {
                 Ok(())
             }
             Op::Enf(enf) => {
-                let child_op = enf.expr.clone();
 
-                println!("ENF child_op: {:?}", child_op);
+                let child_op = enf.expr.clone();
+                let child_op = Self::vec_to_scalar(&child_op);
+
+                /*println!("ENF child_op: {:?}", child_op);
                 let Op::Sub(_sub) = child_op.borrow().deref().clone() else {
                     unreachable!(); // Raise diag
-                };
+                };*/
 
                 self.build_boundary_constraint(&child_op)?;
                 Ok(())
@@ -160,7 +193,9 @@ impl<'a> AirBuilder<'a> {
 
                 // Check that lhs is a Bounded trace access
                 let lhs = sub.lhs.clone();
+                let lhs = Self::vec_to_scalar(&lhs);
                 let rhs = sub.rhs.clone();
+                let rhs = Self::vec_to_scalar(&rhs);
 
                 let boundary = lhs.as_boundary().unwrap().clone();
 
@@ -181,7 +216,7 @@ impl<'a> AirBuilder<'a> {
                         if trace_access_binding.size != 1 {
                             self.diagnostics.diagnostic(Severity::Error)
                                         .with_message("invalid boundary constraint")
-                                        .with_primary_label(lhs_span, "this has a trace access binding with a size greater than 1")
+                                        //.with_primary_label(lhs_span, "this has a trace access binding with a size greater than 1")
                                         .with_note("Boundary constraints require both sides of the constraint to be single columns.")
                                         .emit();
                             return Err(CompileError::Failed);
@@ -204,11 +239,11 @@ impl<'a> AirBuilder<'a> {
                     self.diagnostics
                                 .diagnostic(Severity::Error)
                                 .with_message("overlapping boundary constraints")
-                                .with_primary_label(
-                                    lhs_span,
+                                /*.with_primary_label(
+                                    /*lhs_span*/
                                     "this constrains a column and boundary that has already been constrained",
                                 )
-                                .with_secondary_label(prev, "previous constraint occurs here")
+                                .with_secondary_label(prev, "previous constraint occurs here")*/
                                 .emit();
                     return Err(CompileError::Failed);
                 }
@@ -238,8 +273,8 @@ impl<'a> AirBuilder<'a> {
                         let rhs_segment_name = self.trace_columns[rhs_segment].name;
                         self.diagnostics.diagnostic(Severity::Error)
                                     .with_message("invalid boundary constraint")
-                                    .with_primary_label(lhs_span, format!("this constrains a column in the '{lhs_segment_name}' trace segment"))
-                                    .with_secondary_label(SourceSpan::UNKNOWN, format!("but this expression implies the '{rhs_segment_name}' trace segment"))
+                                    //.with_primary_label(lhs_span, format!("this constrains a column in the '{lhs_segment_name}' trace segment"))
+                                    //.with_secondary_label(SourceSpan::UNKNOWN, format!("but this expression implies the '{rhs_segment_name}' trace segment"))
                                     .with_note("Boundary constraints require both sides of the constraint to apply to the same trace segment.")
                                     .emit();
                         return Err(CompileError::Failed);
@@ -247,8 +282,8 @@ impl<'a> AirBuilder<'a> {
                     if lhs_domain != rhs_domain {
                         self.diagnostics.diagnostic(Severity::Error)
                                     .with_message("invalid boundary constraint")
-                                    .with_primary_label(lhs_span, format!("this has a constraint domain of {lhs_domain}"))
-                                    .with_secondary_label(SourceSpan::UNKNOWN, format!("this has a constraint domain of {rhs_domain}"))
+                                    //.with_primary_label(lhs_span, format!("this has a constraint domain of {lhs_domain}"))
+                                    //.with_secondary_label(SourceSpan::UNKNOWN, format!("this has a constraint domain of {rhs_domain}"))
                                     .with_note("Boundary constraints require both sides of the constraint to be in the same domain.")
                                     .emit();
                         return Err(CompileError::Failed);
@@ -287,11 +322,13 @@ impl<'a> AirBuilder<'a> {
             }
             Op::Enf(enf) => {
                 let child_op = enf.expr.clone();
+                let child_op = Self::vec_to_scalar(&child_op);
+                let child_op = Self::enf_to_scalar(&child_op);
                 match child_op.clone().borrow().deref() {
                     Op::Sub(_sub) => {
                         self.build_integrity_constraint(&child_op)?;
                     }
-                    Op::If(if_node) => {
+                    /*Op::If(if_node) => {
                         let cond = if_node.condition.clone();
                         let then_branch = if_node.then_branch.clone();
                         let else_branch = if_node.else_branch.clone();
@@ -319,8 +356,53 @@ impl<'a> AirBuilder<'a> {
                         self.air
                             .constraints
                             .insert_constraint(trace_segment, neg_root, domain);
-                    }
-                    _ => unreachable!(),
+                    }*/
+                    /*Op::Vector(vector) => {
+                        let size = vector.size;
+                        let children = vector.elements.borrow().deref().clone();
+                        
+                        if size != 1 {
+                            panic!("Vector of len >1 after unrolling");
+                        }
+                        let child = children.first().unwrap();
+
+
+                        match child.clone().borrow().deref() {
+                            Op::Sub(_sub) => {
+                                self.build_integrity_constraint(&child)?;
+                            }
+                            Op::If(if_node) => {
+                                let cond = if_node.condition.clone();
+                                let then_branch = if_node.then_branch.clone();
+                                let else_branch = if_node.else_branch.clone();
+                                let cond_node_index = self.insert_mir_operation(&cond);
+                                let then_node_index = self.insert_mir_operation(&then_branch);
+                                let else_node_index = self.insert_mir_operation(&else_branch);
+        
+                                let pos_root =
+                                    self.insert_op(Operation::Mul(then_node_index, cond_node_index));
+                                let one = self.insert_op(Operation::Value(crate::ir::Value::Constant(1)));
+                                let neg_cond = self.insert_op(Operation::Sub(one, cond_node_index));
+                                let neg_root = self.insert_op(Operation::Mul(else_node_index, neg_cond));
+        
+                                let (trace_segment, domain) = self
+                                    .air
+                                    .constraint_graph()
+                                    .node_details(&pos_root, ConstraintDomain::EveryRow)?;
+                                self.air
+                                    .constraints
+                                    .insert_constraint(trace_segment, pos_root, domain);
+                                let (trace_segment, domain) = self
+                                    .air
+                                    .constraint_graph()
+                                    .node_details(&neg_root, ConstraintDomain::EveryRow)?;
+                                self.air
+                                    .constraints
+                                    .insert_constraint(trace_segment, neg_root, domain);
+                            }
+                            _ => unreachable!("Enforced with unexpected operation: {:?}", child),
+                        }*/
+                    _ => unreachable!("Enforced with unexpected operation: {:?}", child_op),
                 }
             }
             Op::Sub(sub) => {

@@ -75,12 +75,12 @@ impl<'a> MirBuilder<'a> {
             bindings: LexicalScope::default(),
             root: Link::default(),
             root_name: None,
-            in_boundary: true,
+            in_boundary: false,
         }
     }
 
     pub fn translate_program(&mut self) -> Result<(), CompileError> {
-        self.mir = Mir::default();
+        self.mir = Mir::new(self.program.name);
         let random_values = &self.program.random_values;
         let trace_columns = &self.program.trace_columns;
         let boundary_constraints = &self.program.boundary_constraints;
@@ -336,6 +336,9 @@ impl<'a> MirBuilder<'a> {
         let func = func;
         for stmt in body {
             let op = self.translate_statement(stmt)?;
+            //println!("statement: {:#?}", stmt);
+            //println!("op: {:#?}", op);
+            //println!();
             match func.clone().borrow().deref() {
                 Root::Function(f) => f.body.borrow_mut().push(op.clone()),
                 Root::Evaluator(e) => e.body.borrow_mut().push(op.clone()),
@@ -369,13 +372,14 @@ impl<'a> MirBuilder<'a> {
     fn translate_let(&mut self, let_stmt: &'a ast::Let) -> Result<Link<Op>, CompileError> {
         let name = &let_stmt.name;
         let value: Link<Op> = self.translate_expr(&let_stmt.value)?;
+        let mut ret_value = value.clone();
         self.bindings.enter();
         self.bindings.insert(name, value.clone());
         for stmt in let_stmt.body.iter() {
-            self.translate_statement(stmt)?;
+            ret_value = self.translate_statement(stmt)?;
         }
         self.bindings.exit();
-        Ok(value)
+        Ok(ret_value)
     }
     fn translate_expr(&mut self, expr: &'a ast::Expr) -> Result<Link<Op>, CompileError> {
         match expr {
@@ -456,18 +460,19 @@ impl<'a> MirBuilder<'a> {
                 .insert_boundary_constraints_root(node_to_add.clone()),
             false => {
                 match self.root.borrow().deref() {
-                    Root::Function(func) => {
+                    /*Root::Function(func) => {
                         func.body.borrow_mut().push(node_to_add.clone());
                     }
                     Root::Evaluator(evaluator) => {
                         evaluator.body.borrow_mut().push(node_to_add.clone());
-                    }
+                    }*/
                     Root::None => {
                         // Insert in integrity
                         self.mir
                             .constraint_graph_mut()
                             .insert_integrity_constraints_root(node_to_add.clone());
-                    }
+                    },
+                    _ => {}
                 };
                 /*if parent == Link::new(Owner::default()) {
                     self.mir

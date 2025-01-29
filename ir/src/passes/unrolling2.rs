@@ -96,12 +96,25 @@ impl Pass for Unrolling<'_> {
         let bc = graph.boundary_constraints_roots.borrow().deref().clone();
         let ic = graph.integrity_constraints_roots.borrow().deref().clone();
 
+        println!("Before Unrolling pass");
+        println!();
+        for fns in functions {
+            println!("fns: {:?}", fns);
+        }
+        println!();
+        for evs in evaluators {
+            println!("evs: {:?}", evs);
+        }
+        println!();
+
         for bc in bc {
             println!("bc: {:?}", bc);
         }
+        println!();
         for ic in ic {
             println!("ic: {:?}", ic);
-        }*/
+        }
+        println!();*/
 
         /*println!("****************************");
         println!("Starting first UNROLLING pass");
@@ -126,6 +139,35 @@ impl Pass for Unrolling<'_> {
         let mut second_pass =
             UnrollingSecondPass::new(self.diagnostics, first_pass.bodies_to_inline.clone());
         Visitor::run(&mut second_pass, ir.constraint_graph_mut())?;
+
+        /*let graph = ir.constraint_graph();
+        let functions = graph.get_function_nodes();
+        let evaluators = graph.get_evaluator_nodes();
+        let bc = graph.boundary_constraints_roots.borrow().deref().clone();
+        let ic = graph.integrity_constraints_roots.borrow().deref().clone();
+
+        println!();
+        println!();
+        println!("After Unrolling pass");
+        println!();
+        for fns in functions {
+            println!("fns: {:?}", fns);
+        }
+        println!();
+        for evs in evaluators {
+            println!("evs: {:?}", evs);
+        }
+        println!();
+
+        for bc in bc {
+            println!("bc: {:?}", bc);
+        }
+        println!();
+        for ic in ic {
+            println!("ic: {:?}", ic);
+        }
+        println!();*/
+
         Ok(ir)
     }
 }
@@ -694,6 +736,21 @@ impl<'a> UnrollingFirstPass<'a> {
         unreachable!("Evaluators should have been inlined before this pass");
     }
     fn visit_vector_bis(&mut self, _graph: &mut Graph, _vector: Link<Op>) -> Result<Option<Link<Op>>, CompileError> {
+       /*let mut updated_vector = None;
+
+        {
+            // safe to unwrap because we just dispatched on it
+            let vector_ref = vector.as_vector().unwrap();
+            let children = vector_ref.elements.borrow().deref().clone();
+            let size = vector_ref.size;
+
+            if size == 1 {
+                let child = children.first().unwrap();
+                updated_vector = Some(child.clone());
+            }
+        }
+
+        Ok(updated_vector)*/
         Ok(None)
     }
     fn visit_matrix_bis(&mut self, _graph: &mut Graph, _matrix: Link<Op>) -> Result<Option<Link<Op>>, CompileError> {
@@ -808,7 +865,7 @@ impl Visitor for UnrollingSecondPass<'_> {
                         span: Default::default(),
                         value: MirValue::Constant(ConstantValue::Felt(0)),
                     });
-                    If::create(selector, new_node, zero_node)
+                    Sub::create(Mul::create(selector, new_node), zero_node)
                 } else {
                     new_node
                 };
