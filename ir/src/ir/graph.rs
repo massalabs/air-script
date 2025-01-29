@@ -1,13 +1,18 @@
-use std::collections::BTreeMap;
+use crate::{
+    ir::{Evaluator, Function, Link, Op, Root},
+    CompileError,
+};
+use std::{
+    cell::{Ref, RefMut},
+    collections::BTreeMap,
+};
 
 use air_parser::ast::QualifiedIdentifier;
 
-use crate::ir::{Evaluator, Function, Link, Op};
-
 #[derive(Debug, Default)]
 pub struct Graph {
-    functions: BTreeMap<QualifiedIdentifier, Link<Function>>,
-    evaluators: BTreeMap<QualifiedIdentifier, Link<Evaluator>>,
+    functions: BTreeMap<QualifiedIdentifier, Link<Root>>,
+    evaluators: BTreeMap<QualifiedIdentifier, Link<Root>>,
     pub boundary_constraints_roots: Link<Vec<Link<Op>>>,
     pub integrity_constraints_roots: Link<Vec<Link<Op>>>,
 }
@@ -16,38 +21,75 @@ impl Graph {
     pub fn create() -> Link<Self> {
         Graph::default().into()
     }
-    pub fn insert_function(&mut self, ident: QualifiedIdentifier, node: Link<Function>) {
-        self.functions.insert(ident, node);
+    pub fn insert_function(
+        &mut self,
+        ident: QualifiedIdentifier,
+        node: Link<Root>,
+    ) -> Result<(), CompileError> {
+        match self.functions.insert(ident, node) {
+            None => Ok(()),
+            Some(link) => {
+                if let Root::None = *link.borrow() {
+                    Ok(())
+                } else {
+                    Err(CompileError::Failed)
+                }
+            }
+        }
     }
 
-    pub fn get_function(&self, ident: &QualifiedIdentifier) -> Option<&Link<Function>> {
-        self.functions.get(ident)
+    pub fn get_function_root(&self, ident: &QualifiedIdentifier) -> Option<Link<Root>> {
+        self.functions.get(ident).cloned()
     }
 
-    pub fn get_function_mut(&mut self, ident: &QualifiedIdentifier) -> Option<&mut Link<Function>> {
-        self.functions.get_mut(ident)
+    pub fn get_function(&self, ident: &QualifiedIdentifier) -> Option<Ref<Function>> {
+        self.functions.get(ident).map(|n| n.as_function().unwrap())
     }
 
-    pub fn get_function_nodes(&self) -> Vec<Link<Function>> {
+    pub fn get_function_mut(&mut self, ident: &QualifiedIdentifier) -> Option<RefMut<Function>> {
+        self.functions
+            .get_mut(ident)
+            .map(|n| n.as_function_mut().unwrap())
+    }
+
+    pub fn get_function_nodes(&self) -> Vec<Link<Root>> {
         self.functions.values().cloned().collect()
     }
 
-    pub fn insert_evaluator(&mut self, ident: QualifiedIdentifier, node: Link<Evaluator>) {
-        self.evaluators.insert(ident, node);
-    }
-
-    pub fn get_evaluator(&self, ident: &QualifiedIdentifier) -> Option<&Link<Evaluator>> {
-        self.evaluators.get(ident)
-    }
-
-    pub fn get_evaluator_mut(
+    pub fn insert_evaluator(
         &mut self,
-        ident: &QualifiedIdentifier,
-    ) -> Option<&mut Link<Evaluator>> {
-        self.evaluators.get_mut(ident)
+        ident: QualifiedIdentifier,
+        node: Link<Root>,
+    ) -> Result<(), CompileError> {
+        match self.evaluators.insert(ident, node) {
+            None => Ok(()),
+            Some(link) => {
+                if let Root::None = *link.borrow() {
+                    Ok(())
+                } else {
+                    Err(CompileError::Failed)
+                }
+            }
+        }
     }
 
-    pub fn get_evaluator_nodes(&self) -> Vec<Link<Evaluator>> {
+    pub fn get_evaluator_root(&self, ident: &QualifiedIdentifier) -> Option<Link<Root>> {
+        self.evaluators.get(ident).cloned()
+    }
+
+    pub fn get_evaluator(&self, ident: &QualifiedIdentifier) -> Option<Ref<Evaluator>> {
+        self.evaluators
+            .get(ident)
+            .map(|n| n.as_evaluator().unwrap())
+    }
+
+    pub fn get_evaluator_mut(&mut self, ident: &QualifiedIdentifier) -> Option<RefMut<Evaluator>> {
+        self.evaluators
+            .get_mut(ident)
+            .map(|n| n.as_evaluator_mut().unwrap())
+    }
+
+    pub fn get_evaluator_nodes(&self) -> Vec<Link<Root>> {
         self.evaluators.values().cloned().collect()
     }
 

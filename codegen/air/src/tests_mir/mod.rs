@@ -94,8 +94,8 @@ impl Compiler {
                 let mut pipeline =
                     air_parser::transforms::ConstantPropagation::new(&self.diagnostics)
                         .chain(mir::passes::AstToMir::new(&self.diagnostics))
-                        .chain(mir::passes::Inlining::new(/*&self.diagnostics*/))
-                        .chain(mir::passes::Unrolling::new(/*&self.diagnostics*/))
+                        .chain(mir::passes::Inlining::new(&self.diagnostics))
+                        .chain(mir::passes::Unrolling::new(&self.diagnostics))
                         .chain(crate::passes::MirToAir::new(&self.diagnostics));
                 pipeline.run(ast)
             })

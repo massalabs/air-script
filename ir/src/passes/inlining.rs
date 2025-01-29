@@ -282,7 +282,7 @@ impl Inlining {
             match callee_ref.deref() {
                 Root::Evaluator(ev) => {
                     let context = CallInliningContext {
-                        body: ev.body.borrow().deref().clone(),
+                        body: ev.borrow().body.borrow().deref().clone(),
                         arguments: args.borrow().deref().clone(),
                         call_node: node.as_op().unwrap(),
                         pure_function: false,
@@ -294,7 +294,7 @@ impl Inlining {
                 }
                 Root::Function(func) => {
                     let context = CallInliningContext {
-                        body: func.body.borrow().deref().clone(),
+                        body: func.borrow().body.borrow().deref().clone(),
                         arguments: args.borrow().deref().clone(),
                         call_node: node.as_op().unwrap(),
                         pure_function: true,
@@ -387,14 +387,14 @@ impl Inlining {
                                 new_nodes
                                     .push(self.nodes_to_replace.get(&body_node).unwrap().clone());
                             }
-                            let new_nodes_vector = Vector::new(new_nodes).as_op();
+                            let new_nodes_vector = Vector::create(new_nodes).as_op();
                             *self
                                 .call_inlining_context
                                 .as_mut()
                                 .unwrap()
                                 .call_node
                                 .borrow_mut()
-                                .deref_mut() = new_nodes_vector;
+                                .deref_mut() = new_nodes_vector.borrow().deref().clone();
                         }
                     }
                 }

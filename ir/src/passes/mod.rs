@@ -13,14 +13,21 @@ pub use self::translate_old::AstToMirOld;
 pub use self::unrolling_old::UnrollingOld;
 pub use self::visitor_old::{Graph, VisitContextOld, VisitOld, VisitOrderOld};*/
 
-mod inlining;
+//mod visitor;
 mod translate;
-mod unrolling;
-mod visitor;
-pub use self::inlining::Inlining;
+mod visitor2;
+//mod inlining;
+mod inlining2;
+//mod unrolling;
+mod unrolling2;
+
+//pub use self::visitor::{Visit, VisitContext};
+//pub use self::translate::AstToMir;
 pub use self::translate::AstToMir;
-pub use self::unrolling::Unrolling;
-pub use self::visitor::{Visit, VisitContext, VisitOrder};
+// pub use self::inlining::Inlining;
+pub use self::inlining2::Inlining;
+//pub use self::unrolling::Unrolling;
+pub use self::unrolling2::Unrolling;
 
 use std::collections::HashMap;
 use std::ops::Deref;
@@ -28,8 +35,8 @@ use std::ops::Deref;
 use air_pass::Pass;
 
 use crate::ir::{
-    Accessor, Add, Boundary, Call, Enf, Fold, For, If, Link, Matrix, Mul, Op, Parent, Sub, Value,
-    Vector,
+    Accessor, Add, Boundary, Call, Enf, Fold, For, If, Link, Matrix, Mul, Node, Op, Parameter,
+    Parent, Sub, Value, Vector,
 };
 
 pub struct DumpAst;
@@ -44,52 +51,56 @@ impl Pass for DumpAst {
     }
 }
 
-pub fn duplicate_node(node: Link<Op>) -> Link<Op> {
-    match node.borrow().deref() {
+pub fn duplicate_node(
+    node: Link<Op>,
+    current_replace_map: &mut HashMap<usize, (Link<Op>, Link<Op>)>,
+) -> Link<Op> {
+    match node.clone().borrow().deref() {
         Op::Enf(enf) => {
             let expr = enf.expr.clone();
-            let new_expr = duplicate_node(expr);
-            return Enf::new(new_expr).as_op().into();
+            let new_expr = duplicate_node(expr, current_replace_map);
+            Enf::create(new_expr)
         }
         Op::Boundary(boundary) => {
             let expr = boundary.expr.clone();
             let kind = boundary.kind;
-            let new_expr = duplicate_node(expr);
-            return Boundary::new(new_expr, kind).as_op().into();
+            let new_expr = duplicate_node(expr, current_replace_map);
+            Boundary::create(new_expr, kind)
         }
         Op::Add(add) => {
             let lhs = add.lhs.clone();
             let rhs = add.rhs.clone();
-            let new_lhs_node = duplicate_node(lhs);
-            let new_rhs_node = duplicate_node(rhs);
-            return Add::new(new_lhs_node, new_rhs_node).as_op().into();
+            let new_lhs_node = duplicate_node(lhs, current_replace_map);
+            let new_rhs_node = duplicate_node(rhs, current_replace_map);
+            Add::create(new_lhs_node, new_rhs_node)
         }
         Op::Sub(sub) => {
             let lhs = sub.lhs.clone();
             let rhs = sub.rhs.clone();
-            let new_lhs_node = duplicate_node(lhs);
-            let new_rhs_node = duplicate_node(rhs);
-            return Sub::new(new_lhs_node, new_rhs_node).as_op().into();
+            let new_lhs_node = duplicate_node(lhs, current_replace_map);
+            let new_rhs_node = duplicate_node(rhs, current_replace_map);
+            Sub::create(new_lhs_node, new_rhs_node)
         }
         Op::Mul(mul) => {
             let lhs = mul.lhs.clone();
             let rhs = mul.rhs.clone();
-            let new_lhs_node = duplicate_node(lhs);
-            let new_rhs_node = duplicate_node(rhs);
-            return Mul::new(new_lhs_node, new_rhs_node).as_op().into();
+            let new_lhs_node = duplicate_node(lhs, current_replace_map);
+            let new_rhs_node = duplicate_node(rhs, current_replace_map);
+            Mul::create(new_lhs_node, new_rhs_node)
         }
         Op::If(if_node) => {
             let condition = if_node.condition.clone();
             let then_branch = if_node.then_branch.clone();
             let else_branch = if_node.else_branch.clone();
-            let new_condition = duplicate_node(condition);
-            let new_then_branch = duplicate_node(then_branch);
-            let new_else_branch = duplicate_node(else_branch);
-            return If::new(new_condition, new_then_branch, new_else_branch)
-                .as_op()
-                .into();
+            let new_condition = duplicate_node(condition, current_replace_map);
+            let new_then_branch = duplicate_node(then_branch, current_replace_map);
+            let new_else_branch = duplicate_node(else_branch, current_replace_map);
+            If::create(new_condition, new_then_branch, new_else_branch)
         }
         Op::For(for_node) => {
+            let new_for_node: Link<Op> = For::create(Link::default(), Link::default(), Link::default());
+            current_replace_map.insert(node.get_ptr(), (node, new_for_node.clone()));
+
             let iterators = for_node.iterators.clone();
             let body = for_node.expr.clone();
             let selector = for_node.selector.clone();
@@ -97,14 +108,17 @@ pub fn duplicate_node(node: Link<Op>) -> Link<Op> {
                 .borrow()
                 .iter()
                 .cloned()
-                .map(|iterator| duplicate_node(iterator))
+                .map(|x| duplicate_node(x, current_replace_map))
                 .collect::<Vec<_>>()
                 .into();
-            let new_body = duplicate_node(body);
-            let new_selector = duplicate_node(selector);
-            return For::new(new_iterators, new_body, new_selector)
-                .as_op()
-                .into();
+            let new_selector = duplicate_node(selector, current_replace_map);
+            let new_body = duplicate_node(body, current_replace_map);
+
+            *new_for_node.as_for_mut().unwrap().iterators.borrow_mut() = new_iterators;
+            *new_for_node.as_for_mut().unwrap().selector.borrow_mut() = new_selector.borrow().clone();
+            *new_for_node.as_for_mut().unwrap().expr.borrow_mut() = new_body.borrow().clone();
+
+            new_for_node
         }
         Op::Call(call) => {
             let arguments = call.arguments.clone();
@@ -113,20 +127,17 @@ pub fn duplicate_node(node: Link<Op>) -> Link<Op> {
                 .borrow()
                 .iter()
                 .cloned()
-                .map(|argument| duplicate_node(argument))
-                .collect::<Vec<_>>()
-                .into();
-            return Call::new(function, new_arguments).as_op().into();
+                .map(|x| duplicate_node(x, current_replace_map))
+                .collect::<Vec<_>>();
+            Call::create(function, new_arguments)
         }
         Op::Fold(fold) => {
             let iterator = fold.iterator.clone();
             let operator = fold.operator.clone();
             let initial_value = fold.initial_value.clone();
-            let new_iterator = duplicate_node(iterator);
-            let new_initial_value = duplicate_node(initial_value);
-            return Fold::new(new_iterator, operator, new_initial_value)
-                .as_op()
-                .into();
+            let new_iterator = duplicate_node(iterator, current_replace_map);
+            let new_initial_value = duplicate_node(initial_value, current_replace_map);
+            Fold::create(new_iterator, operator, new_initial_value)
         }
         Op::Vector(vector) => {
             let children_link = vector.children().clone();
@@ -135,9 +146,9 @@ pub fn duplicate_node(node: Link<Op>) -> Link<Op> {
             let new_children = children
                 .iter()
                 .cloned()
-                .map(|child| duplicate_node(child))
+                .map(|x| duplicate_node(x, current_replace_map))
                 .collect();
-            return Vector::new(new_children).as_op().into();
+            Vector::create(new_children)
         }
         Op::Matrix(matrix) => {
             let mut new_matrix = Vec::new();
@@ -145,32 +156,50 @@ pub fn duplicate_node(node: Link<Op>) -> Link<Op> {
             let children_ref = children_link.borrow();
             let children = children_ref.deref();
             for row in children.iter() {
-                let row_children_link = row.borrow().children().clone();
+                let row_children_link = row
+                    .clone()
+                    .as_vector()
+                    .unwrap_or_else(|| panic!("expected Vector, found {:?}", row))
+                    .children()
+                    .clone();
                 let row_children_ref = row_children_link.borrow();
                 let row_children = row_children_ref.deref();
                 let new_row_as_vec = row_children
                     .iter()
                     .cloned()
-                    .map(|child| duplicate_node(child))
-                    .collect::<Vec<_>>()
-                    .into();
-                let new_row = Vector::new(new_row_as_vec).into();
+                    .map(|x| duplicate_node(x, current_replace_map))
+                    .collect::<Vec<_>>();
+                let new_row = Vector::create(new_row_as_vec);
                 new_matrix.push(new_row);
             }
-            return Matrix::new(new_matrix).as_op().into();
+            Matrix::create(new_matrix)
         }
         Op::Accessor(accessor) => {
             let indexable = accessor.indexable.clone();
             let access_type = accessor.access_type.clone();
-            let new_indexable = duplicate_node(indexable);
-            return Accessor::new(new_indexable, access_type).as_op().into();
+            let new_indexable = duplicate_node(indexable, current_replace_map);
+            Accessor::create(new_indexable, access_type)
         }
         Op::Parameter(parameter) => {
-            return parameter.clone().as_op().into();
+            let owner_ref = parameter.ref_node.to_link().unwrap_or_else(
+                || panic!("invalid ref_node for parameter {:?}", parameter)
+            );
+            let new_param = Parameter::create(parameter.position, parameter.ty.clone());
+
+            if let Some(_root_ref) = owner_ref.as_root() {
+                new_param.as_parameter_mut().unwrap().set_ref_node(owner_ref);
+            } else {
+                if let Some((_replaced_node, replaced_by)) =
+                    current_replace_map.get(&owner_ref.as_op().unwrap().get_ptr())
+                {
+                    new_param.as_parameter_mut().unwrap().set_ref_node(replaced_by.clone().as_owner().unwrap());
+                } else {
+                    new_param.as_parameter_mut().unwrap().set_ref_node(owner_ref);
+                }
+            }
+            new_param
         }
-        Op::Value(value) => {
-            return Value::new(value.value.clone()).as_op().into();
-        }
+        Op::Value(value) => Value::create(value.value.clone()),
         Op::None => Op::None.into(),
     }
 }
@@ -182,59 +211,66 @@ pub fn duplicate_node(node: Link<Op>) -> Link<Op> {
 // Inlining: replace_parameter_list = arguments should be the arguments from the Call()
 // Unrolling: replace_parameter_list = self.for_inlining_context.unwrap().iterators
 pub fn duplicate_node_or_replace(
-    current_replace_map: &mut HashMap<Link<Op>, Link<Op>>,
+    current_replace_map: &mut HashMap<usize, (Link<Op>, Link<Op>)>,
     node: Link<Op>,
     replace_parameter_list: Vec<Link<Op>>,
+    ref_node: Link<Node>,
 ) {
     match node.borrow().deref() {
         Op::Enf(enf) => {
             let expr = enf.expr.clone();
-            let new_expr = current_replace_map.get(&expr).unwrap().clone();
-            let new_node = Enf::new(new_expr).as_op().into();
-            current_replace_map.insert(node.clone(), new_node);
+            let new_expr = current_replace_map.get(&expr.get_ptr()).unwrap().1.clone();
+            let new_node = Enf::create(new_expr);
+            current_replace_map.insert(node.get_ptr(), (node.clone(), new_node));
         }
         Op::Boundary(boundary) => {
             let expr = boundary.expr.clone();
             let kind = boundary.kind;
-            let new_expr = current_replace_map.get(&expr).unwrap().clone();
-            let new_node = Boundary::new(new_expr, kind).as_op().into();
-            current_replace_map.insert(node.clone(), new_node);
+            let new_expr = current_replace_map.get(&expr.get_ptr()).unwrap().1.clone();
+            let new_node = Boundary::create(new_expr, kind);
+            current_replace_map.insert(node.get_ptr(), (node.clone(), new_node));
         }
         Op::Add(add) => {
             let lhs = add.lhs.clone();
             let rhs = add.rhs.clone();
-            let new_lhs_node = current_replace_map.get(&lhs).unwrap().clone();
-            let new_rhs_node = current_replace_map.get(&rhs).unwrap().clone();
-            let new_node = Add::new(new_lhs_node, new_rhs_node).as_op().into();
-            current_replace_map.insert(node.clone(), new_node);
+            let new_lhs_node = current_replace_map.get(&lhs.get_ptr()).unwrap().1.clone();
+            let new_rhs_node = current_replace_map.get(&rhs.get_ptr()).unwrap().1.clone();
+            let new_node = Add::create(new_lhs_node, new_rhs_node);
+            current_replace_map.insert(node.get_ptr(), (node.clone(), new_node));
         }
         Op::Sub(sub) => {
             let lhs = sub.lhs.clone();
             let rhs = sub.rhs.clone();
-            let new_lhs_node = current_replace_map.get(&lhs).unwrap().clone();
-            let new_rhs_node = current_replace_map.get(&rhs).unwrap().clone();
-            let new_node = Sub::new(new_lhs_node, new_rhs_node).as_op().into();
-            current_replace_map.insert(node.clone(), new_node);
+            let new_lhs_node = current_replace_map.get(&lhs.get_ptr()).unwrap().1.clone();
+            let new_rhs_node = current_replace_map.get(&rhs.get_ptr()).unwrap().1.clone();
+            let new_node = Sub::create(new_lhs_node, new_rhs_node);
+            current_replace_map.insert(node.get_ptr(), (node.clone(), new_node));
         }
         Op::Mul(mul) => {
             let lhs = mul.lhs.clone();
             let rhs = mul.rhs.clone();
-            let new_lhs_node = current_replace_map.get(&lhs).unwrap().clone();
-            let new_rhs_node = current_replace_map.get(&rhs).unwrap().clone();
-            let new_node = Mul::new(new_lhs_node, new_rhs_node).as_op().into();
-            current_replace_map.insert(node.clone(), new_node);
+            let new_lhs_node = current_replace_map.get(&lhs.get_ptr()).unwrap().1.clone();
+            let new_rhs_node = current_replace_map.get(&rhs.get_ptr()).unwrap().1.clone();
+            let new_node = Mul::create(new_lhs_node, new_rhs_node);
+            current_replace_map.insert(node.get_ptr(), (node.clone(), new_node));
         }
         Op::If(if_node) => {
             let cond = if_node.condition.clone();
             let then_branch = if_node.then_branch.clone();
             let else_branch = if_node.else_branch.clone();
-            let new_cond = current_replace_map.get(&cond).unwrap().clone();
-            let new_then_branch = current_replace_map.get(&then_branch).unwrap().clone();
-            let new_else_branch = current_replace_map.get(&else_branch).unwrap().clone();
-            let new_node = If::new(new_cond, new_then_branch, new_else_branch)
-                .as_op()
-                .into();
-            current_replace_map.insert(node.clone(), new_node);
+            let new_cond = current_replace_map.get(&cond.get_ptr()).unwrap().1.clone();
+            let new_then_branch = current_replace_map
+                .get(&then_branch.get_ptr())
+                .unwrap()
+                .1
+                .clone();
+            let new_else_branch = current_replace_map
+                .get(&else_branch.get_ptr())
+                .unwrap()
+                .1
+                .clone();
+            let new_node = If::create(new_cond, new_then_branch, new_else_branch);
+            current_replace_map.insert(node.get_ptr(), (node.clone(), new_node));
         }
         Op::For(for_node) => {
             let iterators = for_node.iterators.clone();
@@ -244,18 +280,23 @@ pub fn duplicate_node_or_replace(
                 .borrow()
                 .iter()
                 .cloned()
-                .map(|iterator| current_replace_map.get(&iterator).unwrap().clone())
+                .map(|iterator| {
+                    current_replace_map
+                        .get(&iterator.get_ptr())
+                        .unwrap()
+                        .1
+                        .clone()
+                })
                 .collect::<Vec<_>>()
                 .into();
-            let new_body = current_replace_map.get(&body).unwrap().clone();
+            let new_body = current_replace_map.get(&body.get_ptr()).unwrap().1.clone();
             let new_selector = current_replace_map
-                .get(&selector)
-                .unwrap_or(&Link::new(Op::None))
+                .get(&selector.get_ptr())
+                .map(|selector| selector.1.clone())
+                .unwrap_or(Link::new(Op::None))
                 .clone();
-            let new_node = For::new(new_iterators, new_body, new_selector)
-                .as_op()
-                .into();
-            current_replace_map.insert(node.clone(), new_node);
+            let new_node = For::create(new_iterators, new_body, new_selector);
+            current_replace_map.insert(node.get_ptr(), (node.clone(), new_node));
         }
         Op::Call(call) => {
             let arguments = call.arguments.clone();
@@ -264,22 +305,33 @@ pub fn duplicate_node_or_replace(
                 .borrow()
                 .iter()
                 .cloned()
-                .map(|argument| current_replace_map.get(&argument).unwrap().clone())
-                .collect::<Vec<_>>()
-                .into();
-            let new_node = Call::new(function, new_arguments).as_op().into();
-            current_replace_map.insert(node.clone(), new_node);
+                .map(|argument| {
+                    current_replace_map
+                        .get(&argument.get_ptr())
+                        .unwrap()
+                        .1
+                        .clone()
+                })
+                .collect::<Vec<_>>();
+            let new_node = Call::create(function, new_arguments);
+            current_replace_map.insert(node.get_ptr(), (node.clone(), new_node));
         }
         Op::Fold(fold) => {
             let iterator = fold.iterator.clone();
             let operator = fold.operator.clone();
             let initial_value = fold.initial_value.clone();
-            let new_iterator = current_replace_map.get(&iterator).unwrap().clone();
-            let new_initial_value = current_replace_map.get(&initial_value).unwrap().clone();
-            let new_node = Fold::new(new_iterator, operator, new_initial_value)
-                .as_op()
-                .into();
-            current_replace_map.insert(node.clone(), new_node);
+            let new_iterator = current_replace_map
+                .get(&iterator.get_ptr())
+                .unwrap()
+                .1
+                .clone();
+            let new_initial_value = current_replace_map
+                .get(&initial_value.get_ptr())
+                .unwrap()
+                .1
+                .clone();
+            let new_node = Fold::create(new_iterator, operator, new_initial_value);
+            current_replace_map.insert(node.get_ptr(), (node.clone(), new_node));
         }
         Op::Vector(vector) => {
             let children_link = vector.children().clone();
@@ -288,10 +340,10 @@ pub fn duplicate_node_or_replace(
             let new_children = children
                 .iter()
                 .cloned()
-                .map(|child| current_replace_map.get(&child).unwrap().clone())
+                .map(|child| current_replace_map.get(&child.get_ptr()).unwrap().1.clone())
                 .collect();
-            let new_node = Vector::new(new_children).as_op().into();
-            current_replace_map.insert(node.clone(), new_node);
+            let new_node = Vector::create(new_children);
+            current_replace_map.insert(node.get_ptr(), (node.clone(), new_node));
         }
         Op::Matrix(matrix) => {
             let mut new_matrix = Vec::new();
@@ -299,35 +351,69 @@ pub fn duplicate_node_or_replace(
             let children_ref = children_link.borrow();
             let children = children_ref.deref();
             for row in children.iter() {
-                let row_children_link = row.borrow().children().clone();
+                let row_children_link = row
+                    .clone()
+                    .as_vector()
+                    .unwrap_or_else(|| panic!("expected Vector, found {:?}", row))
+                    .children()
+                    .clone();
                 let row_children_ref = row_children_link.borrow();
                 let row_children = row_children_ref.deref();
                 let new_row_as_vec = row_children
                     .iter()
                     .cloned()
-                    .map(|child| current_replace_map.get(&child).unwrap().clone())
-                    .collect::<Vec<_>>()
-                    .into();
-                let new_row = Vector::new(new_row_as_vec).into();
+                    .map(|child| current_replace_map.get(&child.get_ptr()).unwrap().1.clone())
+                    .collect::<Vec<_>>();
+                let new_row = Vector::create(new_row_as_vec);
                 new_matrix.push(new_row);
             }
-            let new_node = Matrix::new(new_matrix).as_op().into();
-            current_replace_map.insert(node.clone(), new_node);
+            let new_node = Matrix::create(new_matrix);
+            current_replace_map.insert(node.get_ptr(), (node.clone(), new_node));
         }
         Op::Accessor(accessor) => {
             let indexable = accessor.indexable.clone();
             let access_type = accessor.access_type.clone();
-            let new_indexable = current_replace_map.get(&indexable).unwrap().clone();
-            let new_node = Accessor::new(new_indexable, access_type).as_op().into();
-            current_replace_map.insert(node.clone(), new_node);
+            let new_indexable = current_replace_map
+                .get(&indexable.get_ptr())
+                .unwrap()
+                .1
+                .clone();
+            let new_node = Accessor::create(new_indexable, access_type);
+            current_replace_map.insert(node.get_ptr(), (node.clone(), new_node));
         }
         Op::Parameter(parameter) => {
-            let new_node = replace_parameter_list[parameter.position.clone()].clone();
-            current_replace_map.insert(node.clone(), new_node);
+
+            let owner_ref = parameter.ref_node.to_link().unwrap_or_else(
+                || {
+                    println!("replace_parameter_list: {:?}", replace_parameter_list);
+                    panic!("invalid ref_node for parameter {:?}", parameter)
+                }
+            );
+
+            if owner_ref == ref_node.as_owner().unwrap() {
+                let new_node = replace_parameter_list[parameter.position].clone();
+                current_replace_map.insert(node.get_ptr(), (node.clone(), new_node));
+            } else {
+                let new_param = Parameter::create(parameter.position, parameter.ty.clone());
+    
+                if let Some(_root_ref) = owner_ref.as_root() {
+                    new_param.as_parameter_mut().unwrap().set_ref_node(owner_ref);
+                } else {
+                    if let Some((_replaced_node, replaced_by)) =
+                        current_replace_map.get(&owner_ref.as_op().unwrap().get_ptr())
+                    {
+                        new_param.as_parameter_mut().unwrap().set_ref_node(replaced_by.clone().as_owner().unwrap());
+                    } else {
+                        new_param.as_parameter_mut().unwrap().set_ref_node(owner_ref);
+                    }
+                }
+                
+                current_replace_map.insert(node.get_ptr(), (node.clone(), new_param));
+            }
         }
         Op::Value(value) => {
-            let new_node = Value::new(value.value.clone()).as_op().into();
-            current_replace_map.insert(node.clone(), new_node);
+            let new_node = Value::create(value.value.clone());
+            current_replace_map.insert(node.get_ptr(), (node.clone(), new_node));
         }
         Op::None => {}
     }

@@ -1,12 +1,12 @@
-//mod ir;
-
 mod access;
 mod boundary_constraints;
 mod constant;
 mod evaluators;
 mod functions;
 mod integrity_constraints;
+mod ir;
 mod list_folding;
+mod mutability;
 mod pub_inputs;
 mod random_values;
 mod selectors;
@@ -25,6 +25,18 @@ use miden_diagnostics::{CodeMap, DiagnosticsConfig, DiagnosticsHandler, Verbosit
 pub fn compile(source: &str) -> Result<Mir, ()> {
     let compiler = Compiler::default();
     match compiler.compile(source) {
+        Ok(mir) => Ok(mir),
+        Err(err) => {
+            compiler.diagnostics.emit(err);
+            compiler.emitter.print_captured_to_stderr();
+            Err(())
+        }
+    }
+}
+
+pub fn translate(source: &str) -> Result<Mir, ()> {
+    let compiler = Compiler::default();
+    match compiler.translate(source) {
         Ok(mir) => Ok(mir),
         Err(err) => {
             compiler.diagnostics.emit(err);
@@ -94,6 +106,18 @@ impl Compiler {
                 let mut pipeline =
                     air_parser::transforms::ConstantPropagation::new(&self.diagnostics)
                         //.chain(air_parser::transforms::Inlining::new(&self.diagnostics))
+                        .chain(crate::passes::AstToMir::new(&self.diagnostics))
+                        .chain(crate::passes::Inlining::new(&self.diagnostics))
+                        .chain(crate::passes::Unrolling::new(&self.diagnostics));
+                pipeline.run(ast)
+            })
+    }
+    pub fn translate(&self, source: &str) -> Result<Mir, CompileError> {
+        air_parser::parse(&self.diagnostics, self.codemap.clone(), source)
+            .map_err(CompileError::Parse)
+            .and_then(|ast| {
+                let mut pipeline =
+                    air_parser::transforms::ConstantPropagation::new(&self.diagnostics)
                         .chain(crate::passes::AstToMir::new(&self.diagnostics));
                 pipeline.run(ast)
             })

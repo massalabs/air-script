@@ -1,5 +1,4 @@
 use std::{
-    borrow::Borrow,
     collections::HashMap,
     ops::{ControlFlow, Deref, DerefMut},
 };
@@ -10,7 +9,7 @@ use air_pass::Pass;
 
 use crate::{ir::*, CompileError};
 
-use super::{duplicate_node_or_replace, Visit, VisitContext, VisitOrder};
+use super::{duplicate_node_or_replace, Visit, VisitContext};
 
 //pub struct Unrolling<'a> {
 //     #[allow(unused)]
@@ -57,7 +56,7 @@ impl VisitContext for Unrolling {
 
     type Graph = Graph;
 
-    fn boundary_roots(&self, graph: &Self::Graph) -> Link<Vec<Link<Node>>> {
+    fn root_nodes_to_visit(&self, graph: &Self::Graph) -> Link<Vec<Link<Node>>> {
         if self.during_first_pass {
             return graph
                 .boundary_constraints_roots
@@ -66,6 +65,15 @@ impl VisitContext for Unrolling {
                 .iter()
                 .cloned()
                 .map(|bc| bc.as_node())
+                .chain(
+                    graph
+                        .integrity_constraints_roots
+                        .borrow()
+                        .deref()
+                        .iter()
+                        .cloned()
+                        .map(|ic| ic.as_node()),
+                )
                 .collect::<Vec<_>>()
                 .into();
         } else {
@@ -77,30 +85,6 @@ impl VisitContext for Unrolling {
                 .map(|op| op.as_node())
                 .collect::<Vec<_>>()
                 .into();
-        }
-    }
-
-    fn integrity_roots(&self, graph: &Self::Graph) -> Link<Vec<Link<Node>>> {
-        if self.during_first_pass {
-            return graph
-                .integrity_constraints_roots
-                .borrow()
-                .deref()
-                .iter()
-                .cloned()
-                .map(|bc| bc.as_node())
-                .collect::<Vec<_>>()
-                .into();
-        } else {
-            return Link::new(vec![]);
-        }
-    }
-
-    fn visit_order(&self) -> super::VisitOrder {
-        if self.during_first_pass {
-            return super::VisitOrder::PostOrder;
-        } else {
-            return super::VisitOrder::PostOrder;
         }
     }
 }
@@ -123,22 +107,14 @@ impl Visit for Unrolling {
     fn run(&mut self, graph: &mut Self::Graph) {
         // First pass, unroll all nodes fully, except for For nodes
         self.during_first_pass = true;
-        match self.visit_order() {
-            VisitOrder::Manual => self.visit_manual(graph),
-            VisitOrder::PostOrder => self.visit_postorder(graph),
-            VisitOrder::DepthFirst => self.visit_depthfirst(graph),
-        }
+        self.visit_postorder(graph);
         while let Some(node) = self.next_node() {
             self.visit(graph, node);
         }
 
         // Second pass, inline For nodes
         self.during_first_pass = false;
-        match self.visit_order() {
-            VisitOrder::Manual => self.visit_manual(graph),
-            VisitOrder::PostOrder => self.visit_postorder(graph),
-            VisitOrder::DepthFirst => self.visit_depthfirst(graph),
-        }
+        self.visit_postorder(graph);
         while let Some(node) = self.next_node() {
             self.visit(graph, node);
         }
@@ -172,40 +148,40 @@ impl Unrolling {
 }
 
 impl Unrolling {
-    fn visit_value(&mut self, value: &Value) -> Option<Op> {
-        match value.value.value.clone() {
+    fn visit_value(&mut self, value: Link<Value>) -> Option<Link<Op>> {
+        match value.borrow().value.value.clone() {
             MirValue::Constant(c) => match c {
                 ConstantValue::Felt(_) => {}
                 ConstantValue::Vector(v) => {
                     let mut vec = vec![];
                     for val in v {
-                        let val = Value::new(SpannedMirValue {
-                            span: value.value.span.clone(),
+                        let val = Value::create(SpannedMirValue {
+                            span: value.borrow().value.span.clone(),
                             value: MirValue::Constant(ConstantValue::Felt(val)),
                         })
                         .as_op()
                         .into();
                         vec.push(val);
                     }
-                    return Some(Vector::new(vec).as_op());
+                    return Some(Vector::create(vec).as_op());
                 }
                 ConstantValue::Matrix(m) => {
                     let mut res_m = vec![];
                     for row in m {
                         let mut res_row = vec![];
                         for val in row {
-                            let val = Value::new(SpannedMirValue {
-                                span: value.value.span.clone(),
+                            let val = Value::create(SpannedMirValue {
+                                span: value.borrow().value.span.clone(),
                                 value: MirValue::Constant(ConstantValue::Felt(val)),
                             })
                             .as_op()
                             .into();
                             res_row.push(val);
                         }
-                        let res_row_vec = Vector::new(res_row).into();
+                        let res_row_vec = Vector::create(res_row).into();
                         res_m.push(res_row_vec);
                     }
-                    return Some(Matrix::new(res_m).as_op());
+                    return Some(Matrix::create(res_m).as_op());
                 }
             },
             MirValue::TraceAccess(_) => {}
@@ -216,8 +192,8 @@ impl Unrolling {
                 // Create Trace Access based on this binding
                 let mut vec = vec![];
                 for index in 0..trace_access_binding.size {
-                    let val = Value::new(SpannedMirValue {
-                        span: value.value.span.clone(),
+                    let val = Value::create(SpannedMirValue {
+                        span: value.borrow().value.span.clone(),
                         value: MirValue::TraceAccess(TraceAccess {
                             segment: trace_access_binding.segment,
                             column: trace_access_binding.offset + index,
@@ -228,28 +204,28 @@ impl Unrolling {
                     .into();
                     vec.push(val);
                 }
-                return Some(Vector::new(vec).as_op());
+                return Some(Vector::create(vec).as_op());
             }
             MirValue::RandomValueBinding(random_value_binding) => {
                 let mut vec = vec![];
                 for index in 0..random_value_binding.size {
-                    let val = Value::new(SpannedMirValue {
-                        span: value.value.span.clone(),
+                    let val = Value::create(SpannedMirValue {
+                        span: value.borrow().value.span.clone(),
                         value: MirValue::RandomValue(random_value_binding.offset + index),
                     })
                     .as_op()
                     .into();
                     vec.push(val);
                 }
-                return Some(Vector::new(vec).as_op());
+                return Some(Vector::create(vec).as_op());
             }
         }
         None
     }
 
-    fn visit_add(&mut self, add: &Add) -> Option<Op> {
-        let lhs = add.lhs.clone();
-        let rhs = add.rhs.clone();
+    fn visit_add(&mut self, add: Link<Add>) -> Option<Link<Op>> {
+        let lhs = add.borrow().lhs.clone();
+        let rhs = add.borrow().rhs.clone();
 
         if let (Op::Vector(lhs_vector), Op::Vector(rhs_vector)) =
             (lhs.borrow().deref(), rhs.borrow().deref())
@@ -263,18 +239,18 @@ impl Unrolling {
             } else {
                 let mut new_vec = vec![];
                 for (lhs, rhs) in lhs_vec.iter().zip(rhs_vec.iter()) {
-                    let new_node = Add::new(lhs.clone(), rhs.clone()).as_op().into();
+                    let new_node = Add::create(lhs.clone(), rhs.clone()).as_op().into();
                     new_vec.push(new_node);
                 }
-                return Some(Vector::new(new_vec).as_op());
+                return Some(Vector::create(new_vec).as_op());
             }
         };
         None
     }
 
-    fn visit_sub(&mut self, sub: &Sub) -> Option<Op> {
-        let lhs = sub.lhs.clone();
-        let rhs = sub.rhs.clone();
+    fn visit_sub(&mut self, sub: Link<Sub>) -> Option<Link<Op>> {
+        let lhs = sub.borrow().lhs.clone();
+        let rhs = sub.borrow().rhs.clone();
 
         if let (Op::Vector(lhs_vector), Op::Vector(rhs_vector)) =
             (lhs.borrow().deref(), rhs.borrow().deref())
@@ -287,18 +263,18 @@ impl Unrolling {
             } else {
                 let mut new_vec = vec![];
                 for (lhs, rhs) in lhs_vec.iter().zip(rhs_vec.iter()) {
-                    let new_node = Sub::new(lhs.clone(), rhs.clone()).as_op().into();
+                    let new_node = Sub::create(lhs.clone(), rhs.clone()).as_op().into();
                     new_vec.push(new_node);
                 }
-                return Some(Vector::new(new_vec).as_op());
+                return Some(Vector::create(new_vec).as_op());
             }
         };
         None
     }
 
-    fn visit_mul(&mut self, mul: &Mul) -> Option<Op> {
-        let lhs = mul.lhs.clone();
-        let rhs = mul.rhs.clone();
+    fn visit_mul(&mut self, mul: Link<Mul>) -> Option<Link<Op>> {
+        let lhs = mul.borrow().lhs.clone();
+        let rhs = mul.borrow().rhs.clone();
 
         if let (Op::Vector(lhs_vector), Op::Vector(rhs_vector)) =
             (lhs.borrow().deref(), rhs.borrow().deref())
@@ -311,33 +287,33 @@ impl Unrolling {
             } else {
                 let mut new_vec = vec![];
                 for (lhs, rhs) in lhs_vec.iter().zip(rhs_vec.iter()) {
-                    let new_node = Mul::new(lhs.clone(), rhs.clone()).as_op().into();
+                    let new_node = Mul::create(lhs.clone(), rhs.clone()).as_op().into();
                     new_vec.push(new_node);
                 }
-                return Some(Vector::new(new_vec).as_op());
+                return Some(Vector::create(new_vec).as_op());
             }
         };
         None
     }
 
-    fn visit_enf(&mut self, enf: &Enf) -> Option<Op> {
-        let expr = enf.expr.clone();
+    fn visit_enf(&mut self, enf: Link<Enf>) -> Option<Link<Op>> {
+        let expr = enf.borrow().expr.clone();
         if let Op::Vector(vec) = expr.borrow().deref() {
             let ops = vec.children().borrow().deref().clone();
             let mut new_vec = vec![];
             for op in ops.iter() {
-                let new_node = Enf::new(op.clone()).as_op().into();
+                let new_node = Enf::create(op.clone()).as_op().into();
                 new_vec.push(new_node);
             }
-            return Some(Vector::new(new_vec).as_op());
+            return Some(Vector::create(new_vec).as_op());
         };
         None
     }
 
-    fn visit_fold(&mut self, fold: &Fold) -> Option<Op> {
-        let iterator = fold.iterator.clone();
-        let operator = fold.operator.clone();
-        let initial_value = fold.initial_value.clone();
+    fn visit_fold(&mut self, fold: Link<Fold>) -> Option<Link<Op>> {
+        let iterator = fold.borrow().iterator.clone();
+        let operator = fold.borrow().operator.clone();
+        let initial_value = fold.borrow().initial_value.clone();
 
         let iterator_ref = iterator.borrow();
         let Op::Vector(iterator_vector) = iterator_ref.deref() else {
@@ -349,13 +325,13 @@ impl Unrolling {
         match operator {
             FoldOperator::Add => {
                 for iterator_node in iterator_nodes {
-                    let new_acc_node = Add::new(acc_node, iterator_node).as_op().into();
+                    let new_acc_node = Add::create(acc_node, iterator_node).as_op().into();
                     acc_node = new_acc_node;
                 }
             }
             FoldOperator::Mul => {
                 for iterator_node in iterator_nodes {
-                    let new_acc_node = Mul::new(acc_node, iterator_node).as_op().into();
+                    let new_acc_node = Mul::create(acc_node, iterator_node).as_op().into();
                     acc_node = new_acc_node;
                 }
             }
@@ -363,19 +339,19 @@ impl Unrolling {
         }
 
         // Finally, replace the Fold with the expanded expression
-        return Some(acc_node.borrow().deref().clone());
+        return Some(acc_node.clone());
     }
 
-    fn visit_parameter(&mut self, _parameter: &Parameter) -> Option<Op> {
+    fn visit_parameter(&mut self, _parameter: Link<Parameter>) -> Option<Link<Op>> {
         // FIXME: Just check that the parameter is a scalar, raise diag otherwise
         // List comprehension bodies should only be scalar expressions
         None
     }
 
-    fn visit_if(&mut self, if_node: &If) -> Option<Op> {
-        let condition = if_node.condition.clone();
-        let then_branch = if_node.then_branch.clone();
-        let else_branch = if_node.else_branch.clone();
+    fn visit_if(&mut self, if_node: Link<If>) -> Option<Link<Op>> {
+        let condition = if_node.borrow().condition.clone();
+        let then_branch = if_node.borrow().then_branch.clone();
+        let else_branch = if_node.borrow().else_branch.clone();
 
         if let (
             Op::Vector(condition_vector),
@@ -402,36 +378,36 @@ impl Unrolling {
                     .zip(else_branch_vec.iter())
                 {
                     let new_node =
-                        If::new(condition.clone(), then_branch.clone(), else_branch.clone())
+                        If::create(condition.clone(), then_branch.clone(), else_branch.clone())
                             .as_op()
                             .into();
                     new_vec.push(new_node);
                 }
-                return Some(Vector::new(new_vec).as_op());
+                return Some(Vector::create(new_vec).as_op());
             }
         };
         None
     }
 
-    fn visit_boundary(&mut self, boundary: &Boundary) -> Option<Op> {
-        let expr = boundary.expr.clone();
-        let kind = boundary.kind.clone();
+    fn visit_boundary(&mut self, boundary: Link<Boundary>) -> Option<Link<Op>> {
+        let expr = boundary.borrow().expr.clone();
+        let kind = boundary.borrow().kind.clone();
 
         if let Op::Vector(vec) = expr.borrow().deref() {
             let expr_vec = vec.children().borrow().deref().clone();
             let mut new_vec = vec![];
             for expr in expr_vec.iter() {
-                let new_node = Boundary::new(expr.clone(), kind).as_op().into();
+                let new_node = Boundary::create(expr.clone(), kind).as_op().into();
                 new_vec.push(new_node);
             }
-            return Some(Vector::new(new_vec).as_op());
+            return Some(Vector::create(new_vec).as_op());
         };
         None
     }
 
-    fn visit_accessor(&mut self, accessor: &Accessor) -> Option<Op> {
-        let indexable = accessor.indexable.clone();
-        let access_type = accessor.access_type.clone();
+    fn visit_accessor(&mut self, accessor: Link<Accessor>) -> Option<Link<Op>> {
+        let indexable = accessor.borrow().indexable.clone();
+        let access_type = accessor.borrow().access_type.clone();
         match access_type {
             AccessType::Default => {
                 // Check that the child node is a scalar, raise diag otherwise
@@ -454,7 +430,7 @@ impl Unrolling {
                         None => unreachable!(), // raise diag
                     };
 
-                    return Some(child_accessed.borrow().deref().clone());
+                    return Some(child_accessed.clone());
                 } else {
                     unreachable!(); // raise diag
                 };
@@ -479,7 +455,7 @@ impl Unrolling {
                             None => unreachable!(), // raise diag
                         };
 
-                        return Some(child_accessed.borrow().deref().clone());
+                        return Some(child_accessed.clone());
                     } else {
                         unreachable!(); // raise diag
                     };
@@ -495,16 +471,17 @@ impl Unrolling {
         None
     }
 
-    fn visit_for(&mut self, node: Link<Op>, for_node: &For) -> Option<Op> {
+    fn visit_for(&mut self, node: Link<Op>, for_node: Link<For>) -> Option<Link<Op>> {
         // For each value produced by the iterators, we need to:
         // - Duplicate the body
         // - Visit the body and replace the Variables with the value (with the correct index depending on the binding)
         // If there is a selector, we need to enforce the selector on the body through an if node ?
 
-        let iterators_ref = for_node.iterators.borrow();
+        let for_ref = for_node.borrow();
+        let iterators_ref = for_ref.iterators.borrow();
         let iterators = iterators_ref.deref();
-        let expr = for_node.expr.clone();
-        let selector = for_node.selector.clone();
+        let expr = for_node.borrow().expr.clone();
+        let selector = for_node.borrow().selector.clone();
 
         // Check iterator lengths
         if iterators.is_empty() {
@@ -512,7 +489,8 @@ impl Unrolling {
         }
         let iterator_expected_len = iterators[0]
             .clone()
-            .as_vector()?
+            .as_vector()
+            .expect("Iterators should be vectors")
             .borrow()
             .children()
             .borrow()
@@ -521,7 +499,8 @@ impl Unrolling {
         for iterator in iterators.iter().skip(1) {
             if iterator
                 .clone()
-                .as_vector()?
+                .as_vector()
+                .expect("Iterators should be vectors")
                 .borrow()
                 .children()
                 .borrow()
@@ -555,34 +534,34 @@ impl Unrolling {
                 ForInliningContext {
                     body: expr.clone(),
                     iterators: iterators_i,
-                    selector: selector,
+                    selector,
                     index: i,
                     parent_for: node.clone(),
                 },
             ));
         }
-        Some(Vector::new(new_vec).as_op())
+        Some(Vector::create(new_vec).as_op())
     }
 
     fn visit_first_pass(&mut self, node: Link<Node>) {
-        let new_op: Option<Op> = match node.clone().borrow().deref() {
-            Node::Enf(enf) => self.visit_enf(enf),
-            Node::Boundary(boundary) => self.visit_boundary(boundary),
-            Node::Add(add) => self.visit_add(add),
-            Node::Sub(sub) => self.visit_sub(sub),
-            Node::Mul(mul) => self.visit_mul(mul),
-            Node::If(if_node) => self.visit_if(if_node),
+        let new_op: Option<Link<Op>> = match node.clone().borrow().deref() {
+            Node::Enf(enf) => self.visit_enf(enf.clone()),
+            Node::Boundary(boundary) => self.visit_boundary(boundary.clone()),
+            Node::Add(add) => self.visit_add(add.clone()),
+            Node::Sub(sub) => self.visit_sub(sub.clone()),
+            Node::Mul(mul) => self.visit_mul(mul.clone()),
+            Node::If(if_node) => self.visit_if(if_node.clone()),
             Node::For(for_node) => {
                 // For each value produced by the iterators, we need to:
                 // - Duplicate the body
                 // - Visit the body and replace the Variables with the value (with the correct index depending on the binding)
                 // We then have a vector, that we can either fold up or enforce on each value
-                self.visit_for(node.clone().as_op().unwrap(), for_node)
+                self.visit_for(node.clone().as_op().unwrap(), for_node.clone())
             }
-            Node::Fold(fold) => self.visit_fold(fold),
-            Node::Accessor(accessor) => self.visit_accessor(accessor),
-            Node::Parameter(parameter) => self.visit_parameter(parameter),
-            Node::Value(value) => self.visit_value(value),
+            Node::Fold(fold) => self.visit_fold(fold.clone()),
+            Node::Accessor(accessor) => self.visit_accessor(accessor.clone()),
+            Node::Parameter(parameter) => self.visit_parameter(parameter.clone()),
+            Node::Value(value) => self.visit_value(value.clone()),
 
             // These should not exist / be accessible from roots after inlining
             Node::Call(_call) => unreachable!(),
@@ -595,7 +574,7 @@ impl Unrolling {
             Node::None => None,
         };
         if let Some(new_op) = new_op {
-            *node.borrow_mut().deref_mut() = new_op.as_node();
+            node.set(new_op);
         }
     }
 
@@ -653,13 +632,13 @@ impl Unrolling {
                     let new_node_to_update_at = if let Some(selector) =
                         self.for_inlining_context.clone().unwrap().selector
                     {
-                        let zero_node = Value::new(SpannedMirValue {
+                        let zero_node = Value::create(SpannedMirValue {
                             span: Default::default(),
                             value: MirValue::Constant(ConstantValue::Felt(0)),
                         })
                         .as_op()
                         .into();
-                        let if_node = If::new(selector, new_node, zero_node).as_op().into();
+                        let if_node = If::create(selector, new_node, zero_node).as_op().into();
                         if_node
                     } else {
                         new_node

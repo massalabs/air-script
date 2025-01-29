@@ -22,11 +22,23 @@ impl<T> Link<T> {
     pub fn borrow_mut(&self) -> std::cell::RefMut<T> {
         self.link.borrow_mut()
     }
+    pub fn update(&self, other: &Self)
+    where
+        T: Clone + Debug,
+    {
+        eprintln!("update:\n    {:#?}\n  ->{:#?}", self, other);
+        eprintln!("old_ptr: {}", self.get_ptr());
+        *self.borrow_mut() = other.borrow().clone();
+        eprintln!("new_ptr: {}", self.get_ptr());
+    }
+    pub fn get_ptr(&self) -> usize {
+        Rc::as_ptr(&self.link) as usize
+    }
 }
 
 impl<T: Debug> Debug for Link<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self.link.borrow())
+        self.link.borrow().fmt(f)
     }
 }
 
@@ -49,10 +61,7 @@ impl<T> Clone for Link<T> {
     }
 }
 
-impl<T> PartialEq for Link<T>
-where
-    T: PartialEq,
-{
+impl<T: PartialEq> PartialEq for Link<T> {
     fn eq(&self, other: &Self) -> bool {
         self.link == other.link
     }
@@ -87,9 +96,10 @@ impl<T> BackLink<T> {
         Self { link: None }
     }
     pub fn to_link(&self) -> Option<Link<T>> {
-        self.link.as_ref().map(|link| Link {
-            link: link.upgrade().unwrap(),
-        })
+        match self.link.as_ref() {
+            Some(link) => link.upgrade().map(|link| Link { link }),
+            None => None,
+        }
     }
 }
 
@@ -99,9 +109,15 @@ impl<T> Default for BackLink<T> {
     }
 }
 
-impl<T> Debug for BackLink<T> {
+impl<T: std::fmt::Debug> Debug for BackLink<T> {
     fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Ok(())
+        match self.link.as_ref() {
+            Some(_) => match self.to_link() {
+                Some(link) => write!(_f, "BackLink@{:?}", link.get_ptr()),
+                None => write!(_f, "BackLink@None"),
+            },
+            None => write!(_f, "BackLink@None"),
+        }
     }
 }
 

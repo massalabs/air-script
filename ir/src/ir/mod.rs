@@ -5,23 +5,19 @@ mod link;
 mod mir;
 mod node;
 mod nodes;
-mod op;
 mod owner;
-mod root;
 mod trace;
+pub extern crate derive_ir;
 
-use std::ops::DerefMut;
-
-pub use constraints::ConstraintError;
+pub use constraints::{ConstraintDomain, ConstraintError, ConstraintRoot, Constraints};
+pub use derive_ir::Builder;
 pub use graph::Graph;
 pub use leaf::Leaf;
 pub use link::{BackLink, Link};
 pub use mir::Mir;
 pub use node::Node;
 pub use nodes::*;
-pub use op::Op;
 pub use owner::Owner;
-pub use root::Root;
 pub use trace::TraceAccess;
 
 /// A trait for nodes that can have children
@@ -29,12 +25,28 @@ pub use trace::TraceAccess;
 pub trait Parent {
     type Child;
     fn children(&self) -> Link<Vec<Link<Self::Child>>>;
-    fn remove_child(&mut self, child: Link<Self::Child>)
-    where
-        Self::Child: PartialEq,
-    {
-        let children = self.children();
-        children.borrow_mut().deref_mut().retain(|c| c != &child);
+}
+
+impl<T> Parent for Link<T>
+where
+    T: Parent,
+{
+    type Child = T::Child;
+    fn children(&self) -> Link<Vec<Link<Self::Child>>> {
+        self.borrow().children()
+    }
+}
+
+impl<T> Parent for BackLink<T>
+where
+    Link<T>: Parent,
+{
+    type Child = <Link<T> as Parent>::Child;
+    fn children(&self) -> Link<Vec<Link<Self::Child>>> {
+        match self.to_link() {
+            Some(link) => link.children(),
+            None => Link::new(Vec::new()),
+        }
     }
 }
 
@@ -42,39 +54,56 @@ pub trait Parent {
 /// This is used with the Parent trait to allow for easy traversal and manipulation of the graph
 pub trait Child: Clone + Into<Link<Self>> + PartialEq {
     type Parent;
-    fn get_parent(&self) -> BackLink<Self::Parent>;
-    fn set_parent(&mut self, parent: Link<Self::Parent>);
-    fn swap_parent(&mut self, new_parent: Link<Self::Parent>)
-    where
-        Self::Parent: PartialEq + Parent<Child = Self>,
-    {
-        // Grab the old parent before we change it
-        let old_parent = self.get_parent().to_link();
-        // Remove self from the old parent's children
-        if let Some(parent) = old_parent {
-            if parent != new_parent {
-                parent
-                    .borrow_mut()
-                    .deref_mut()
-                    .remove_child(self.clone().into());
-            }
-        }
-        // Change the parent
-        self.set_parent(new_parent);
+    fn get_parents(&self) -> Vec<BackLink<Self::Parent>>;
+    fn add_parent(&mut self, parent: Link<Self::Parent>);
+    fn remove_parent(&mut self, parent: Link<Self::Parent>);
+}
+
+impl<T> Child for Link<T>
+where
+    T: Child,
+{
+    type Parent = T::Parent;
+
+    fn get_parents(&self) -> Vec<BackLink<Self::Parent>> {
+        self.borrow().get_parents()
+    }
+    fn add_parent(&mut self, parent: Link<Self::Parent>) {
+        self.borrow_mut().add_parent(parent)
+    }
+    fn remove_parent(&mut self, parent: Link<Self::Parent>) {
+        self.borrow_mut().remove_parent(parent)
     }
 }
 
-/// A helper struct used with the Builder trait to indicate that a field has not been set
-pub struct NotSet;
+impl<T> Child for BackLink<T>
+where
+    Link<T>: Child,
+{
+    type Parent = <Link<T> as Child>::Parent;
+    fn get_parents(&self) -> Vec<BackLink<Self::Parent>> {
+        match self.to_link() {
+            Some(link) => link.get_parents(),
+            None => Vec::new(),
+        }
+    }
+    fn add_parent(&mut self, parent: Link<Self::Parent>) {
+        if let Some(ref mut link) = self.to_link() {
+            link.add_parent(parent)
+        }
+    }
+    fn remove_parent(&mut self, parent: Link<Self::Parent>) {
+        if let Some(ref mut link) = self.to_link() {
+            link.remove_parent(parent)
+        }
+    }
+}
 
 /// A trait implemented by all nodes.
 /// Will be derivable later. The implementation and type-safe builder is currently manual while we tweak the design
 pub trait Builder {
-    type BuilderEmpty;
-    type BuilderFull;
+    type Empty;
+    type Full;
     /// Create a new empty builder that exposes all fields
-    fn builder() -> Self::BuilderEmpty;
-    /// Consumes the current node
-    /// and returns a new builder with all fields set to expose all fields
-    fn edit(self) -> Self::BuilderFull;
+    fn builder() -> Self::Empty;
 }

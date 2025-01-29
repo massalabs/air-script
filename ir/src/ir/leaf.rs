@@ -1,63 +1,36 @@
-use std::ops::Deref;
-
-use crate::ir::{Link, Op, Parameter, Value};
-
-use super::Node;
+use crate::ir::{BackLink, Child, Link, Op, Owner};
 
 /// The Final nodes of the MIR Graph.
 /// Currently unused in the structure but will be used in the next visitor pattern implementation.
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub enum Leaf {
-    Parameter(Parameter),
-    Value(Value),
+    Parameter(BackLink<Op>),
+    Value(BackLink<Op>),
     #[default]
     None,
 }
 
-impl Leaf {
-    pub fn as_parameter(self) -> Option<Parameter> {
+impl Child for Leaf {
+    type Parent = Owner;
+    fn get_parents(&self) -> Vec<BackLink<Self::Parent>> {
         match self {
-            Leaf::Parameter(p) => Some(p),
-            _ => None,
+            Leaf::Parameter(p) => p.get_parents(),
+            Leaf::Value(v) => v.get_parents(),
+            Leaf::None => vec![],
         }
     }
-    pub fn as_value(self) -> Option<Value> {
+    fn add_parent(&mut self, parent: Link<Self::Parent>) {
         match self {
-            Leaf::Value(v) => Some(v),
-            _ => None,
+            Leaf::Parameter(p) => p.add_parent(parent),
+            Leaf::Value(v) => v.add_parent(parent),
+            Leaf::None => (),
         }
     }
-    pub fn as_op(self) -> Op {
+    fn remove_parent(&mut self, parent: Link<Self::Parent>) {
         match self {
-            Leaf::Parameter(p) => Op::Parameter(p),
-            Leaf::Value(v) => Op::Value(v),
-            Leaf::None => Op::None,
+            Leaf::Parameter(p) => p.remove_parent(parent),
+            Leaf::Value(v) => v.remove_parent(parent),
+            Leaf::None => (),
         }
-    }
-    pub fn as_node(self) -> Node {
-        match self {
-            Leaf::Parameter(p) => Node::Parameter(p),
-            Leaf::Value(v) => Node::Value(v),
-            Leaf::None => Node::None,
-        }
-    }
-}
-
-impl Link<Leaf> {
-    pub fn as_parameter(self) -> Option<Link<Parameter>> {
-        self.borrow()
-            .deref()
-            .clone()
-            .as_parameter()
-            .map(|p| p.into())
-    }
-    pub fn as_value(self) -> Option<Link<Value>> {
-        self.borrow().deref().clone().as_value().map(|v| v.into())
-    }
-    pub fn as_op(self) -> Link<Op> {
-        self.borrow().deref().clone().as_op().into()
-    }
-    pub fn as_node(self) -> Link<Node> {
-        self.borrow().deref().clone().as_node().into()
     }
 }

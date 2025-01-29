@@ -1,946 +1,952 @@
-use std::ops::{Deref, DerefMut};
+use core::panic;
+use std::ops::Deref;
 
-use air_parser::{
-    ast::{self, AccessType, Identifier, QualifiedIdentifier},
-    symbols, LexicalScope, SemanticAnalysisError,
-};
+use air_parser::ast::AccessType;
+use air_parser::{ast, symbols, LexicalScope, SemanticAnalysisError};
 use air_pass::Pass;
+use miden_diagnostics::{DiagnosticsHandler, Severity, SourceSpan, Span, Spanned};
 
-use miden_diagnostics::{DiagnosticsHandler, SourceSpan, Spanned};
+use crate::ir::{Accessor, Add, Boundary, Enf, Evaluator, Matrix, Mul, Node, Owner, Root, Sub};
+use crate::{
+    ir::{
+        Builder, Call, ConstantValue, Fold, FoldOperator, For, Function, Link, Mir, MirType,
+        MirValue, Op, Parameter, PublicInputAccess, SpannedMirValue, TraceAccess,
+        TraceAccessBinding, Value, Vector,
+    },
+    passes::duplicate_node,
+    CompileError,
+};
 
-use crate::{ir::*, CompileError};
-
-use super::duplicate_node;
+/// This pass transforms a given [ast::Program] into a Middle Intermediate Representation ([Mir])
+///
+/// This pass assumes that the input program:
+/// * has been semantically validated
+/// * has had constant propagation already applied
+///
+/// Notes:
+/// * During this step, we unpack parameters and arguments of evaluators, in order to make it easier to inline them
+///
+/// TODO:
+/// - [ ] Implement diagnostics for better error handling
 
 pub struct AstToMir<'a> {
     diagnostics: &'a DiagnosticsHandler,
 }
+
 impl<'a> AstToMir<'a> {
-    /// Create a new instance of this pass
     #[inline]
     pub fn new(diagnostics: &'a DiagnosticsHandler) -> Self {
         Self { diagnostics }
     }
 }
-impl<'p> Pass for AstToMir<'p> {
+
+impl Pass for AstToMir<'_> {
     type Input<'a> = ast::Program;
     type Output<'a> = Mir;
     type Error = CompileError;
 
     fn run<'a>(&mut self, program: Self::Input<'a>) -> Result<Self::Output<'a>, Self::Error> {
-        let mut mir = Mir::new(program.name);
-
-        //TODO MIR: Implement AST > MIR lowering
-        // 1. Start from the previous lowering from AST to AIR
-        // 2. Understand what changes when starting from an unoptimized AST
-        // (with no constant prop and no inlining)
-        // 3. Implement the needed changes
-
-        let random_values = program.random_values;
-        let trace_columns = program.trace_columns;
-        let boundary_constraints = program.boundary_constraints;
-        let integrity_constraints = program.integrity_constraints;
-
-        mir.trace_columns = trace_columns.clone();
-        mir.num_random_values = random_values.as_ref().map(|rv| rv.size as u16).unwrap_or(0);
-        mir.periodic_columns = program.periodic_columns;
-        mir.public_inputs = program.public_inputs;
-
-        let mut builder = MirBuilder {
-            diagnostics: self.diagnostics,
-            mir: &mut mir,
-            random_values,
-            trace_columns,
-            bindings: Default::default(),
-        };
-
-        for (ident, _func) in program.functions.iter() {
-            let new_func = Function::default();
-            builder
-                .mir
-                .constraint_graph_mut()
-                .insert_function(*ident, new_func.into());
-        }
-
-        for (ident, _func) in program.evaluators.iter() {
-            let new_ev = Evaluator::default();
-            builder
-                .mir
-                .constraint_graph_mut()
-                .insert_evaluator(*ident, new_ev.into());
-        }
-
-        for (ident, func) in program.functions.iter() {
-            builder.insert_function_body(ident, func)?;
-        }
-
-        for (ident, func) in program.evaluators.iter() {
-            builder.insert_evaluator_function_body(ident, func)?;
-        }
-
-        for bc in boundary_constraints.iter() {
-            builder.build_boundary_constraint(bc)?;
-        }
-
-        for ic in integrity_constraints.iter() {
-            builder.build_integrity_constraint(ic)?;
-        }
-
-        Ok(mir)
+        let mut builder = MirBuilder::new(&program, self.diagnostics);
+        builder.translate_program()?;
+        Ok(builder.mir)
     }
 }
 
-struct MirBuilder<'a> {
-    #[allow(unused)]
+pub struct MirBuilder<'a> {
+    program: &'a ast::Program,
     diagnostics: &'a DiagnosticsHandler,
-    mir: &'a mut Mir,
-    random_values: Option<ast::RandomValues>,
-    trace_columns: Vec<ast::TraceSegment>,
-    bindings: LexicalScope<Identifier, Link<Op>>,
+    mir: Mir,
+    random_values: Option<&'a ast::RandomValues>,
+    trace_columns: &'a Vec<ast::TraceSegment>,
+    bindings: LexicalScope<&'a ast::Identifier, Link<Op>>,
+    root: Link<Root>,
+    root_name: Option<&'a ast::QualifiedIdentifier>,
+    in_boundary: bool,
 }
+
 impl<'a> MirBuilder<'a> {
-    fn insert_evaluator_function_body(
-        &mut self,
-        ident: &QualifiedIdentifier,
-        func: &ast::EvaluatorFunction,
-    ) -> Result<(), CompileError> {
-        let mut raw_evaluator = Evaluator::builder().build();
-
-        let body = &func.body;
-        let params = &func.params;
-
-        for trace_segment in params.iter() {
-            for param in trace_segment.bindings.iter() {
-                println!("param: {:?}", param.name);
-                println!("param offset: {:?}", param.offset);
-            }
+    pub fn new(program: &'a ast::Program, diagnostics: &'a DiagnosticsHandler) -> Self {
+        Self {
+            program,
+            diagnostics,
+            mir: Mir::default(),
+            random_values: program.random_values.as_ref(),
+            trace_columns: program.trace_columns.as_ref(),
+            bindings: LexicalScope::default(),
+            root: Link::default(),
+            root_name: None,
+            in_boundary: false,
         }
+    }
+
+    pub fn translate_program(&mut self) -> Result<(), CompileError> {
+        self.mir = Mir::new(self.program.name);
+        let random_values = &self.program.random_values;
+        let trace_columns = &self.program.trace_columns;
+        let boundary_constraints = &self.program.boundary_constraints;
+        let integrity_constraints = &self.program.integrity_constraints;
+
+        self.mir.trace_columns.clone_from(trace_columns);
+        self.mir.num_random_values = random_values.as_ref().map(|rv| rv.size as u16).unwrap_or(0);
+        self.mir.periodic_columns = self.program.periodic_columns.clone();
+        self.mir.public_inputs = self.program.public_inputs.clone();
+
+        for (ident, function) in &self.program.functions {
+            self.translate_function_signature(ident, function)?;
+        }
+        for (ident, evaluator) in &self.program.evaluators {
+            self.translate_evaluator_signature(ident, evaluator)?;
+        }
+        for (ident, function) in &self.program.functions {
+            self.translate_function(ident, function)?;
+        }
+        for (ident, evaluator) in &self.program.evaluators {
+            self.translate_evaluator(ident, evaluator)?;
+        }
+        self.root = Link::default();
+        self.in_boundary = true;
+        for boundary_constraint in boundary_constraints {
+            self.translate_statement(boundary_constraint)?;
+        }
+        self.in_boundary = false;
+        for integrity_constraint in integrity_constraints {
+            self.translate_statement(integrity_constraint)?;
+        }
+        Ok(())
+    }
+
+    fn translate_evaluator_signature(
+        &mut self,
+        ident: &'a ast::QualifiedIdentifier,
+        ast_eval: &'a ast::EvaluatorFunction,
+    ) -> Result<Link<Root>, CompileError> {
+        
+        let mut all_params_flatten = Vec::new();
+
+        self.root_name = Some(ident);
+        let mut ev = Evaluator::builder();
+        let mut i = 0;
+
+        for trace_segment in &ast_eval.params {
+            let mut all_params_flatten_for_trace_segment = Vec::new();
+
+            //        println!("trace_segment: {:#?}", trace_segment);
+            for binding in &trace_segment.bindings {
+                //            println!("binding: {:#?}", binding);
+                let params =
+                    self.translate_params_ev(ident, binding.name.as_ref(), &binding.ty, &mut i)?;
+                
+                for param in params {
+                    all_params_flatten_for_trace_segment.push(param.clone());
+                    all_params_flatten.push(param.clone());
+                }
+            }
+
+            ev = ev.parameters(all_params_flatten_for_trace_segment.clone());
+        }
+        let ev = ev.build();
+
+        set_all_ref_nodes(all_params_flatten.clone(), ev.as_owner());
+
+        self.mir
+            .constraint_graph_mut()
+            .insert_evaluator(*ident, ev.clone())?;
+
+        Ok(ev)
+    }
+
+    fn translate_evaluator(
+        &mut self,
+        ident: &'a ast::QualifiedIdentifier,
+        ast_eval: &'a ast::EvaluatorFunction,
+    ) -> Result<Link<Root>, CompileError> {
+        let original_root = self.mir
+            .constraint_graph()
+            .get_evaluator_root(ident).unwrap_or_else(||panic!("missing evaluator signature for {:?}\nuse self.translate_evaluator_signature(ident, ast_func) before self.translate_function(ident, ast_func)", ident));
+        let params = original_root.as_evaluator().unwrap().parameters.clone();
+
         self.bindings.enter();
-        for trace_segment in params.iter() {
+        self.root_name = Some(ident);
+
+        for (trace_segment, all_params_flatten_for_trace_segment) in ast_eval.params.iter().zip(params.iter()) {
+
+            let mut i = 0;
             for binding in trace_segment.bindings.iter() {
-                let spanned_mir_value = SpannedMirValue {
-                    span: binding.span(),
-                    value: MirValue::TraceAccessBinding(TraceAccessBinding {
-                        segment: trace_segment.id,
-                        offset: binding.offset,
-                        size: binding.size,
-                    }),
-                };
-                let spanned_mir_value_node: Link<Op> = Value::builder()
-                    .value(spanned_mir_value)
-                    .build()
-                    .as_op()
-                    .into();
-                self.bindings
-                    .insert(binding.name.unwrap(), spanned_mir_value_node.clone());
-                raw_evaluator = raw_evaluator
-                    .edit()
-                    .body(spanned_mir_value_node.clone())
-                    .build();
-            }
-        }
-        let evaluator: Link<Evaluator> = raw_evaluator.into();
-        // Insert the function body
-        for stmt in body.iter() {
-            self.build_function_body_statement(evaluator.clone().as_owner(), stmt)?;
-        }
+                let name = binding.name.as_ref();
+                match &binding.ty {
+                    ast::Type::Vector(size) => {
+                        let mut params_vec = Vec::new();
+                        for _ in 0..*size {
+                            let param = all_params_flatten_for_trace_segment[i].clone();
+                            i += 1;
+                            params_vec.push(param);
+                        }
+                        let vector_node = Vector::create(params_vec);
+                        self.bindings.insert(name.unwrap(), vector_node.clone());
 
-        self.mir
-            .constraint_graph_mut()
-            .insert_evaluator(*ident, evaluator.clone());
-
-        self.bindings.exit();
-
-        Ok(())
-    }
-
-    fn insert_function_body(
-        &mut self,
-        ident: &QualifiedIdentifier,
-        func: &ast::Function,
-    ) -> Result<(), CompileError> {
-        let mut function = Function::builder();
-
-        let body = &func.body;
-        let params = &func.params;
-
-        self.bindings.enter();
-        for (index, (ident, ty)) in params.iter().enumerate() {
-            let param_node: Link<Parameter> =
-                Parameter::new(/*ident.span(),*/ index, (*ty).into()).into();
-            self.bindings.insert(*ident, param_node.clone().as_op());
-            function = function.parameters(param_node);
-        }
-
-        let return_variable_node: Link<Parameter> =
-            Parameter::new(/*ident.span(), */ 0, func.return_type.into()).into();
-        let function: Link<Function> = function.return_type(return_variable_node).build().into();
-
-        // Insert the function body
-        for stmt in body.iter() {
-            self.build_function_body_statement(function.clone().as_owner(), stmt)?;
-        }
-
-        self.mir
-            .constraint_graph_mut()
-            .insert_function(*ident, function.clone());
-
-        self.bindings.exit();
-
-        Ok(())
-    }
-
-    fn build_boundary_constraint(&mut self, bc: &ast::Statement) -> Result<(), CompileError> {
-        let parent: Link<Owner> = Owner::default().into();
-        self.build_statement(parent, bc, true)
-    }
-
-    fn build_integrity_constraint(&mut self, ic: &ast::Statement) -> Result<(), CompileError> {
-        let parent: Link<Owner> = Owner::default().into();
-        self.build_statement(parent, ic, false)
-    }
-
-    fn build_function_body_statement(
-        &mut self,
-        parent: Link<Owner>,
-        s: &ast::Statement,
-    ) -> Result<(), CompileError> {
-        self.build_statement(parent, s, false)
-    }
-
-    fn build_statement(
-        &mut self,
-        parent: Link<Owner>,
-        c: &ast::Statement,
-        in_boundary: bool,
-    ) -> Result<(), CompileError> {
-        match c {
-            // If we have a let, update scoping and insert the body
-            ast::Statement::Let(expr) => self.build_let(expr, |bldr, stmt| {
-                bldr.build_statement(parent.clone(), stmt, in_boundary)
-            }),
-            // Depending on the expression, we can have different types of operations in the
-            // If we have a symbol access, we have to get it depending on the scope and add the
-            // identifier to the graph nodes (SSA)
-            ast::Statement::Expr(expr) => {
-                let expr_node = self.insert_expr(expr)?;
-                match parent.borrow_mut().deref_mut() {
-                    Owner::Function(ref mut func) => {
-                        *func = func.clone().edit().body(expr_node.clone()).build();
-                    }
-                    Owner::Evaluator(ref mut _evaluator) => {
-                        unreachable!("Unexpected Statement::Expr in evaluator");
-                        //*evaluator = evaluator.clone().edit().body(expr_node.clone()).build();
-                    }
-                    Owner::None => {
-                        // Insert in integrity or boundary
-                    }
-                    // I'm not what to do with the other types of operations
-                    _ => unreachable!(),
-                };
-                Ok(())
-            }
-            // Enforce statements can be translated to Enf operations in the MIR on scalar expressions
-            ast::Statement::Enforce(scalar_expr) => {
-                let scalar_expr_node: Link<Op> = self.insert_scalar_expr(scalar_expr)?;
-
-                let node_to_add = if let Op::Enf(_enf) = scalar_expr_node.clone().borrow().deref() {
-                    scalar_expr_node
-                } else {
-                    Enf::new(scalar_expr_node).as_op().into()
-                };
-
-                match in_boundary {
-                    true => self
-                        .mir
-                        .constraint_graph_mut()
-                        .insert_boundary_constraints_root(node_to_add),
-                    false => {
-                        match parent.borrow_mut().deref_mut() {
-                            Owner::Function(ref mut func) => {
-                                *func = func.clone().edit().body(node_to_add.clone()).build();
-                            }
-                            Owner::Evaluator(ref mut evaluator) => {
-                                *evaluator =
-                                    evaluator.clone().edit().body(node_to_add.clone()).build();
-                            }
-                            Owner::None => {
-                                // Insert in integrity
-                                self.mir
-                                    .constraint_graph_mut()
-                                    .insert_integrity_constraints_root(node_to_add);
-                            }
-                            // Again, I'm not sure what to do with the other types of operations
-                            _ => unreachable!(),
-                        };
-                        /*if parent == Link::new(Owner::default()) {
-                            self.mir
-                                .constraint_graph_mut()
-                                .insert_integrity_constraints_root(node_to_add);
-                        }*/
-                    }
-                };
-                Ok(())
-            }
-            ast::Statement::EnforceIf(_, _) => unreachable!(), // This variant was only available after AST's inlining, we should handle EnforceAll instead
-            ast::Statement::EnforceAll(list_comprehension) => {
-                self.bindings.enter();
-                for (index, binding) in list_comprehension.bindings.iter().enumerate() {
-                    let binding_node =
-                        Parameter::new(/*binding.span(), */ index, ast::Type::Felt.into()).as_op();
-                    self.bindings.insert(*binding, binding_node.into());
-                }
-
-                let mut iterator_nodes: Vec<Link<Op>> = Vec::new();
-                for iterator in list_comprehension.iterables.iter() {
-                    let iterator_node = self.insert_expr(iterator)?;
-                    iterator_nodes.push(iterator_node);
-                }
-
-                let selector_node = if let Some(selector) = &list_comprehension.selector {
-                    self.insert_scalar_expr(selector)?
-                } else {
-                    Link::default()
-                };
-                let body_node = self.insert_scalar_expr(&list_comprehension.body)?;
-
-                let for_node = For::new(iterator_nodes.into(), body_node, selector_node).as_op();
-
-                let enf_node: Link<Op> = Enf::new(for_node.into()).as_op().into();
-
-                match in_boundary {
-                    true => self
-                        .mir
-                        .constraint_graph_mut()
-                        .insert_boundary_constraints_root(enf_node.clone()),
-                    false => {
-                        match parent.borrow_mut().deref_mut() {
-                            Owner::Function(ref mut func) => {
-                                *func = func.clone().edit().body(enf_node.clone()).build();
-                            }
-                            Owner::Evaluator(ref mut evaluator) => {
-                                *evaluator =
-                                    evaluator.clone().edit().body(enf_node.clone()).build();
-                            }
-                            Owner::None => {
-                                // Insert in integrity
-                                self.mir
-                                    .constraint_graph_mut()
-                                    .insert_integrity_constraints_root(enf_node);
-                            }
-                            // Again, I'm not sure what to do with the other types of operations
-                            _ => unreachable!(),
-                        };
-                    }
-                }
-
-                self.bindings.exit();
-                Ok(())
-            }
-        }
-    }
-
-    fn build_let<F>(
-        &mut self,
-        expr: &ast::Let,
-        mut statement_builder: F,
-    ) -> Result<(), CompileError>
-    where
-        F: FnMut(&mut MirBuilder, &ast::Statement) -> Result<(), CompileError>,
-    {
-        let bound = self.insert_expr(&expr.value)?;
-        self.bindings.enter();
-        self.bindings.insert(expr.name, bound);
-        for stmt in expr.body.iter() {
-            statement_builder(self, stmt)?;
-        }
-        self.bindings.exit();
-        Ok(())
-    }
-
-    fn insert_expr(&mut self, expr: &ast::Expr) -> Result<Link<Op>, CompileError> {
-        match expr {
-            ast::Expr::Const(span) => {
-                let node = self.insert_typed_constant(Some(span.span()), span.item.clone());
-                Ok(node)
-            }
-            ast::Expr::Range(range_expr) => {
-                let values = range_expr.to_slice_range();
-                let const_expr = ast::ConstantExpr::Vector(values.map(|v| v as u64).collect());
-                let node = self.insert_typed_constant(Some(range_expr.span()), const_expr);
-                Ok(node)
-            }
-            ast::Expr::Vector(spanned_vec) => {
-                //let span = spanned_vec.span();
-                if spanned_vec.len() == 0 {
-                    return Ok(self.insert_typed_constant(None, ast::ConstantExpr::Vector(vec![])));
-                }
-                match spanned_vec.item[0].ty().unwrap() {
+                    },
                     ast::Type::Felt => {
-                        let mut nodes = vec![];
-                        for value in spanned_vec.iter().cloned() {
-                            let value = value.try_into().unwrap();
-                            nodes.push(self.insert_scalar_expr(&value)?);
-                        }
-                        let node = Vector::new(nodes).as_op().into();
-                        Ok(node)
-                    }
-                    /*ast::Type::Vector(n) => {
-                        let mut nodes = vec![];
-                        for row in spanned_vec.iter().cloned() {
-                            nodes.push(self.insert_expr(&row)?);
-                        }
-                        let node = self.insert_op(Operation::Vector(nodes));
-                        Ok(node)
-                    }*/
-                    ast::Type::Vector(n) => {
-                        let mut nodes = vec![];
-                        for row in spanned_vec.iter().cloned() {
-                            match row {
-                                ast::Expr::Const(const_expr) => {
-                                    self.insert_typed_constant(
-                                        Some(const_expr.span()),
-                                        const_expr.item,
-                                    );
-                                }
-                                // Rework based on Continuous Symbol Access in the MIR ?
-                                ast::Expr::SymbolAccess(access) => {
-                                    let mut cols = vec![];
-                                    for i in 0..n {
-                                        let node = match access.access_type {
-                                            AccessType::Index(i) => {
-                                                let access = ast::ScalarExpr::SymbolAccess(
-                                                    access.access(AccessType::Index(i)).unwrap(),
-                                                );
-                                                self.insert_scalar_expr(&access)?
-                                            }
-                                            AccessType::Default => {
-                                                let access = ast::ScalarExpr::SymbolAccess(
-                                                    access.access(AccessType::Index(i)).unwrap(),
-                                                );
-                                                self.insert_scalar_expr(&access)?
-                                            }
-                                            AccessType::Slice(_range_expr) => todo!(),
-                                            AccessType::Matrix(_, _) => todo!(),
-                                        };
-
-                                        cols.push(node);
-                                    }
-                                    nodes.push(cols);
-                                }
-                                ast::Expr::Vector(ref elems) => {
-                                    let mut cols = vec![];
-                                    for elem in elems.iter().cloned() {
-                                        let elem: ast::ScalarExpr = elem.try_into().unwrap();
-                                        let node = self.insert_scalar_expr(&elem)?;
-                                        cols.push(node);
-                                    }
-                                    nodes.push(cols);
-                                }
-                                _ => unreachable!(),
-                            }
-                        }
-                        let vecs: Vec<Link<Vector>> = nodes
-                            .into_iter()
-                            .map(|cols| Vector::new(cols).into())
-                            .collect();
-                        let node = Matrix::new(vecs).as_op().into();
-                        Ok(node)
-                    }
-                    _ => unreachable!(),
-                }
-            }
-            ast::Expr::Matrix(values) => {
-                let mut rows = Vec::with_capacity(values.len());
-                for vs in values.iter() {
-                    let mut cols = Vec::with_capacity(vs.len());
-                    for value in vs {
-                        cols.push(self.insert_scalar_expr(value)?);
-                    }
-                    let mut vec = Vector::builder().size(cols.len());
-                    for value in cols {
-                        vec = vec.elements(value);
-                    }
-                    rows.push(vec.build().into());
-                }
-                let node = Matrix::new(rows).as_op().into();
-                Ok(node)
-            }
-            ast::Expr::SymbolAccess(access) => {
-                // Should resolve the identifier depending on the scope, and add the access to the graph once it's resolved
-
-                match self.bindings.get(access.name.as_ref()) {
-                    None => {
-                        // Must be a reference to a declaration
-                        let node = self.insert_symbol_access(access);
-                        Ok(node)
-                    }
-                    // Otherwise, this has been added to the bindings (function and list comprehensions params, let expr...)
-                    Some(node) => Ok(node.clone()), /*Some(MemoizedBinding::Vector(nodes)) => {
-                                                        let value = match &access.access_type {
-                                                            AccessType::Default => MemoizedBinding::Vector(nodes.clone()),
-                                                            AccessType::Index(idx) => MemoizedBinding::Scalar(nodes[*idx]),
-                                                            AccessType::Slice(range) => {
-                                                                MemoizedBinding::Vector(nodes[range.to_slice_range()].to_vec())
-                                                            }
-                                                            AccessType::Matrix(_, _) => unreachable!(),
-                                                        };
-                                                        Ok(value)
-                                                    }
-                                                    Some(MemoizedBinding::Matrix(nodes)) => {
-                                                        let value = match &access.access_type {
-                                                            AccessType::Default => MemoizedBinding::Matrix(nodes.clone()),
-                                                            AccessType::Index(idx) => MemoizedBinding::Vector(nodes[*idx].clone()),
-                                                            AccessType::Slice(range) => {
-                                                                MemoizedBinding::Matrix(nodes[range.to_slice_range()].to_vec())
-                                                            }
-                                                            AccessType::Matrix(row, col) => {
-                                                                MemoizedBinding::Scalar(nodes[*row][*col])
-                                                            }
-                                                        };
-                                                        Ok(value)
-                                                    }*/
-                }
-            }
-            ast::Expr::Binary(binary_expr) => self.insert_binary_expr(binary_expr),
-            ast::Expr::Call(call) => {
-                // First, resolve the callee, panic if it's not resolved
-                let resolved_callee = call.callee.resolved().unwrap();
-
-                if call.is_builtin() {
-                    // If it's a fold operator (Sum / Prod), handle it
-                    match call.callee.as_ref().name() {
-                        symbols::Sum => {
-                            assert_eq!(call.args.len(), 1);
-                            let iterator_node =
-                                self.insert_expr(call.args.first().unwrap()).unwrap();
-                            let accumulator_node =
-                                self.insert_typed_constant(None, ast::ConstantExpr::Scalar(0));
-                            let node =
-                                Fold::new(iterator_node, FoldOperator::Add, accumulator_node)
-                                    .as_op()
-                                    .into();
-                            Ok(node)
-                        }
-                        symbols::Prod => {
-                            assert_eq!(call.args.len(), 1);
-                            let iterator_node =
-                                self.insert_expr(call.args.first().unwrap()).unwrap();
-                            let accumulator_node =
-                                self.insert_typed_constant(None, ast::ConstantExpr::Scalar(1));
-                            let node =
-                                Fold::new(iterator_node, FoldOperator::Mul, accumulator_node)
-                                    .as_op()
-                                    .into();
-                            Ok(node)
-                        }
-                        other => unimplemented!("unhandled builtin: {}", other),
-                    }
-                } else {
-                    let args_node: Vec<_> = call
-                        .args
-                        .iter()
-                        .map(|arg| self.insert_expr(arg).unwrap())
-                        .collect();
-
-                    // Get the known callee in the functions hashmap
-                    // Then, get the node index of the function definition
-                    let callee_node = self
-                        .mir
-                        .constraint_graph()
-                        .get_function(&resolved_callee)
-                        .unwrap()
-                        .clone();
-
-                    let call_node = Call::new(callee_node.as_root(), args_node).as_op().into();
-                    Ok(call_node)
-                }
-            }
-            ast::Expr::ListComprehension(list_comprehension) => {
-                self.bindings.enter();
-                for (index, binding) in list_comprehension.bindings.iter().enumerate() {
-                    let binding_node =
-                        Parameter::new(/*binding.span(), */ index, ast::Type::Felt.into()).as_op();
-                    self.bindings.insert(*binding, binding_node.into());
-                }
-
-                let iterator_nodes = Link::new(Vec::new());
-                for iterator in list_comprehension.iterables.iter() {
-                    let iterator_node = self.insert_expr(iterator)?;
-                    iterator_nodes.borrow_mut().push(iterator_node);
-                }
-
-                let selector_node = if let Some(selector) = &list_comprehension.selector {
-                    self.insert_scalar_expr(selector)?
-                } else {
-                    Link::default()
+                        let param = all_params_flatten_for_trace_segment[i].clone();
+                        i += 1;
+                        self.bindings.insert(name.unwrap(), param.clone());
+                    },
+                    _ => unreachable!()
                 };
-                let body_node = self.insert_scalar_expr(&list_comprehension.body)?;
-
-                let for_node = For::new(iterator_nodes, body_node, selector_node)
-                    .as_op()
-                    .into();
-
-                self.bindings.exit();
-                Ok(for_node)
-            }
-            ast::Expr::Let(expr) => self.expand_let_expr(expr),
-        }
-    }
-
-    fn expand_let_expr(&mut self, expr: &ast::Let) -> Result<Link<Op>, CompileError> {
-        let mut next_let = Some(expr);
-        let snapshot = self.bindings.clone();
-        loop {
-            let let_expr = next_let.take().expect("invalid empty let body");
-            let bound = self.insert_expr(&let_expr.value)?;
-            self.bindings.enter();
-            self.bindings.insert(let_expr.name, bound);
-            match let_expr.body.last().unwrap() {
-                ast::Statement::Let(ref inner_let) => {
-                    next_let = Some(inner_let);
-                }
-                ast::Statement::Expr(ref expr) => {
-                    let value = self.insert_expr(expr);
-                    self.bindings = snapshot;
-                    break value;
-                }
-                ast::Statement::Enforce(_)
-                | ast::Statement::EnforceIf(_, _)
-                | ast::Statement::EnforceAll(_) => {
-                    unreachable!()
-                }
             }
         }
+
+        self.translate_body(ident, original_root.clone(), &ast_eval.body)?;
+
+        self.bindings.exit();
+        Ok(original_root)
     }
 
-    fn insert_scalar_expr(&mut self, expr: &ast::ScalarExpr) -> Result<Link<Op>, CompileError> {
-        match expr {
-            ast::ScalarExpr::Const(value) => Ok(Value::builder()
-                .value(SpannedMirValue {
-                    span: value.span(),
-                    value: MirValue::Constant(ConstantValue::Felt(value.item)),
-                })
-                .build()
-                .as_op()
-                .into()),
-            ast::ScalarExpr::SymbolAccess(access) => Ok(self.insert_symbol_access(access)),
-            ast::ScalarExpr::Binary(expr) => self.insert_binary_expr(expr),
-            ast::ScalarExpr::Let(ref let_expr) => {
-                let index = self.expand_let_expr(let_expr)?;
+    fn translate_function_signature(
+        &mut self,
+        ident: &'a ast::QualifiedIdentifier,
+        ast_func: &'a ast::Function,
+    ) -> Result<Link<Root>, CompileError> {
+        let mut params = Vec::new();
 
-                // TODO: Check that the resulting expr is a scalar expr
-                Ok(index)
+        self.root_name = Some(ident);
+        let mut func = Function::builder();
+        let mut i = 0;
+        for (param_ident, ty) in ast_func.params.iter() {
+            let name = Some(param_ident);
+            let param = self.translate_params_fn(ident, name, ty, &mut i)?;
+            params.push(param.clone());
+            func = func.parameters(param.clone());
+        }
+        i += 1;
+        let ret = Parameter::create(i, self.translate_type(&ast_func.return_type));
+        params.push(ret.clone());
+
+        let func = func.return_type(ret).build();
+        set_all_ref_nodes(params.clone(), func.as_owner());
+
+        self.mir
+            .constraint_graph_mut()
+            .insert_function(*ident, func.clone())?;
+
+        Ok(func)
+    }
+
+    fn translate_function(
+        &mut self,
+        ident: &'a ast::QualifiedIdentifier,
+        ast_func: &'a ast::Function,
+    ) -> Result<Link<Root>, CompileError> {
+        
+        let original_root = self.mir
+            .constraint_graph()
+            .get_function_root(ident).unwrap_or_else(||panic!("missing function signature for {:?}\nuse self.translate_function_signature(ident, ast_func) before self.translate_function(ident, ast_func)", ident));
+        let params = original_root.as_function().unwrap().parameters.clone();
+
+        self.bindings.enter();
+        self.root_name = Some(ident);
+        for ((param_ident, _ty), param) in ast_func.params.iter().zip(params) {
+            self.bindings.insert(param_ident, param.clone());
+        }
+        self.translate_body(ident, original_root.clone(), &ast_func.body)?;
+
+        self.bindings.exit();
+        Ok(original_root)
+    }
+
+    fn translate_params_ev(
+        &mut self,
+        _func_ident: &'a ast::QualifiedIdentifier,
+        name: Option<&'a ast::Identifier>,
+        ty: &ast::Type,
+        i: &mut usize,
+    ) -> Result<Vec<Link<Op>>, CompileError> {
+        match ty {
+            ast::Type::Felt => {
+                let param = Parameter::create(*i, MirType::Felt);
+                *i += 1;
+                Ok(vec![param])
             }
-            ast::ScalarExpr::Call(call) => {
-                // First, resolve the callee, panic if it's not resolved
-                let resolved_callee = call.callee.resolved().unwrap();
-
-                if call.is_builtin() {
-                    // If it's a fold operator (Sum / Prod), handle it
-                    match call.callee.as_ref().name() {
-                        symbols::Sum => {
-                            assert_eq!(call.args.len(), 1);
-                            let iterator_node = self.insert_expr(call.args.first().unwrap())?;
-                            let accumulator_node =
-                                self.insert_typed_constant(None, ast::ConstantExpr::Scalar(0));
-                            let node =
-                                Fold::new(iterator_node, FoldOperator::Add, accumulator_node)
-                                    .as_op()
-                                    .into();
-                            Ok(node)
-                        }
-                        symbols::Prod => {
-                            assert_eq!(call.args.len(), 1);
-                            let iterator_node =
-                                self.insert_expr(call.args.first().unwrap()).unwrap();
-                            let accumulator_node =
-                                self.insert_typed_constant(None, ast::ConstantExpr::Scalar(1));
-                            let node =
-                                Fold::new(iterator_node, FoldOperator::Mul, accumulator_node)
-                                    .as_op()
-                                    .into();
-                            Ok(node)
-                        }
-                        other => unimplemented!("unhandled builtin: {}", other),
-                    }
+            ast::Type::Vector(size) => {
+                let mut params = Vec::new();
+                for _ in 0..*size {
+                    let param = Parameter::create(*i, MirType::Felt);
+                    *i += 1;
+                    params.push(param);
+                }
+                Ok(params)
+            }
+            ast::Type::Matrix(_rows, _cols) => {
+                let span = if let Some(name) = name {
+                    name.span()
                 } else {
-                    // If not, check if evaluator or function
-                    let is_pure_function = self
-                        .mir
-                        .constraint_graph()
-                        .get_function(&resolved_callee)
-                        .is_some();
+                    SourceSpan::UNKNOWN
+                };
+                self.diagnostics
+                    .diagnostic(Severity::Bug)
+                    .with_message("matrix parameters not supported")
+                    .with_primary_label(span, "expected this to be a felt or vector")
+                    .emit();
+                Err(CompileError::Failed)
+            }
+        }
+    }
 
-                    if is_pure_function {
-                        let args_node: Vec<_> = call
-                            .args
-                            .iter()
-                            .map(|arg| self.insert_expr(arg).unwrap())
-                            .collect();
-                        let callee_node = self
-                            .mir
-                            .constraint_graph()
-                            .get_function(&resolved_callee)
-                            .unwrap()
-                            .clone();
+    fn translate_params_fn(
+        &mut self,
+        _func_ident: &'a ast::QualifiedIdentifier,
+        name: Option<&'a ast::Identifier>,
+        ty: &ast::Type,
+        i: &mut usize,
+    ) -> Result<Link<Op>, CompileError> {
+        match ty {
+            ast::Type::Felt => {
+                let param = Parameter::create(*i, MirType::Felt);
+                *i += 1;
+                Ok(param)
+            }
+            ast::Type::Vector(size) => {
+                let param = Parameter::create(*i, MirType::Vector(*size));
+                *i += 1;
+                Ok(param)
+            }
+            ast::Type::Matrix(_rows, _cols) => {
+                let span = if let Some(name) = name {
+                    name.span()
+                } else {
+                    SourceSpan::UNKNOWN
+                };
+                self.diagnostics
+                    .diagnostic(Severity::Bug)
+                    .with_message("matrix parameters not supported")
+                    .with_primary_label(span, "expected this to be a felt or vector")
+                    .emit();
+                Err(CompileError::Failed)
+            }
+        }
+    }
 
-                        // We can only check this once all bodies have been inserted
-                        /*match self.mir.constraint_graph().node(&callee_node).op() {
-                            Operation::Definition(_, Some(return_node), _) => {
-                                match self.mir.constraint_graph().node(&return_node).op() {
-                                    Operation::Variable(var) => {
-                                        assert_eq!(
-                                            var.ty,
-                                            MirType::Felt,
-                                            "Call to a function that does not return a scalar value"
-                                        );
-                                    }
-                                    _ => unreachable!(),
-                                }
-                            },
-                            _ => unreachable!(),
-                        };*/
-                        let call_node = Call::new(callee_node.as_root(), args_node).as_op().into();
-                        Ok(call_node)
-                    } else {
-                        let mut args_node = Vec::new();
-
-                        for arg in call.args.iter() {
-                            match arg {
-                                ast::Expr::Vector(spanned_vec) => {
-                                    let mut arg_node = Vec::new();
-                                    for expr in spanned_vec.iter() {
-                                        let expr_node = self.insert_expr(expr).unwrap();
-                                        arg_node.push(expr_node);
-                                    }
-                                    let arg_node = Vector::new(arg_node).as_op().into();
-                                    args_node.push(arg_node);
-                                }
-                                _ => unreachable!(),
-                            }
-                        }
-
-                        let callee_node = self
-                            .mir
-                            .constraint_graph()
-                            .get_evaluator(&resolved_callee)
-                            .unwrap()
-                            .clone();
-
-                        // We can only check this once all bodies have been inserted
-                        /*match self.mir.constraint_graph().node(&callee_node).op() {
-                            Operation::Definition(_, None, _) => {},
-                            op => {
-                                println!("op: {:?}", op);
-                                unreachable!();
-                            },
-                        };*/
-                        let call_node = Call::new(callee_node.as_root(), args_node).as_op().into();
-                        Ok(call_node)
-                    }
+    fn translate_body(
+        &mut self,
+        _ident: &ast::QualifiedIdentifier,
+        func: Link<Root>,
+        body: &'a Vec<ast::Statement>,
+    ) -> Result<Link<Root>, CompileError> {
+        self.root = func.clone();
+        self.bindings.enter();
+        let func = func;
+        for stmt in body {
+            let op = self.translate_statement(stmt)?;
+            //println!("statement: {:#?}", stmt);
+            //println!("op: {:#?}", op);
+            //println!();
+            match func.clone().borrow().deref() {
+                Root::Function(f) => f.body.borrow_mut().push(op.clone()),
+                Root::Evaluator(e) => e.body.borrow_mut().push(op.clone()),
+                Root::None => {
+                    unreachable!("expected function or evaluator, got None")
                 }
-            }
-            ast::ScalarExpr::BoundedSymbolAccess(bsa) => Ok(self.insert_bounded_symbol_access(bsa)),
-        }
-    }
-
-    // Use square and multiply algorithm to expand the exp into a series of multiplications
-    fn expand_exp(&mut self, lhs: Link<Op>, rhs: u64, span: SourceSpan) -> Link<Op> {
-        // 0 -> 1
-        // 1 -> lhs
-        // n (n pair) ->
-        match rhs {
-            0 => self.insert_typed_constant(Some(span), ast::ConstantExpr::Scalar(1)),
-            1 => duplicate_node(lhs.clone()),
-            n if n % 2 == 0 => {
-                let new_lhs = duplicate_node(lhs.clone());
-                let new_rhs = duplicate_node(lhs.clone());
-                let square = Mul::new(new_lhs, new_rhs).as_op().into();
-                self.expand_exp(square, n / 2, span)
-            }
-            n => {
-                let new_lhs = duplicate_node(lhs.clone());
-                let new_rhs = duplicate_node(lhs.clone());
-                let new_lhs_clone = duplicate_node(lhs.clone());
-                let square = Mul::new(new_lhs, new_rhs).as_op().into();
-                let rec: Link<Op> = self.expand_exp(square, (n - 1) / 2, span);
-                Mul::new(new_lhs_clone, rec).as_op().into()
-            }
-        }
-    }
-
-    fn insert_binary_expr(&mut self, expr: &ast::BinaryExpr) -> Result<Link<Op>, CompileError> {
-        if expr.op == ast::BinaryOp::Exp {
-            let lhs = self.insert_scalar_expr(expr.lhs.as_ref())?;
-            let ast::ScalarExpr::Const(rhs) = expr.rhs.as_ref() else {
-                return Err(CompileError::SemanticAnalysis(
-                    SemanticAnalysisError::InvalidExpr(ast::InvalidExprError::NonConstantExponent(
-                        expr.rhs.span(),
-                    )),
-                ));
             };
-            return Ok(self.expand_exp(lhs, rhs.item, expr.span()));
+            self.root = func.clone();
+        }
+        self.bindings.exit();
+        Ok(func)
+    }
+
+    fn translate_type(&mut self, ty: &ast::Type) -> MirType {
+        match ty {
+            ast::Type::Felt => MirType::Felt,
+            ast::Type::Vector(size) => MirType::Vector(*size),
+            ast::Type::Matrix(rows, cols) => MirType::Matrix(*rows, *cols),
+        }
+    }
+
+    fn translate_statement(&mut self, stmt: &'a ast::Statement) -> Result<Link<Op>, CompileError> {
+        match stmt {
+            ast::Statement::Let(let_stmt) => self.translate_let(let_stmt),
+            ast::Statement::Expr(expr) => self.translate_expr(expr),
+            ast::Statement::Enforce(enf) => self.translate_enforce(enf),
+            ast::Statement::EnforceIf(enf, cond) => self.translate_enforce_if(enf, cond),
+            ast::Statement::EnforceAll(list_comp) => self.translate_enforce_all(list_comp),
+        }
+    }
+    fn translate_let(&mut self, let_stmt: &'a ast::Let) -> Result<Link<Op>, CompileError> {
+        let name = &let_stmt.name;
+        let value: Link<Op> = self.translate_expr(&let_stmt.value)?;
+        let mut ret_value = value.clone();
+        self.bindings.enter();
+        self.bindings.insert(name, value.clone());
+        for stmt in let_stmt.body.iter() {
+            ret_value = self.translate_statement(stmt)?;
+        }
+        self.bindings.exit();
+        Ok(ret_value)
+    }
+    fn translate_expr(&mut self, expr: &'a ast::Expr) -> Result<Link<Op>, CompileError> {
+        match expr {
+            ast::Expr::Const(c) => self.translate_spanned_const(c),
+            ast::Expr::Range(r) => self.translate_range(r),
+            ast::Expr::Vector(v) => self.translate_vector_expr(&v.item),
+            ast::Expr::Matrix(m) => self.translate_matrix(m),
+            ast::Expr::SymbolAccess(s) => self.translate_symbol_access(s),
+            ast::Expr::Binary(b) => self.translate_binary_op(b),
+            ast::Expr::Call(c) => self.translate_call(c),
+            ast::Expr::ListComprehension(lc) => self.translate_list_comprehension(lc),
+            ast::Expr::Let(l) => self.translate_let(l),
+        }
+    }
+
+    fn translate_enforce(&mut self, enf: &'a ast::ScalarExpr) -> Result<Link<Op>, CompileError> {
+        let node = self.translate_scalar_expr(enf)?;
+        self.insert_enforce(node)
+    }
+
+    fn translate_enforce_if(
+        &mut self,
+        _enf: &ast::ScalarExpr,
+        _cond: &ast::ScalarExpr,
+    ) -> Result<Link<Op>, CompileError> {
+        unreachable!("all EnforceIf should have been transformed into EnforceAll")
+    }
+
+    fn translate_enforce_all(
+        &mut self,
+        list_comp: &'a ast::ListComprehension,
+    ) -> Result<Link<Op>, CompileError> {
+
+        let mut iterator_nodes: Vec<Link<Op>> = Vec::new();
+        for iterator in list_comp.iterables.iter() {
+            let iterator_node = self.translate_expr(iterator)?;
+            iterator_nodes.push(iterator_node);
         }
 
-        let lhs = self.insert_scalar_expr(expr.lhs.as_ref())?;
-        let rhs = self.insert_scalar_expr(expr.rhs.as_ref())?;
-        Ok(match expr.op {
-            ast::BinaryOp::Add => Add::new(lhs, rhs).as_op().into(),
-            ast::BinaryOp::Sub => Sub::new(lhs, rhs).as_op().into(),
-            ast::BinaryOp::Mul => Mul::new(lhs, rhs).as_op().into(),
-            ast::BinaryOp::Eq => {
-                let sub_node = Sub::new(lhs, rhs).as_op().into();
-                Enf::new(sub_node).as_op().into()
+        let mut params = Vec::new();
+
+        self.bindings.enter();
+        for (index, binding) in list_comp.bindings.iter().enumerate() {
+            let binding_node =
+                Parameter::create(/*binding.span(), */ index, ast::Type::Felt.into());
+            params.push(binding_node.clone());
+            self.bindings.insert(binding, binding_node);
+        }
+
+        let for_node = For::create(iterator_nodes.into(), Op::None.into(), Op::None.into());
+        set_all_ref_nodes(params, for_node.as_owner().unwrap());
+
+        let body_node = self.translate_scalar_expr(&list_comp.body)?;
+        let selector_node = if let Some(selector) = &list_comp.selector {
+            self.translate_scalar_expr(selector)?
+        } else {
+            Link::default()
+        };
+        for_node.as_for_mut().unwrap().expr.borrow_mut().clone_from(&body_node.borrow());
+        for_node.as_for_mut().unwrap().selector.borrow_mut().clone_from(&selector_node.borrow());
+
+        let enf_node: Link<Op> = Enf::create(for_node);
+        let node = self.insert_enforce(enf_node);
+        self.bindings.exit();
+        node
+    }
+
+    fn insert_enforce(&mut self, node: Link<Op>) -> Result<Link<Op>, CompileError> {
+        let node_to_add = if let Op::Enf(_) = node.clone().borrow().deref() {
+            node
+        } else {
+            Enf::builder().expr(node).build()
+        };
+        match self.in_boundary {
+            true => self
+                .mir
+                .constraint_graph_mut()
+                .insert_boundary_constraints_root(node_to_add.clone()),
+            false => {
+                match self.root.borrow().deref() {
+                    /*Root::Function(func) => {
+                        func.body.borrow_mut().push(node_to_add.clone());
+                    }
+                    Root::Evaluator(evaluator) => {
+                        evaluator.body.borrow_mut().push(node_to_add.clone());
+                    }*/
+                    Root::None => {
+                        // Insert in integrity
+                        self.mir
+                            .constraint_graph_mut()
+                            .insert_integrity_constraints_root(node_to_add.clone());
+                    },
+                    _ => {}
+                };
+                /*if parent == Link::new(Owner::default()) {
+                    self.mir
+                        .constraint_graph_mut()
+                        .insert_integrity_constraints_root(node_to_add);
+                }*/
             }
-            _ => unreachable!(),
-        })
+        };
+        Ok(node_to_add)
     }
 
-    fn insert_bounded_symbol_access(&mut self, bsa: &ast::BoundedSymbolAccess) -> Link<Op> {
-        let access_node = self.insert_symbol_access(&bsa.column);
-        Boundary::new(access_node, bsa.boundary).as_op().into()
+    fn translate_spanned_const(
+        &mut self,
+        c: &Span<ast::ConstantExpr>,
+    ) -> Result<Link<Op>, CompileError> {
+        self.translate_const(&c.item)
     }
 
-    // Assumed inlining was done, to update
-    fn insert_symbol_access(&mut self, access: &ast::SymbolAccess) -> Link<Op> {
-        use air_parser::ast::ResolvableIdentifier;
+    fn translate_range(&mut self, range_expr: &ast::RangeExpr) -> Result<Link<Op>, CompileError> {
+        let values = range_expr.to_slice_range();
+        let const_expr = ast::ConstantExpr::Vector(values.map(|v| v as u64).collect());
+        self.translate_const(&const_expr)
+    }
 
+    fn translate_vector_expr(&mut self, v: &'a [ast::Expr]) -> Result<Link<Op>, CompileError> {
+        let mut node = Vector::builder().size(v.len());
+        for value in v.iter() {
+            let value_node = self.translate_expr(value)?;
+            node = node.elements(value_node);
+        }
+        Ok(node.build())
+    }
+
+    fn translate_vector_scalar_expr(
+        &mut self,
+        v: &'a [ast::ScalarExpr],
+    ) -> Result<Link<Op>, CompileError> {
+        let mut node = Vector::builder().size(v.len());
+        for value in v.iter() {
+            let value_node = self.translate_scalar_expr(value)?;
+            node = node.elements(value_node);
+        }
+        Ok(node.build())
+    }
+
+    fn translate_matrix(
+        &mut self,
+        m: &'a Span<Vec<Vec<ast::ScalarExpr>>>,
+    ) -> Result<Link<Op>, CompileError> {
+        let mut node = Matrix::builder().size(m.len());
+        for row in m.iter() {
+            let row_node = self.translate_vector_scalar_expr(row)?;
+            node = node.elements(row_node);
+        }
+        let node = node.build();
+        Ok(node)
+    }
+
+    fn translate_symbol_access(
+        &mut self,
+        access: &ast::SymbolAccess,
+    ) -> Result<Link<Op>, CompileError> {
         match access.name {
             // At this point during compilation, fully-qualified identifiers can only possibly refer
             // to a periodic column, as all functions have been inlined, and constants propagated.
-            ResolvableIdentifier::Resolved(ref qid) => {
-                if let Some(pc) = self.mir.periodic_columns.get(qid).cloned() {
-                    Value::builder()
+            ast::ResolvableIdentifier::Resolved(qual_ident) => {
+                if let Some(pc) = self.mir.periodic_columns.get(&qual_ident).cloned() {
+                    let node = Value::builder()
                         .value(SpannedMirValue {
-                            span: qid.span(),
-                            value: MirValue::PeriodicColumn(PeriodicColumnAccess::new(
-                                *qid,
+                            span: Default::default(),
+                            value: MirValue::PeriodicColumn(crate::ir::PeriodicColumnAccess::new(
+                                qual_ident,
                                 pc.period(),
                             )),
                         })
-                        .build()
-                        .as_op()
-                        .into()
+                        .build();
+                    Ok(node)
                 } else {
                     // This is a qualified reference that should have been eliminated
                     // during inlining or constant propagation, but somehow slipped through.
                     unreachable!(
                         "expected reference to periodic column, got `{:?}` instead",
-                        qid
+                        qual_ident
                     );
                 }
             }
             // This must be one of public inputs, random values, or trace columns
-            ResolvableIdentifier::Global(id) | ResolvableIdentifier::Local(id) => {
-                // Special identifiers are those which are `$`-prefixed, and must refer to
-                // the random values array (generally the case), or the names of trace segments (e.g. `$main`)
-                if id.is_special() {
-                    if let Some(rv) = self.random_value_access(access) {
-                        return Value::builder()
-                            .value(SpannedMirValue {
-                                span: id.span(),
-                                value: MirValue::RandomValue(rv),
-                            })
-                            .build()
-                            .as_op()
-                            .into();
-                    }
-
-                    if let Some(tab) = self.trace_access_binding(access) {
-                        return Value::builder()
-                            .value(SpannedMirValue {
-                                span: id.span(),
-                                value: MirValue::TraceAccessBinding(tab),
-                            })
-                            .build()
-                            .as_op()
-                            .into();
-                    }
-
-                    // Must be a trace segment name
-                    if let Some(ta) = self.trace_access(access) {
-                        return Value::builder()
-                            .value(SpannedMirValue {
-                                span: id.span(),
-                                value: MirValue::TraceAccess(ta),
-                            })
-                            .build()
-                            .as_op()
-                            .into();
-                    }
-
-                    // It should never be possible to reach this point - semantic analysis
-                    // would have caught that this identifier is undefined.
-                    unreachable!(
-                        "expected reference to random values array or trace segment: {:#?}",
-                        access
-                    );
-                }
-
-                // Otherwise, we check the trace bindings, random value bindings, and public inputs, in that order
-                if let Some(tab) = self.trace_access_binding(access) {
-                    return Value::builder()
-                        .value(SpannedMirValue {
-                            span: id.span(),
-                            value: MirValue::TraceAccessBinding(tab),
-                        })
-                        .build()
-                        .as_op()
-                        .into();
-                }
-
-                if let Some(trace_access) = self.trace_access(access) {
-                    return Value::builder()
-                        .value(SpannedMirValue {
-                            span: id.span(),
-                            value: MirValue::TraceAccess(trace_access),
-                        })
-                        .build()
-                        .as_op()
-                        .into();
-                }
-
-                if let Some(random_value) = self.random_value_access(access) {
-                    return Value::builder()
-                        .value(SpannedMirValue {
-                            span: id.span(),
-                            value: MirValue::RandomValue(random_value),
-                        })
-                        .build()
-                        .as_op()
-                        .into();
-                }
-
-                if let Some(public_input) = self.public_input_access(access) {
-                    return Value::builder()
-                        .value(SpannedMirValue {
-                            span: id.span(),
-                            value: MirValue::PublicInput(public_input),
-                        })
-                        .build()
-                        .as_op()
-                        .into();
-                }
-
-                // If we reach here, this must be a let-bound variable
-                let let_bound_access_expr = self
-                    .bindings
-                    .get(access.name.as_ref())
-                    .expect("undefined variable")
-                    .clone();
-                let let_bound_access_expr_duplicated = duplicate_node(let_bound_access_expr);
-                Accessor::new(let_bound_access_expr_duplicated, access.access_type.clone())
-                    .as_op()
-                    .into()
+            ast::ResolvableIdentifier::Global(ident) | ast::ResolvableIdentifier::Local(ident) => {
+                self.translate_symbol_access_global_or_local(&ident, access)
             }
             // These should have been eliminated by previous compiler passes
-            ResolvableIdentifier::Unresolved(_) => {
+            ast::ResolvableIdentifier::Unresolved(_ident) => {
                 unreachable!(
                     "expected fully-qualified or global reference, got `{:?}` instead",
                     &access.name
                 );
             }
+        }
+    }
+
+    fn translate_binary_op(
+        &mut self,
+        bin_op: &'a ast::BinaryExpr,
+    ) -> Result<Link<Op>, CompileError> {
+        let lhs = self.translate_scalar_expr(&bin_op.lhs)?;
+        let rhs = self.translate_scalar_expr(&bin_op.rhs)?;
+        match bin_op.op {
+            ast::BinaryOp::Add => {
+                let node = Add::builder().lhs(lhs).rhs(rhs).build();
+                Ok(node)
+            }
+            ast::BinaryOp::Sub => {
+                let node = Sub::builder().lhs(lhs).rhs(rhs).build();
+                Ok(node)
+            }
+            ast::BinaryOp::Mul => {
+                let node = Mul::builder().lhs(lhs).rhs(rhs).build();
+                Ok(node)
+            }
+            ast::BinaryOp::Exp => {
+                let ast::ScalarExpr::Const(rhs) = bin_op.rhs.as_ref() else {
+                    return Err(CompileError::SemanticAnalysis(
+                        SemanticAnalysisError::InvalidExpr(
+                            ast::InvalidExprError::NonConstantExponent(bin_op.rhs.span()),
+                        ),
+                    ));
+                };
+                self.expand_exp(lhs, rhs.item)
+            }
+            ast::BinaryOp::Eq => {
+                let sub_node = Sub::builder().lhs(lhs).rhs(rhs).build();
+                Ok(Enf::builder().expr(sub_node).build())
+            }
+        }
+    }
+
+    fn translate_call(&mut self, call: &'a ast::Call) -> Result<Link<Op>, CompileError> {
+        //println!("CALL ARGS: {:#?}", call);
+
+        // First, resolve the callee, panic if it's not resolved
+        let resolved_callee = call.callee.resolved().unwrap();
+
+        if call.is_builtin() {
+            // If it's a fold operator (Sum / Prod), handle it
+            match call.callee.as_ref().name() {
+                symbols::Sum => {
+                    assert_eq!(call.args.len(), 1);
+                    let iterator_node = self.translate_expr(call.args.first().unwrap())?;
+                    let accumulator_node = self.translate_const(&ast::ConstantExpr::Scalar(0))?;
+                    let node = Fold::builder()
+                        .iterator(iterator_node)
+                        .operator(FoldOperator::Add)
+                        .initial_value(accumulator_node)
+                        .build();
+                    Ok(node)
+                }
+                symbols::Prod => {
+                    assert_eq!(call.args.len(), 1);
+                    let iterator_node = self.translate_expr(call.args.first().unwrap())?;
+                    let accumulator_node = self.translate_const(&ast::ConstantExpr::Scalar(1))?;
+                    let node = Fold::builder()
+                        .iterator(iterator_node)
+                        .operator(FoldOperator::Mul)
+                        .initial_value(accumulator_node)
+                        .build();
+                    Ok(node)
+                }
+                other => unimplemented!("unhandled builtin: {}", other),
+            }
+        } else {
+            let mut arg_nodes: Vec<Link<Op>>;
+
+            // Get the known callee in the functions hashmap
+            // Then, get the node index of the function definition
+            let callee_node;
+            if let Some(callee) = self
+                .mir
+                .constraint_graph()
+                .get_function_root(&resolved_callee)
+            {
+                callee_node = callee.clone();
+                arg_nodes = call
+                    .args
+                    .iter()
+                    .map(|arg| self.translate_expr(arg).unwrap())
+                    .collect();
+                // safe to unwrap because we know it is a Function due to get_function
+                let callee_ref = callee.as_function().unwrap();
+                if callee_ref.parameters.len() != arg_nodes.len() {
+                    self.diagnostics
+                        .diagnostic(Severity::Error)
+                        .with_message("argument count mismatch")
+                        .with_primary_label(
+                            call.span(),
+                            format!(
+                                "expected call to have {} arguments, but got {}",
+                                callee_ref.parameters.len(),
+                                arg_nodes.len()
+                            ),
+                        )
+                        .with_secondary_label(
+                            call.callee.span(),
+                            format!(
+                                "this functions has {} parameters",
+                                callee_ref.parameters.len()
+                            ),
+                        )
+                        .emit();
+                    return Err(CompileError::Failed);
+                }
+            } else if let Some(callee) = self
+                .mir
+                .constraint_graph()
+                .get_evaluator_root(&resolved_callee)
+            {
+                // TRANSLATE TODO:
+                // - For Evaluators, we need to:
+                // - differentiate between trace segments
+                // - unpack arguments for each trace segment (entirely flatten)
+                callee_node = callee.clone();
+                arg_nodes = Vec::new();
+                for arg in call.args.iter() {
+                    let arg_node = self.translate_expr(arg)?;
+                    arg_nodes.push(arg_node);
+                }
+                // safe to unwrap because we know it is an Evaluator due to get_evaluator
+                let callee_ref = callee.as_evaluator().unwrap();
+                if callee_ref.parameters.len() != arg_nodes.len() {
+                    self.diagnostics
+                        .diagnostic(Severity::Error)
+                        .with_message("argument count mismatch")
+                        .with_primary_label(
+                            call.span(),
+                            format!(
+                                "expected call to have {} trace segments, but got {}",
+                                callee_ref.parameters.len(),
+                                arg_nodes.len()
+                            ),
+                        )
+                        .with_secondary_label(
+                            call.callee.span(),
+                            format!(
+                                "this function has {} trace segments",
+                                callee_ref.parameters.len()
+                            ),
+                        )
+                        .emit();
+                    return Err(CompileError::Failed);
+                }
+            } else {
+                panic!("Unknown function or evaluator: {:?}", resolved_callee);
+            }
+            let mut call_node = Call::builder().function(callee_node);
+            for arg in arg_nodes {
+                call_node = call_node.arguments(arg);
+            }
+            let call_node = call_node.build();
+            Ok(call_node)
+        }
+    }
+
+    fn translate_list_comprehension(
+        &mut self,
+        list_comp: &'a ast::ListComprehension,
+    ) -> Result<Link<Op>, CompileError> {
+
+        let iterator_nodes = Link::new(Vec::new());
+        for iterator in list_comp.iterables.iter() {
+            let iterator_node = self.translate_expr(iterator)?;
+            iterator_nodes.borrow_mut().push(iterator_node);
+        }
+
+        self.bindings.enter();
+        let mut params = Vec::new();
+        for (index, binding) in list_comp.bindings.iter().enumerate() {
+            let binding_node =
+                Parameter::create(/*binding.span(), */ index, ast::Type::Felt.into());
+            params.push(binding_node.clone());
+            self.bindings.insert(binding, binding_node);
+        }
+        
+        let for_node = For::create(iterator_nodes, Op::None.into(), Op::None.into());
+        set_all_ref_nodes(params, for_node.as_owner().unwrap());
+
+        let selector_node = if let Some(selector) = &list_comp.selector {
+            self.translate_scalar_expr(selector)?
+        } else {
+            Link::default()
+        };
+        let body_node = self.translate_scalar_expr(&list_comp.body)?;
+
+        for_node.as_for_mut().unwrap().expr.borrow_mut().clone_from(&body_node.borrow());
+        for_node.as_for_mut().unwrap().selector.borrow_mut().clone_from(&selector_node.borrow());
+
+        self.bindings.exit();
+        Ok(for_node)
+    }
+
+    fn translate_scalar_expr(
+        &mut self,
+        scalar_expr: &'a ast::ScalarExpr,
+    ) -> Result<Link<Op>, CompileError> {
+        match scalar_expr {
+            ast::ScalarExpr::Const(c) => self.translate_scalar_const(c.item),
+            ast::ScalarExpr::SymbolAccess(s) => self.translate_symbol_access(s),
+            ast::ScalarExpr::BoundedSymbolAccess(s) => self.translate_bounded_symbol_access(s),
+            ast::ScalarExpr::Binary(b) => self.translate_binary_op(b),
+            ast::ScalarExpr::Call(c) => self.translate_call(c),
+            ast::ScalarExpr::Let(l) => self.translate_let(l),
+        }
+    }
+
+    fn translate_scalar_const(&mut self, c: u64) -> Result<Link<Op>, CompileError> {
+        let value = SpannedMirValue {
+            value: MirValue::Constant(ConstantValue::Felt(c)),
+            span: Default::default(),
+        };
+        let node = Value::builder().value(value).build();
+        Ok(node)
+    }
+
+    fn translate_bounded_symbol_access(
+        &mut self,
+        access: &ast::BoundedSymbolAccess,
+    ) -> Result<Link<Op>, CompileError> {
+        let access_node = self.translate_symbol_access(&access.column)?;
+        let node = Boundary::builder()
+            .kind(access.boundary)
+            .expr(access_node)
+            .build();
+        Ok(node)
+    }
+
+    fn translate_const(&mut self, c: &ast::ConstantExpr) -> Result<Link<Op>, CompileError> {
+        match c {
+            ast::ConstantExpr::Scalar(s) => self.translate_scalar_const(*s),
+            ast::ConstantExpr::Vector(v) => self.translate_vector_const(v.clone()),
+            ast::ConstantExpr::Matrix(m) => self.translate_matrix_const(m.clone()),
+        }
+    }
+
+    fn translate_vector_const(&mut self, v: Vec<u64>) -> Result<Link<Op>, CompileError> {
+        let mut node = Vector::builder().size(v.len());
+        for value in v.iter() {
+            let value_node = self.translate_scalar_const(*value)?;
+            node = node.elements(value_node);
+        }
+        Ok(node.build())
+    }
+
+    fn translate_matrix_const(&mut self, m: Vec<Vec<u64>>) -> Result<Link<Op>, CompileError> {
+        let mut node = Matrix::builder().size(m.len());
+        for row in m.iter() {
+            let row_node = self.translate_vector_const(row.clone())?;
+            node = node.elements(row_node);
+        }
+        let node = node.build();
+        Ok(node)
+    }
+
+    fn translate_symbol_access_global_or_local(
+        &mut self,
+        ident: &ast::Identifier,
+        access: &ast::SymbolAccess,
+    ) -> Result<Link<Op>, CompileError> {
+        // Special identifiers are those which are `$`-prefixed, and must refer to
+        // the random values array (generally the case), or the names of trace segments (e.g. `$main`)
+        if ident.is_special() {
+            if let Some(rv) = self.random_value_access(access) {
+                return Ok(Value::builder()
+                    .value(SpannedMirValue {
+                        span: Default::default(),
+                        value: MirValue::RandomValue(rv),
+                    })
+                    .build());
+            }
+
+            if let Some(tab) = self.trace_access_binding(access) {
+                return Ok(Value::builder()
+                    .value(SpannedMirValue {
+                        span: Default::default(),
+                        value: MirValue::TraceAccessBinding(tab),
+                    })
+                    .build());
+            }
+
+            // Must be a trace segment name
+            if let Some(ta) = self.trace_access(access) {
+                return Ok(Value::builder()
+                    .value(SpannedMirValue {
+                        span: Default::default(),
+                        value: MirValue::TraceAccess(ta),
+                    })
+                    .build());
+            }
+
+            // It should never be possible to reach this point - semantic analysis
+            // would have caught that this identifier is undefined.
+            unreachable!(
+                "expected reference to random values array or trace segment: {:#?}",
+                access
+            );
+        }
+
+        //    // If we reach here, this must be a let-bound variable
+        if let Some(let_bound_access_expr) = self.bindings.get(access.name.as_ref()).cloned() {
+            match access.access_type {
+                AccessType::Default => {
+                    return Ok(duplicate_node(
+                        let_bound_access_expr,
+                        &mut Default::default(),
+                    ))
+                }
+                _ => {
+                    let accessor: Link<Op> = Accessor::create(
+                        duplicate_node(let_bound_access_expr, &mut Default::default()),
+                        access.access_type.clone(),
+                    );
+                    return Ok(accessor);
+                }
+            }
+        }
+
+        // Otherwise, we check bindings, trace bindings, random value bindings, and public inputs, in that order
+        if let Some(tab) = self.trace_access_binding(access) {
+            return Ok(Value::builder()
+                .value(SpannedMirValue {
+                    span: Default::default(),
+                    value: MirValue::TraceAccessBinding(tab),
+                })
+                .build());
+        }
+
+        if let Some(trace_access) = self.trace_access(access) {
+            return Ok(Value::builder()
+                .value(SpannedMirValue {
+                    span: Default::default(),
+                    value: MirValue::TraceAccess(trace_access),
+                })
+                .build());
+        }
+
+        if let Some(random_value) = self.random_value_access(access) {
+            return Ok(Value::builder()
+                .value(SpannedMirValue {
+                    span: Default::default(),
+                    value: MirValue::RandomValue(random_value),
+                })
+                .build());
+        }
+
+        if let Some(public_input) = self.public_input_access(access) {
+            return Ok(Value::builder()
+                .value(SpannedMirValue {
+                    span: Default::default(),
+                    value: MirValue::PublicInput(public_input),
+                })
+                .build());
+        }
+
+        panic!("undefined variable: {:?}", access);
+    }
+
+    // Check assumptions, probably this assumed that the inlining pass did some work
+    fn public_input_access(&self, access: &ast::SymbolAccess) -> Option<PublicInputAccess> {
+        let public_input = self.mir.public_inputs.get(access.name.as_ref())?;
+        if let AccessType::Index(index) = access.access_type {
+            Some(PublicInputAccess::new(public_input.name, index))
+        } else {
+            // This should have been caught earlier during compilation
+            unreachable!(
+                "unexpected public input access type encountered during lowering: {:#?}",
+                access
+            )
         }
     }
 
@@ -973,20 +979,6 @@ impl<'a> MirBuilder<'a> {
     }
 
     // Check assumptions, probably this assumed that the inlining pass did some work
-    fn public_input_access(&self, access: &ast::SymbolAccess) -> Option<PublicInputAccess> {
-        let public_input = self.mir.public_inputs.get(access.name.as_ref())?;
-        if let AccessType::Index(index) = access.access_type {
-            Some(PublicInputAccess::new(public_input.name, index))
-        } else {
-            // This should have been caught earlier during compilation
-            unreachable!(
-                "unexpected public input access type encountered during lowering: {:#?}",
-                access
-            )
-        }
-    }
-
-    // Check assumptions, probably this assumed that the inlining pass did some work
     fn trace_access_binding(&self, access: &ast::SymbolAccess) -> Option<TraceAccessBinding> {
         let id = access.name.as_ref();
         for segment in self.trace_columns.iter() {
@@ -1010,7 +1002,6 @@ impl<'a> MirBuilder<'a> {
                 };
             }
         }
-
         None
     }
 
@@ -1054,296 +1045,41 @@ impl<'a> MirBuilder<'a> {
                 };
             }
         }
-
         None
     }
 
-    /*/// Adds the specified operation to the graph and returns the index of its node.
-    #[inline]
-    fn insert_op(&mut self, op: Operation) -> Link<NodeType> {
-        self.mir.constraint_graph_mut().insert_node(op)
-    }*/
-
-    fn insert_typed_constant(
-        &mut self,
-        span: Option<SourceSpan>,
-        value: ast::ConstantExpr,
-    ) -> Link<Op> {
-        let mir_value = match value {
-            ast::ConstantExpr::Scalar(val) => ConstantValue::Felt(val),
-            ast::ConstantExpr::Vector(val) => ConstantValue::Vector(val),
-            ast::ConstantExpr::Matrix(val) => ConstantValue::Matrix(val),
-        };
-        Value::builder()
-            .value(SpannedMirValue {
-                span: span.unwrap_or_default(),
-                value: MirValue::Constant(mir_value),
-            })
-            .build()
-            .as_op()
-            .into()
+    // Use square and multiply algorithm to expand the exp into a series of multiplications
+    fn expand_exp(&mut self, lhs: Link<Op>, rhs: u64) -> Result<Link<Op>, CompileError> {
+        // 0 -> 1
+        // 1 -> lhs
+        // n (n pair) ->
+        match rhs {
+            0 => self.translate_const(&ast::ConstantExpr::Scalar(1)),
+            1 => Ok(duplicate_node(lhs.clone(), &mut Default::default())),
+            n if n % 2 == 0 => {
+                let new_lhs = duplicate_node(lhs.clone(), &mut Default::default());
+                let new_rhs = duplicate_node(lhs.clone(), &mut Default::default());
+                let square = Mul::create(new_lhs, new_rhs);
+                self.expand_exp(square, n / 2)
+            }
+            n => {
+                let new_lhs = duplicate_node(lhs.clone(), &mut Default::default());
+                let new_rhs = duplicate_node(lhs.clone(), &mut Default::default());
+                let new_lhs_clone = duplicate_node(lhs.clone(), &mut Default::default());
+                let square = Mul::create(new_lhs, new_rhs);
+                let rec: Link<Op> = self.expand_exp(square, (n - 1) / 2)?;
+                let node = Mul::builder().lhs(new_lhs_clone).rhs(rec).build();
+                Ok(node)
+            }
+        }
     }
 }
 
-// struct MirBuilder<'a> {
-//     #[allow(unused)]
-//     diagnostics: &'a DiagnosticsHandler,
-//     mir: &'a mut Mir,
-//     random_values: Option<ast::RandomValues>,
-//     trace_columns: Vec<ast::TraceSegment>,
-//     bindings: LexicalScope<Identifier, Link<Op>>,
-// }
-
-// impl<'a> MirBuilder<'a> {
-//     fn insert_evaluator_function_body(
-//         &mut self,
-//         ident: &QualifiedIdentifier,
-//         func: &ast::EvaluatorFunction,
-//     ) -> Result<(), CompileError> {
-//         eprintln!("insert_evaluator_function_body({:?}, {:?})", ident, func);
-//         todo!()
-//     }
-//     fn insert_function_body(
-//         &mut self,
-//         ident: &QualifiedIdentifier,
-//         func: &ast::Function,
-//     ) -> Result<(), CompileError> {
-//         eprintln!("insert_function_body({:?}, {:?})", ident, func);
-//         todo!()
-//     }
-//     fn build_boundary_constraint(&mut self, bc: &ast::Statement) -> Result<(), CompileError> {
-//         eprintln!("build_boundary_constraint({:?})", bc);
-//         let expr = self.build_statement(bc)?;
-//         eprintln!("expr: {:?}", expr);
-//         todo!();
-//     }
-//     fn build_integrity_constraint(&mut self, ic: &ast::Statement) -> Result<(), CompileError> {
-//         eprintln!("build_integrity_constraint({:?})", ic);
-//         let expr = self.build_statement(ic)?;
-//         eprintln!("expr: {:?}", expr);
-//         todo!();
-//     }
-//     fn build_statement(&mut self, stmt: &ast::Statement) -> Result<Link<Op>, CompileError> {
-//         eprintln!("build_expr({:?})", stmt);
-//         match stmt {
-//             ast::Statement::Let(expr) => self.build_let(expr),
-//             ast::Statement::Expr(expr) => self.build_expr(expr),
-//             ast::Statement::Enforce(expr) => self.build_enforce(expr),
-//             ast::Statement::EnforceIf(expr, cond) => self.build_enforce_if(expr, cond),
-//             ast::Statement::EnforceAll(expr) => self.build_enforce_all(expr),
-//         }
-//     }
-//     fn build_let(&mut self, expr: &ast::Let) -> Result<Link<Op>, CompileError> {
-//         eprintln!("build_let({:?})", expr);
-//         todo!()
-//     }
-//     fn build_expr(&mut self, expr: &ast::Expr) -> Result<Link<Op>, CompileError> {
-//         eprintln!("build_expr({:?})", expr);
-//         todo!()
-//     }
-//     fn build_enforce(&mut self, expr: &ast::ScalarExpr) -> Result<Link<Op>, CompileError> {
-//         eprintln!("build_enforce({:?})", expr);
-//         match expr {
-//             ast::ScalarExpr::Const(spanned_u64) => self.build_const(spanned_u64.item),
-//             ast::ScalarExpr::SymbolAccess(symbol_access) => self.build_symbol_access(symbol_access),
-//             ast::ScalarExpr::BoundedSymbolAccess(bounded_symbol_access) => {
-//                 self.build_bounded_symbol_access(bounded_symbol_access)
-//             }
-//             ast::ScalarExpr::Binary(binary_expr) => self.build_binary_expr(binary_expr),
-//             ast::ScalarExpr::Call(call) => self.build_call(call),
-//             ast::ScalarExpr::Let(let_expr) => self.build_let(&let_expr),
-//         }
-//     }
-//     fn build_enforce_if(
-//         &mut self,
-//         expr: &ast::ScalarExpr,
-//         cond: &ast::ScalarExpr,
-//     ) -> Result<Link<Op>, CompileError> {
-//         eprintln!("build_enforce_if({:?}, {:?})", expr, cond);
-//         todo!()
-//     }
-//     fn build_enforce_all(
-//         &mut self,
-//         expr: &ast::ListComprehension,
-//     ) -> Result<Link<Op>, CompileError> {
-//         eprintln!("build_enforce_all({:?})", expr);
-//         todo!()
-//     }
-//     fn build_const(&mut self, value: u64) -> Result<Link<Op>, CompileError> {
-//         eprintln!("build_const({:?})", value);
-//         todo!()
-//     }
-//     fn build_symbol_access(
-//         &mut self,
-//         symbol_access: &ast::SymbolAccess,
-//     ) -> Result<Link<Op>, CompileError> {
-//         eprintln!("build_symbol_access({:?})", symbol_access);
-//         todo!()
-//     }
-//     fn build_bounded_symbol_access(
-//         &mut self,
-//         bounded_symbol_access: &ast::BoundedSymbolAccess,
-//     ) -> Result<Link<Op>, CompileError> {
-//         eprintln!("build_bounded_symbol_access({:?})", bounded_symbol_access);
-//
-//         use air_parser::ast::ResolvableIdentifier;
-//         let access = bounded_symbol_access.column;
-//
-//         match access.name {
-//             // At this point during compilation, fully-qualified identifiers can only possibly refer
-//             // to a periodic column, as all functions have been inlined, and constants propagated.
-//             ResolvableIdentifier::Resolved(ref qid) => {
-//                 if let Some(pc) = self.mir.periodic_columns.get(qid).cloned() {
-//                     SpannedMirValue {
-//                         span: qid.span(),
-//                         value: MirValue::PeriodicColumn(PeriodicColumnAccess::new(
-//                             *qid,
-//                             pc.period(),
-//                         )),
-//                     }
-//                     .into()
-//                 } else {
-//                     // This is a qualified reference that should have been eliminated
-//                     // during inlining or constant propagation, but somehow slipped through.
-//                     unreachable!(
-//                         "expected reference to periodic column, got `{:?}` instead",
-//                         qid
-//                     );
-//                 }
-//             }
-//             // This must be one of public inputs, random values, or trace columns
-//             ResolvableIdentifier::Global(id) | ResolvableIdentifier::Local(id) => {
-//                 // Special identifiers are those which are `$`-prefixed, and must refer to
-//                 // the random values array (generally the case), or the names of trace segments (e.g. `$main`)
-//                 if id.is_special() {
-//                     if let Some(rv) = self.random_value_access(access) {
-//                         return SpannedMirValue {
-//                             span: id.span(),
-//                             value: MirValue::RandomValue(rv),
-//                         }
-//                         .into();
-//                     }
-//
-//                     if let Some(tab) = self.trace_access_binding(access) {
-//                         return SpannedMirValue {
-//                             span: id.span(),
-//                             value: MirValue::TraceAccessBinding(tab),
-//                         }
-//                         .into();
-//                     }
-//
-//                     // Must be a trace segment name
-//                     if let Some(ta) = self.trace_access(access) {
-//                         return SpannedMirValue {
-//                             span: id.span(),
-//                             value: MirValue::TraceAccess(ta),
-//                         }
-//                         .into();
-//                     }
-//
-//                     // It should never be possible to reach this point - semantic analysis
-//                     // would have caught that this identifier is undefined.
-//                     unreachable!(
-//                         "expected reference to random values array or trace segment: {:#?}",
-//                         access
-//                     );
-//                 }
-//
-//                 // Otherwise, we check the trace bindings, random value bindings, and public inputs, in that order
-//                 if let Some(tab) = self.trace_access_binding(access) {
-//                     return SpannedMirValue {
-//                         span: id.span(),
-//                         value: MirValue::TraceAccessBinding(tab),
-//                     }
-//                     .into();
-//                 }
-//
-//                 if let Some(trace_access) = self.trace_access(access) {
-//                     return SpannedMirValue {
-//                         span: id.span(),
-//                         value: MirValue::TraceAccess(trace_access),
-//                     }
-//                     .into();
-//                 }
-//
-//                 if let Some(random_value) = self.random_value_access(access) {
-//                     return SpannedMirValue {
-//                         span: id.span(),
-//                         value: MirValue::RandomValue(random_value),
-//                     }
-//                     .into();
-//                 }
-//
-//                 if let Some(public_input) = self.public_input_access(access) {
-//                     return SpannedMirValue {
-//                         span: id.span(),
-//                         value: MirValue::PublicInput(public_input),
-//                     }
-//                     .into();
-//                 }
-//
-//                 // If we reach here, this must be a let-bound variable
-//                 let let_bound_access_expr = self
-//                     .bindings
-//                     .get(access.name.as_ref())
-//                     .expect("undefined variable")
-//                     .clone();
-//                 let let_bound_access_expr_duplicated = duplicate_node(let_bound_access_expr);
-//                 return Accessor::new(let_bound_access_expr_duplicated, access.access_type);
-//             }
-//             // These should have been eliminated by previous compiler passes
-//             ResolvableIdentifier::Unresolved(_) => {
-//                 unreachable!(
-//                     "expected fully-qualified or global reference, got `{:?}` instead",
-//                     &access.name
-//                 );
-//             }
-//         }
-//     }
-//     fn build_binary_expr(
-//         &mut self,
-//         binary_expr: &ast::BinaryExpr,
-//     ) -> Result<Link<Op>, CompileError> {
-//         eprintln!("build_binary_expr({:?})", binary_expr);
-//         match binary_expr.op {
-//             ast::BinaryOp::Add => Ok(Add::builder()
-//                 .lhs(self.build_enforce(&binary_expr.lhs)?)
-//                 .rhs(self.build_enforce(&binary_expr.rhs)?)
-//                 .build()
-//                 .as_op()
-//                 .into()),
-//             ast::BinaryOp::Sub => Ok(Sub::builder()
-//                 .lhs(self.build_enforce(&binary_expr.lhs)?)
-//                 .rhs(self.build_enforce(&binary_expr.rhs)?)
-//                 .build()
-//                 .as_op()
-//                 .into()),
-//             ast::BinaryOp::Mul => Ok(Mul::builder()
-//                 .lhs(self.build_enforce(&binary_expr.lhs)?)
-//                 .rhs(self.build_enforce(&binary_expr.rhs)?)
-//                 .build()
-//                 .as_op()
-//                 .into()),
-//             ast::BinaryOp::Exp => self.build_pow(binary_expr),
-//             ast::BinaryOp::Eq => Ok(Enf::builder()
-//                 .expr(
-//                     Sub::builder()
-//                         .lhs(self.build_enforce(&binary_expr.lhs)?)
-//                         .rhs(self.build_enforce(&binary_expr.rhs)?)
-//                         .build()
-//                         .as_op(),
-//                 )
-//                 .build()
-//                 .as_op()
-//                 .into()),
-//         }
-//     }
-//     fn build_call(&mut self, call: &ast::Call) -> Result<Link<Op>, CompileError> {
-//         eprintln!("build_call({:?})", call);
-//         todo!()
-//     }
-//     fn build_pow(&mut self, binary_expr: &ast::BinaryExpr) -> Result<Link<Op>, CompileError> {
-//         eprintln!("build_pow({:?})", binary_expr);
-//         todo!()
-//     }
-// }
+fn set_all_ref_nodes(params: Vec<Link<Op>>, ref_node: Link<Owner>) {
+    for param in params {
+        let Some(mut param) = param.as_parameter_mut() else {
+            unreachable!("expected parameter, got {:?}", param);
+        };
+        param.set_ref_node(ref_node.clone());
+    }
+}

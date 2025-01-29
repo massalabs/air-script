@@ -1,200 +1,251 @@
-use crate::ir::{
-    Accessor, Add, Boundary, Call, Enf, Evaluator, Fold, For, Function, If, Matrix, Mul, Op, Sub,
-    Vector,
-};
+use std::{ops::Deref, rc::Rc};
 
-use super::{Link, Node};
+use crate::ir::{BackLink, Child, Link, Op, Parent, Root};
 
 /// The nodes that can own Op nodes
-#[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
+#[derive(Default, Clone, Eq, Debug)]
 pub enum Owner {
-    Function(Function),
-    Evaluator(Evaluator),
-    Enf(Enf),
-    Boundary(Boundary),
-    Add(Add),
-    Sub(Sub),
-    Mul(Mul),
-    If(If),
-    For(For),
-    Call(Call),
-    Fold(Fold),
-    Vector(Vector),
-    Matrix(Matrix),
-    Accessor(Accessor),
+    Function(BackLink<Root>),
+    Evaluator(BackLink<Root>),
+    Accessor(BackLink<Op>),
+    Boundary(BackLink<Op>),
+    Vector(BackLink<Op>),
+    Matrix(BackLink<Op>),
+    Call(BackLink<Op>),
+    Fold(BackLink<Op>),
+    Add(BackLink<Op>),
+    Sub(BackLink<Op>),
+    Mul(BackLink<Op>),
+    Enf(BackLink<Op>),
+    For(BackLink<Op>),
+    If(BackLink<Op>),
     #[default]
     None,
 }
 
-impl Owner {
-    pub fn as_function(self) -> Option<Function> {
+impl Parent for Owner {
+    type Child = Op;
+    fn children(&self) -> Link<Vec<Link<Self::Child>>> {
         match self {
-            Owner::Function(f) => Some(f),
-            _ => None,
+            Owner::Function(f) => f.children(),
+            Owner::Evaluator(e) => e.children(),
+            Owner::Enf(e) => e.children(),
+            Owner::Boundary(b) => b.children(),
+            Owner::Add(a) => a.children(),
+            Owner::Sub(s) => s.children(),
+            Owner::Mul(m) => m.children(),
+            Owner::If(i) => i.children(),
+            Owner::For(f) => f.children(),
+            Owner::Call(c) => c.children(),
+            Owner::Fold(f) => f.children(),
+            Owner::Vector(v) => v.children(),
+            Owner::Matrix(m) => m.children(),
+            Owner::Accessor(a) => a.children(),
+            Owner::None => Link::default(),
         }
     }
-    pub fn as_evaluator(self) -> Option<Evaluator> {
+}
+
+impl Child for Owner {
+    type Parent = Owner;
+    fn get_parents(&self) -> Vec<BackLink<Self::Parent>> {
         match self {
-            Owner::Evaluator(e) => Some(e),
-            _ => None,
+            Owner::Function(_f) => Vec::default(),
+            Owner::Evaluator(_e) => Vec::default(),
+            Owner::Enf(e) => e.get_parents(),
+            Owner::Boundary(b) => b.get_parents(),
+            Owner::Add(a) => a.get_parents(),
+            Owner::Sub(s) => s.get_parents(),
+            Owner::Mul(m) => m.get_parents(),
+            Owner::If(i) => i.get_parents(),
+            Owner::For(f) => f.get_parents(),
+            Owner::Call(c) => c.get_parents(),
+            Owner::Fold(f) => f.get_parents(),
+            Owner::Vector(v) => v.get_parents(),
+            Owner::Matrix(m) => m.get_parents(),
+            Owner::Accessor(a) => a.get_parents(),
+            Owner::None => Vec::default(),
         }
     }
-    pub fn as_enf(self) -> Option<Enf> {
+    fn add_parent(&mut self, parent: Link<Self::Parent>) {
         match self {
-            Owner::Enf(e) => Some(e),
-            _ => None,
+            Owner::Function(_f) => (),
+            Owner::Evaluator(_e) => (),
+            Owner::Enf(e) => e.add_parent(parent),
+            Owner::Boundary(b) => b.add_parent(parent),
+            Owner::Add(a) => a.add_parent(parent),
+            Owner::Sub(s) => s.add_parent(parent),
+            Owner::Mul(m) => m.add_parent(parent),
+            Owner::If(i) => i.add_parent(parent),
+            Owner::For(f) => f.add_parent(parent),
+            Owner::Call(c) => c.add_parent(parent),
+            Owner::Fold(f) => f.add_parent(parent),
+            Owner::Vector(v) => v.add_parent(parent),
+            Owner::Matrix(m) => m.add_parent(parent),
+            Owner::Accessor(a) => a.add_parent(parent),
+            Owner::None => (),
         }
     }
-    pub fn as_boundary(self) -> Option<Boundary> {
+    fn remove_parent(&mut self, parent: Link<Self::Parent>) {
         match self {
-            Owner::Boundary(b) => Some(b),
-            _ => None,
+            Owner::Function(_f) => (),
+            Owner::Evaluator(_e) => (),
+            Owner::Enf(e) => e.remove_parent(parent),
+            Owner::Boundary(b) => b.remove_parent(parent),
+            Owner::Add(a) => a.remove_parent(parent),
+            Owner::Sub(s) => s.remove_parent(parent),
+            Owner::Mul(m) => m.remove_parent(parent),
+            Owner::If(i) => i.remove_parent(parent),
+            Owner::For(f) => f.remove_parent(parent),
+            Owner::Call(c) => c.remove_parent(parent),
+            Owner::Fold(f) => f.remove_parent(parent),
+            Owner::Vector(v) => v.remove_parent(parent),
+            Owner::Matrix(m) => m.remove_parent(parent),
+            Owner::Accessor(a) => a.remove_parent(parent),
+            Owner::None => (),
         }
     }
-    pub fn as_add(self) -> Option<Add> {
-        match self {
-            Owner::Add(a) => Some(a),
-            _ => None,
+}
+
+impl PartialEq for Owner {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Owner::Function(lhs), Owner::Function(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Owner::Evaluator(lhs), Owner::Evaluator(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Owner::Enf(lhs), Owner::Enf(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Owner::Boundary(lhs), Owner::Boundary(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Owner::Add(lhs), Owner::Add(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Owner::Sub(lhs), Owner::Sub(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Owner::Mul(lhs), Owner::Mul(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Owner::If(lhs), Owner::If(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Owner::For(lhs), Owner::For(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Owner::Call(lhs), Owner::Call(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Owner::Fold(lhs), Owner::Fold(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Owner::Vector(lhs), Owner::Vector(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Owner::Matrix(lhs), Owner::Matrix(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Owner::Accessor(lhs), Owner::Accessor(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Owner::None, Owner::None) => true,
+            _ => false,
         }
     }
-    pub fn as_sub(self) -> Option<Sub> {
+}
+
+impl std::hash::Hash for Owner {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         match self {
-            Owner::Sub(s) => Some(s),
-            _ => None,
-        }
-    }
-    pub fn as_mul(self) -> Option<Mul> {
-        match self {
-            Owner::Mul(m) => Some(m),
-            _ => None,
-        }
-    }
-    pub fn as_if(self) -> Option<If> {
-        match self {
-            Owner::If(i) => Some(i),
-            _ => None,
-        }
-    }
-    pub fn as_for(self) -> Option<For> {
-        match self {
-            Owner::For(f) => Some(f),
-            _ => None,
-        }
-    }
-    pub fn as_call(self) -> Option<Call> {
-        match self {
-            Owner::Call(c) => Some(c),
-            _ => None,
-        }
-    }
-    pub fn as_fold(self) -> Option<Fold> {
-        match self {
-            Owner::Fold(f) => Some(f),
-            _ => None,
-        }
-    }
-    pub fn as_vector(self) -> Option<Vector> {
-        match self {
-            Owner::Vector(v) => Some(v),
-            _ => None,
-        }
-    }
-    pub fn as_matrix(self) -> Option<Matrix> {
-        match self {
-            Owner::Matrix(m) => Some(m),
-            _ => None,
-        }
-    }
-    pub fn as_index_access(self) -> Option<Accessor> {
-        match self {
-            Owner::Accessor(a) => Some(a),
-            _ => None,
-        }
-    }
-    pub fn as_op(self) -> Option<Op> {
-        match self {
-            Owner::Function(f) => None,
-            Owner::Evaluator(e) => None,
-            Owner::Enf(e) => Some(Op::Enf(e)),
-            Owner::Boundary(b) => Some(Op::Boundary(b)),
-            Owner::Add(a) => Some(Op::Add(a)),
-            Owner::Sub(s) => Some(Op::Sub(s)),
-            Owner::Mul(m) => Some(Op::Mul(m)),
-            Owner::If(i) => Some(Op::If(i)),
-            Owner::For(f) => Some(Op::For(f)),
-            Owner::Call(c) => Some(Op::Call(c)),
-            Owner::Fold(f) => Some(Op::Fold(f)),
-            Owner::Vector(v) => Some(Op::Vector(v)),
-            Owner::Matrix(m) => Some(Op::Matrix(m)),
-            Owner::Accessor(a) => Some(Op::Accessor(a)),
-            Owner::None => None,
-        }
-    }
-    pub fn as_node(self) -> Node {
-        match self {
-            Owner::Function(f) => Node::Function(f),
-            Owner::Evaluator(e) => Node::Evaluator(e),
-            Owner::Enf(e) => Node::Enf(e),
-            Owner::Boundary(b) => Node::Boundary(b),
-            Owner::Add(a) => Node::Add(a),
-            Owner::Sub(s) => Node::Sub(s),
-            Owner::Mul(m) => Node::Mul(m),
-            Owner::If(i) => Node::If(i),
-            Owner::For(f) => Node::For(f),
-            Owner::Call(c) => Node::Call(c),
-            Owner::Fold(f) => Node::Fold(f),
-            Owner::Vector(v) => Node::Vector(v),
-            Owner::Matrix(m) => Node::Matrix(m),
-            Owner::Accessor(a) => Node::Accessor(a),
-            Owner::None => Node::None,
+            Owner::Function(f) => f.to_link().hash(state),
+            Owner::Evaluator(e) => e.to_link().hash(state),
+            Owner::Enf(e) => e.to_link().hash(state),
+            Owner::Boundary(b) => b.to_link().hash(state),
+            Owner::Add(a) => a.to_link().hash(state),
+            Owner::Sub(s) => s.to_link().hash(state),
+            Owner::Mul(m) => m.to_link().hash(state),
+            Owner::If(i) => i.to_link().hash(state),
+            Owner::For(f) => f.to_link().hash(state),
+            Owner::Call(c) => c.to_link().hash(state),
+            Owner::Fold(f) => f.to_link().hash(state),
+            Owner::Vector(v) => v.to_link().hash(state),
+            Owner::Matrix(m) => m.to_link().hash(state),
+            Owner::Accessor(a) => a.to_link().hash(state),
+            Owner::None => Owner::None.hash(state),
         }
     }
 }
 
 impl Link<Owner> {
-    pub fn as_function(self) -> Option<Link<Function>> {
-        self.borrow().clone().as_function().map(|f| f.into())
+    pub fn update_variant(&self) {
+        let to_update;
+        if let Some(op_inner_val) = self.as_op() {
+            to_update = match op_inner_val.clone().borrow().deref() {
+                Op::Enf(_) => Owner::Enf(BackLink::from(op_inner_val)),
+                Op::Boundary(_) => Owner::Boundary(BackLink::from(op_inner_val)),
+                Op::Add(_) => Owner::Add(BackLink::from(op_inner_val)),
+                Op::Sub(_) => Owner::Sub(BackLink::from(op_inner_val)),
+                Op::Mul(_) => Owner::Mul(BackLink::from(op_inner_val)),
+                Op::If(_) => Owner::If(BackLink::from(op_inner_val)),
+                Op::For(_) => Owner::For(BackLink::from(op_inner_val)),
+                Op::Call(_) => Owner::Call(BackLink::from(op_inner_val)),
+                Op::Fold(_) => Owner::Fold(BackLink::from(op_inner_val)),
+                Op::Vector(_) => Owner::Vector(BackLink::from(op_inner_val)),
+                Op::Matrix(_) => Owner::Matrix(BackLink::from(op_inner_val)),
+                Op::Accessor(_) => Owner::Accessor(BackLink::from(op_inner_val)),
+                Op::Parameter(_) => unreachable!(),
+                Op::Value(_) => unreachable!(),
+                Op::None => Owner::None,
+            };
+        } else if let Some(root_inner_val) = self.as_root() {
+            to_update = match root_inner_val.clone().borrow().deref() {
+                Root::Function(_) => Owner::Function(BackLink::from(root_inner_val)),
+                Root::Evaluator(_) => Owner::Evaluator(BackLink::from(root_inner_val)),
+                Root::None => Owner::None,
+            };
+        } else {
+            unreachable!();
+        }
+
+        *self.borrow_mut() = to_update;
     }
-    pub fn as_enf(self) -> Option<Link<Enf>> {
-        self.borrow().clone().as_enf().map(|e| e.into())
+
+    pub fn as_root(&self) -> Option<Link<Root>> {
+        match self.borrow().deref() {
+            Owner::Function(f) => f.to_link(),
+            Owner::Evaluator(e) => e.to_link(),
+            Owner::Accessor(_) => None,
+            Owner::Boundary(_) => None,
+            Owner::Vector(_) => None,
+            Owner::Matrix(_) => None,
+            Owner::Call(_) => None,
+            Owner::Fold(_) => None,
+            Owner::Add(_) => None,
+            Owner::Sub(_) => None,
+            Owner::Mul(_) => None,
+            Owner::Enf(_) => None,
+            Owner::For(_) => None,
+            Owner::If(_) => None,
+            Owner::None => None,
+        }
     }
-    pub fn as_boundary(self) -> Option<Link<Boundary>> {
-        self.borrow().clone().as_boundary().map(|b| b.into())
+    pub fn as_op(&self) -> Option<Link<Op>> {
+        match self.borrow().deref() {
+            Owner::Function(_) => None,
+            Owner::Evaluator(_) => None,
+            Owner::Accessor(back) => back.to_link(),
+            Owner::Boundary(back) => back.to_link(),
+            Owner::Vector(back) => back.to_link(),
+            Owner::Matrix(back) => back.to_link(),
+            Owner::Call(back) => back.to_link(),
+            Owner::Fold(back) => back.to_link(),
+            Owner::Add(back) => back.to_link(),
+            Owner::Sub(back) => back.to_link(),
+            Owner::Mul(back) => back.to_link(),
+            Owner::Enf(back) => back.to_link(),
+            Owner::For(back) => back.to_link(),
+            Owner::If(back) => back.to_link(),
+            Owner::None => None,
+        }
     }
-    pub fn as_add(self) -> Option<Link<Add>> {
-        self.borrow().clone().as_add().map(|a| a.into())
-    }
-    pub fn as_sub(self) -> Option<Link<Sub>> {
-        self.borrow().clone().as_sub().map(|s| s.into())
-    }
-    pub fn as_mul(self) -> Option<Link<Mul>> {
-        self.borrow().clone().as_mul().map(|m| m.into())
-    }
-    pub fn as_if(self) -> Option<Link<If>> {
-        self.borrow().clone().as_if().map(|i| i.into())
-    }
-    pub fn as_for(self) -> Option<Link<For>> {
-        self.borrow().clone().as_for().map(|f| f.into())
-    }
-    pub fn as_call(self) -> Option<Link<Call>> {
-        self.borrow().clone().as_call().map(|c| c.into())
-    }
-    pub fn as_fold(self) -> Option<Link<Fold>> {
-        self.borrow().clone().as_fold().map(|f| f.into())
-    }
-    pub fn as_vector(self) -> Option<Link<Vector>> {
-        self.borrow().clone().as_vector().map(|v| v.into())
-    }
-    pub fn as_matrix(self) -> Option<Link<Matrix>> {
-        self.borrow().clone().as_matrix().map(|m| m.into())
-    }
-    pub fn as_index_access(self) -> Option<Link<Accessor>> {
-        self.borrow().clone().as_index_access().map(|a| a.into())
-    }
-    pub fn as_op(self) -> Option<Link<Op>> {
-        self.borrow().clone().as_op().map(|o| o.into())
-    }
-    pub fn as_node(self) -> Link<Node> {
-        self.borrow().clone().as_node().into()
+}
+
+impl BackLink<Owner> {
+    pub fn get_ptr(&self) -> usize {
+        self.to_link()
+            .map(|l| match l.borrow().deref() {
+                Owner::Function(back) => back.to_link().map(|l| l.get_ptr()).unwrap_or(0),
+                Owner::Evaluator(back) => back.to_link().map(|l| l.get_ptr()).unwrap_or(0),
+                Owner::Accessor(back) => back.to_link().map(|l| l.get_ptr()).unwrap_or(0),
+                Owner::Boundary(back) => back.to_link().map(|l| l.get_ptr()).unwrap_or(0),
+                Owner::Vector(back) => back.to_link().map(|l| l.get_ptr()).unwrap_or(0),
+                Owner::Matrix(back) => back.to_link().map(|l| l.get_ptr()).unwrap_or(0),
+                Owner::Call(back) => back.to_link().map(|l| l.get_ptr()).unwrap_or(0),
+                Owner::Fold(back) => back.to_link().map(|l| l.get_ptr()).unwrap_or(0),
+                Owner::Add(back) => back.to_link().map(|l| l.get_ptr()).unwrap_or(0),
+                Owner::Sub(back) => back.to_link().map(|l| l.get_ptr()).unwrap_or(0),
+                Owner::Mul(back) => back.to_link().map(|l| l.get_ptr()).unwrap_or(0),
+                Owner::Enf(back) => back.to_link().map(|l| l.get_ptr()).unwrap_or(0),
+                Owner::For(back) => back.to_link().map(|l| l.get_ptr()).unwrap_or(0),
+                Owner::If(back) => back.to_link().map(|l| l.get_ptr()).unwrap_or(0),
+                Owner::None => 0,
+            })
+            .unwrap_or(0)
     }
 }

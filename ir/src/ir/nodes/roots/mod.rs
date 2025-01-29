@@ -1,35 +1,71 @@
 mod evaluator;
 mod function;
+use std::hash::{Hash, Hasher};
 
 pub use evaluator::Evaluator;
 pub use function::Function;
 
-use super::value::MirType;
-use crate::ir::{Leaf, Link, Op};
+use super::MirType;
+use crate::ir::{BackLink, Builder, Child, Link, Node, Op, Owner};
 
-#[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
+#[derive(Builder, Default, Clone, Eq, Debug)]
+#[enum_wrapper(Op)]
 pub struct Parameter {
+    parents: Vec<BackLink<Owner>>,
+    pub ref_node: BackLink<Owner>,
     pub position: usize,
     pub ty: MirType,
+    pub _node: Option<Link<Node>>,
 }
 
 impl Parameter {
-    pub fn new(position: usize, ty: MirType) -> Self {
-        Self { position, ty }
+    pub fn create(position: usize, ty: MirType) -> Link<Op> {
+        Op::Parameter(Self {
+            parents: Vec::default(),
+            ref_node: BackLink::none(),
+            position,
+            ty,
+            _node: None,
+        })
+        .into()
     }
-    pub fn as_leaf(self) -> Leaf {
-        Leaf::Parameter(self)
-    }
-    pub fn as_op(self) -> Op {
-        Op::Parameter(self)
+
+    pub fn set_ref_node(&mut self, ref_node: Link<Owner>) {
+        self.ref_node = ref_node.into();
     }
 }
 
-impl Link<Parameter> {
-    pub fn as_leaf(self) -> Link<Leaf> {
-        Link::new(Leaf::Parameter(self.borrow().clone()))
+fn get_hash<T: Hash>(t: &T) -> u64 {
+    let mut s = std::hash::DefaultHasher::new();
+    t.hash(&mut s);
+    s.finish()
+}
+
+impl PartialEq for Parameter {
+    fn eq(&self, other: &Self) -> bool {
+        self.position == other.position
+            && self.ty == other.ty
+            && get_hash(&self.ref_node) == get_hash(&other.ref_node)
     }
-    pub fn as_op(self) -> Link<Op> {
-        Link::new(Op::Parameter(self.borrow().clone()))
+}
+
+impl Hash for Parameter {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.position.hash(state);
+        self.ty.hash(state);
+        self.ref_node.hash(state);
+    }
+}
+
+impl Child for Parameter {
+    type Parent = Owner;
+    fn get_parents(&self) -> Vec<BackLink<Self::Parent>> {
+        self.parents.clone()
+    }
+    fn add_parent(&mut self, parent: Link<Self::Parent>) {
+        self.parents.push(parent.into());
+    }
+    fn remove_parent(&mut self, parent: Link<Self::Parent>) {
+        self.parents.retain(|p| *p != parent.clone().into());
     }
 }

@@ -1,241 +1,267 @@
-use crate::ir::{
-    Accessor, Add, Boundary, Call, Enf, Evaluator, Fold, For, Function, If, Matrix, Mul, Op,
-    Parameter, Sub, Value, Vector,
-};
+use crate::ir::{BackLink, Child, Op};
 
-use super::{Leaf, Link, Owner, Root};
+use super::{Link, Owner, Parent, Root};
+use std::ops::Deref;
 
 /// All the nodes that can be in the MIR Graph
-#[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
+#[derive(Default, Clone, Eq, Debug)]
 pub enum Node {
-    Function(Function),
-    Evaluator(Evaluator),
-    Enf(Enf),
-    Boundary(Boundary),
-    Add(Add),
-    Sub(Sub),
-    Mul(Mul),
-    If(If),
-    For(For),
-    Call(Call),
-    Fold(Fold),
-    Vector(Vector),
-    Matrix(Matrix),
-    Accessor(Accessor),
-    Parameter(Parameter),
-    Value(Value),
+    Function(BackLink<Root>),
+    Evaluator(BackLink<Root>),
+    Enf(BackLink<Op>),
+    Boundary(BackLink<Op>),
+    Add(BackLink<Op>),
+    Sub(BackLink<Op>),
+    Mul(BackLink<Op>),
+    If(BackLink<Op>),
+    For(BackLink<Op>),
+    Call(BackLink<Op>),
+    Fold(BackLink<Op>),
+    Vector(BackLink<Op>),
+    Matrix(BackLink<Op>),
+    Accessor(BackLink<Op>),
+    Parameter(BackLink<Op>),
+    Value(BackLink<Op>),
     #[default]
     None,
 }
 
-impl Node {
-    pub fn as_function(self) -> Option<Function> {
-        match self {
-            Node::Function(f) => Some(f),
-            _ => None,
+impl PartialEq for Node {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Node::Function(lhs), Node::Function(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Node::Evaluator(lhs), Node::Evaluator(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Node::Enf(lhs), Node::Enf(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Node::Boundary(lhs), Node::Boundary(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Node::Add(lhs), Node::Add(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Node::Sub(lhs), Node::Sub(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Node::Mul(lhs), Node::Mul(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Node::If(lhs), Node::If(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Node::For(lhs), Node::For(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Node::Call(lhs), Node::Call(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Node::Fold(lhs), Node::Fold(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Node::Vector(lhs), Node::Vector(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Node::Matrix(lhs), Node::Matrix(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Node::Accessor(lhs), Node::Accessor(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Node::Parameter(lhs), Node::Parameter(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Node::Value(lhs), Node::Value(rhs)) => lhs.to_link() == rhs.to_link(),
+            (Node::None, Node::None) => true,
+            _ => false,
         }
     }
-    pub fn as_evaluator(self) -> Option<Evaluator> {
+}
+
+impl std::hash::Hash for Node {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         match self {
-            Node::Evaluator(e) => Some(e),
-            _ => None,
+            Node::Function(f) => f.to_link().hash(state),
+            Node::Evaluator(e) => e.to_link().hash(state),
+            Node::Enf(e) => e.to_link().hash(state),
+            Node::Boundary(b) => b.to_link().hash(state),
+            Node::Add(a) => a.to_link().hash(state),
+            Node::Sub(s) => s.to_link().hash(state),
+            Node::Mul(m) => m.to_link().hash(state),
+            Node::If(i) => i.to_link().hash(state),
+            Node::For(f) => f.to_link().hash(state),
+            Node::Call(c) => c.to_link().hash(state),
+            Node::Fold(f) => f.to_link().hash(state),
+            Node::Vector(v) => v.to_link().hash(state),
+            Node::Matrix(m) => m.to_link().hash(state),
+            Node::Accessor(a) => a.to_link().hash(state),
+            Node::Parameter(p) => p.to_link().hash(state),
+            Node::Value(v) => v.to_link().hash(state),
+            Node::None => Node::None.hash(state),
         }
     }
-    pub fn as_enf(self) -> Option<Enf> {
+}
+
+impl Parent for Node {
+    type Child = Op;
+    fn children(&self) -> Link<Vec<Link<Self::Child>>> {
         match self {
-            Node::Enf(e) => Some(e),
-            _ => None,
+            Node::Function(f) => f.children(),
+            Node::Evaluator(e) => e.children(),
+            Node::Enf(e) => e.children(),
+            Node::Boundary(b) => b.children(),
+            Node::Add(a) => a.children(),
+            Node::Sub(s) => s.children(),
+            Node::Mul(m) => m.children(),
+            Node::If(i) => i.children(),
+            Node::For(f) => f.children(),
+            Node::Call(c) => c.children(),
+            Node::Fold(f) => f.children(),
+            Node::Vector(v) => v.children(),
+            Node::Matrix(m) => m.children(),
+            Node::Accessor(a) => a.children(),
+            Node::Parameter(_p) => Link::default(),
+            Node::Value(_v) => Link::default(),
+            Node::None => Link::default(),
         }
     }
-    pub fn as_boundary(self) -> Option<Boundary> {
+}
+
+impl Child for Node {
+    type Parent = Owner;
+    fn get_parents(&self) -> Vec<BackLink<Self::Parent>> {
         match self {
-            Node::Boundary(b) => Some(b),
-            _ => None,
+            Node::Function(_f) => Vec::default(),
+            Node::Evaluator(_e) => Vec::default(),
+            Node::Enf(e) => e.get_parents(),
+            Node::Boundary(b) => b.get_parents(),
+            Node::Add(a) => a.get_parents(),
+            Node::Sub(s) => s.get_parents(),
+            Node::Mul(m) => m.get_parents(),
+            Node::If(i) => i.get_parents(),
+            Node::For(f) => f.get_parents(),
+            Node::Call(c) => c.get_parents(),
+            Node::Fold(f) => f.get_parents(),
+            Node::Vector(v) => v.get_parents(),
+            Node::Matrix(m) => m.get_parents(),
+            Node::Accessor(a) => a.get_parents(),
+            Node::Parameter(p) => p.get_parents(),
+            Node::Value(v) => v.get_parents(),
+            Node::None => Vec::default(),
         }
     }
-    pub fn as_add(self) -> Option<Add> {
+    fn add_parent(&mut self, parent: Link<Self::Parent>) {
         match self {
-            Node::Add(a) => Some(a),
-            _ => None,
+            Node::Function(_f) => (),
+            Node::Evaluator(_e) => (),
+            Node::Enf(e) => e.add_parent(parent),
+            Node::Boundary(b) => b.add_parent(parent),
+            Node::Add(a) => a.add_parent(parent),
+            Node::Sub(s) => s.add_parent(parent),
+            Node::Mul(m) => m.add_parent(parent),
+            Node::If(i) => i.add_parent(parent),
+            Node::For(f) => f.add_parent(parent),
+            Node::Call(c) => c.add_parent(parent),
+            Node::Fold(f) => f.add_parent(parent),
+            Node::Vector(v) => v.add_parent(parent),
+            Node::Matrix(m) => m.add_parent(parent),
+            Node::Accessor(a) => a.add_parent(parent),
+            Node::Parameter(p) => p.add_parent(parent),
+            Node::Value(v) => v.add_parent(parent),
+            Node::None => {}
         }
     }
-    pub fn as_sub(self) -> Option<Sub> {
+    fn remove_parent(&mut self, parent: Link<Self::Parent>) {
         match self {
-            Node::Sub(s) => Some(s),
-            _ => None,
-        }
-    }
-    pub fn as_mul(self) -> Option<Mul> {
-        match self {
-            Node::Mul(m) => Some(m),
-            _ => None,
-        }
-    }
-    pub fn as_if(self) -> Option<If> {
-        match self {
-            Node::If(i) => Some(i),
-            _ => None,
-        }
-    }
-    pub fn as_for(self) -> Option<For> {
-        match self {
-            Node::For(f) => Some(f),
-            _ => None,
-        }
-    }
-    pub fn as_call(self) -> Option<Call> {
-        match self {
-            Node::Call(c) => Some(c),
-            _ => None,
-        }
-    }
-    pub fn as_fold(self) -> Option<Fold> {
-        match self {
-            Node::Fold(f) => Some(f),
-            _ => None,
-        }
-    }
-    pub fn as_vector(self) -> Option<Vector> {
-        match self {
-            Node::Vector(v) => Some(v),
-            _ => None,
-        }
-    }
-    pub fn as_matrix(self) -> Option<Matrix> {
-        match self {
-            Node::Matrix(m) => Some(m),
-            _ => None,
-        }
-    }
-    pub fn as_index_access(self) -> Option<Accessor> {
-        match self {
-            Node::Accessor(a) => Some(a),
-            _ => None,
-        }
-    }
-    pub fn as_parameter(self) -> Option<Parameter> {
-        match self {
-            Node::Parameter(p) => Some(p),
-            _ => None,
-        }
-    }
-    pub fn as_value(self) -> Option<Value> {
-        match self {
-            Node::Value(v) => Some(v),
-            _ => None,
-        }
-    }
-    pub fn as_op(self) -> Option<Op> {
-        match self {
-            Node::Function(f) => None,
-            Node::Evaluator(e) => None,
-            Node::Enf(e) => Some(Op::Enf(e)),
-            Node::Boundary(b) => Some(Op::Boundary(b)),
-            Node::Add(a) => Some(Op::Add(a)),
-            Node::Sub(s) => Some(Op::Sub(s)),
-            Node::Mul(m) => Some(Op::Mul(m)),
-            Node::If(i) => Some(Op::If(i)),
-            Node::For(f) => Some(Op::For(f)),
-            Node::Call(c) => Some(Op::Call(c)),
-            Node::Fold(f) => Some(Op::Fold(f)),
-            Node::Vector(v) => Some(Op::Vector(v)),
-            Node::Matrix(m) => Some(Op::Matrix(m)),
-            Node::Accessor(a) => Some(Op::Accessor(a)),
-            Node::Parameter(p) => Some(Op::Parameter(p)),
-            Node::Value(v) => Some(Op::Value(v)),
-            Node::None => None,
-        }
-    }
-    pub fn as_owner(self) -> Option<Owner> {
-        match self {
-            Node::Function(f) => Some(Owner::Function(f)),
-            Node::Evaluator(e) => Some(Owner::Evaluator(e)),
-            Node::Enf(e) => Some(Owner::Enf(e)),
-            Node::Boundary(b) => Some(Owner::Boundary(b)),
-            Node::Add(a) => Some(Owner::Add(a)),
-            Node::Sub(s) => Some(Owner::Sub(s)),
-            Node::Mul(m) => Some(Owner::Mul(m)),
-            Node::If(i) => Some(Owner::If(i)),
-            Node::For(f) => Some(Owner::For(f)),
-            Node::Call(c) => Some(Owner::Call(c)),
-            Node::Fold(f) => Some(Owner::Fold(f)),
-            Node::Vector(v) => Some(Owner::Vector(v)),
-            Node::Matrix(m) => Some(Owner::Matrix(m)),
-            Node::Accessor(a) => Some(Owner::Accessor(a)),
-            Node::Parameter(p) => None,
-            Node::Value(v) => None,
-            Node::None => None,
-        }
-    }
-    fn as_leaf(self) -> Option<Leaf> {
-        match self {
-            Node::Value(v) => Some(Leaf::Value(v)),
-            Node::Parameter(p) => Some(Leaf::Parameter(p)),
-            _ => None,
-        }
-    }
-    fn as_root(self) -> Option<Root> {
-        match self {
-            Node::Function(f) => Some(Root::Function(f)),
-            Node::Evaluator(e) => Some(Root::Evaluator(e)),
-            _ => None,
+            Node::Function(_f) => (),
+            Node::Evaluator(_e) => (),
+            Node::Enf(e) => e.remove_parent(parent),
+            Node::Boundary(b) => b.remove_parent(parent),
+            Node::Add(a) => a.remove_parent(parent),
+            Node::Sub(s) => s.remove_parent(parent),
+            Node::Mul(m) => m.remove_parent(parent),
+            Node::If(i) => i.remove_parent(parent),
+            Node::For(f) => f.remove_parent(parent),
+            Node::Call(c) => c.remove_parent(parent),
+            Node::Fold(f) => f.remove_parent(parent),
+            Node::Vector(v) => v.remove_parent(parent),
+            Node::Matrix(m) => m.remove_parent(parent),
+            Node::Accessor(a) => a.remove_parent(parent),
+            Node::Parameter(p) => p.remove_parent(parent),
+            Node::Value(v) => v.remove_parent(parent),
+            Node::None => {}
         }
     }
 }
 
 impl Link<Node> {
-    pub fn as_function(self) -> Option<Link<Function>> {
-        self.borrow().clone().as_function().map(|f| f.into())
+    pub fn update_variant(&self) {
+        let to_update;
+        if let Some(op_inner_val) = self.as_op() {
+            to_update = match op_inner_val.clone().borrow().deref() {
+                Op::Enf(_) => Node::Enf(BackLink::from(op_inner_val)),
+                Op::Boundary(_) => Node::Boundary(BackLink::from(op_inner_val)),
+                Op::Add(_) => Node::Add(BackLink::from(op_inner_val)),
+                Op::Sub(_) => Node::Sub(BackLink::from(op_inner_val)),
+                Op::Mul(_) => Node::Mul(BackLink::from(op_inner_val)),
+                Op::If(_) => Node::If(BackLink::from(op_inner_val)),
+                Op::For(_) => Node::For(BackLink::from(op_inner_val)),
+                Op::Call(_) => Node::Call(BackLink::from(op_inner_val)),
+                Op::Fold(_) => Node::Fold(BackLink::from(op_inner_val)),
+                Op::Vector(_) => Node::Vector(BackLink::from(op_inner_val)),
+                Op::Matrix(_) => Node::Matrix(BackLink::from(op_inner_val)),
+                Op::Accessor(_) => Node::Accessor(BackLink::from(op_inner_val)),
+                Op::Parameter(_) => Node::Parameter(BackLink::from(op_inner_val)),
+                Op::Value(_) => Node::Value(BackLink::from(op_inner_val)),
+                Op::None => Node::None,
+            };
+        } else if let Some(root_inner_val) = self.as_root() {
+            to_update = match root_inner_val.clone().borrow().deref() {
+                Root::Function(_) => Node::Function(BackLink::from(root_inner_val)),
+                Root::Evaluator(_) => Node::Evaluator(BackLink::from(root_inner_val)),
+                Root::None => Node::None,
+            };
+        } else {
+            unreachable!();
+        }
+
+        *self.borrow_mut() = to_update;
     }
-    pub fn as_enf(self) -> Option<Link<Enf>> {
-        self.borrow().clone().as_enf().map(|e| e.into())
+
+    pub fn is_stale(&self) -> bool {
+        match self.as_root() {
+            Some(_) => false,
+            None => self.as_op().is_none(),
+        }
     }
-    pub fn as_boundary(self) -> Option<Link<Boundary>> {
-        self.borrow().clone().as_boundary().map(|b| b.into())
+    pub fn debug(&self) -> String {
+        match self.as_root() {
+            Some(root) => format!("Node::Root({})", root.debug()),
+            None => match self.as_op() {
+                Some(op) => format!("Node::Op({})", op.debug()),
+                None => "Node::None".to_string(),
+            },
+        }
     }
-    pub fn as_add(self) -> Option<Link<Add>> {
-        self.borrow().clone().as_add().map(|a| a.into())
+    pub fn as_root(&self) -> Option<Link<Root>> {
+        match self.borrow().deref() {
+            Node::Function(f) => f.to_link(),
+            Node::Evaluator(e) => e.to_link(),
+            Node::Enf(_) => None,
+            Node::Boundary(_) => None,
+            Node::Add(_) => None,
+            Node::Sub(_) => None,
+            Node::Mul(_) => None,
+            Node::If(_) => None,
+            Node::For(_) => None,
+            Node::Call(_) => None,
+            Node::Fold(_) => None,
+            Node::Vector(_) => None,
+            Node::Matrix(_) => None,
+            Node::Accessor(_) => None,
+            Node::Parameter(_) => None,
+            Node::Value(_) => None,
+            Node::None => None,
+        }
     }
-    pub fn as_sub(self) -> Option<Link<Sub>> {
-        self.borrow().clone().as_sub().map(|s| s.into())
+    pub fn as_op(&self) -> Option<Link<Op>> {
+        match self.borrow().deref() {
+            Node::Function(_) => None,
+            Node::Evaluator(_) => None,
+            Node::Enf(inner) => inner.to_link(),
+            Node::Boundary(inner) => inner.to_link(),
+            Node::Add(inner) => inner.to_link(),
+            Node::Sub(inner) => inner.to_link(),
+            Node::Mul(inner) => inner.to_link(),
+            Node::If(inner) => inner.to_link(),
+            Node::For(inner) => inner.to_link(),
+            Node::Call(inner) => inner.to_link(),
+            Node::Fold(inner) => inner.to_link(),
+            Node::Vector(inner) => inner.to_link(),
+            Node::Matrix(inner) => inner.to_link(),
+            Node::Accessor(inner) => inner.to_link(),
+            Node::Parameter(inner) => inner.to_link(),
+            Node::Value(inner) => inner.to_link(),
+            Node::None => None,
+        }
     }
-    pub fn as_mul(self) -> Option<Link<Mul>> {
-        self.borrow().clone().as_mul().map(|m| m.into())
-    }
-    pub fn as_if(self) -> Option<Link<If>> {
-        self.borrow().clone().as_if().map(|i| i.into())
-    }
-    pub fn as_for(self) -> Option<Link<For>> {
-        self.borrow().clone().as_for().map(|f| f.into())
-    }
-    pub fn as_call(self) -> Option<Link<Call>> {
-        self.borrow().clone().as_call().map(|c| c.into())
-    }
-    pub fn as_fold(self) -> Option<Link<Fold>> {
-        self.borrow().clone().as_fold().map(|f| f.into())
-    }
-    pub fn as_vector(self) -> Option<Link<Vector>> {
-        self.borrow().clone().as_vector().map(|v| v.into())
-    }
-    pub fn as_matrix(self) -> Option<Link<Matrix>> {
-        self.borrow().clone().as_matrix().map(|m| m.into())
-    }
-    pub fn as_index_access(self) -> Option<Link<Accessor>> {
-        self.borrow().clone().as_index_access().map(|a| a.into())
-    }
-    pub fn as_parameter(self) -> Option<Link<Parameter>> {
-        self.borrow().clone().as_parameter().map(|p| p.into())
-    }
-    pub fn as_value(self) -> Option<Link<Value>> {
-        self.borrow().clone().as_value().map(|v| v.into())
-    }
-    pub fn as_op(self) -> Option<Link<Op>> {
-        self.borrow().clone().as_op().map(|o| o.into())
-    }
-    pub fn as_owner(self) -> Option<Link<Owner>> {
-        self.borrow().clone().as_owner().map(|o| o.into())
-    }
-    pub fn as_root(self) -> Option<Link<Root>> {
-        self.borrow().clone().as_root().map(|r| r.into())
+    pub fn as_owner(&self) -> Option<Link<Owner>> {
+        match self.as_root() {
+            Some(root) => Some(root.as_owner()),
+            None => self.as_op().and_then(|op| op.as_owner()),
+        }
     }
 }
