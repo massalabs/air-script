@@ -88,7 +88,7 @@ impl<'a> AirBuilder<'a> {
     }
 
     fn insert_mir_operation(&mut self, mir_node: &Link<Op>) -> NodeIndex {
-        let mir_node = Self::vec_to_scalar(&mir_node);
+        let mir_node = Self::vec_to_scalar(mir_node);
         let mir_node_ref = mir_node.borrow();
         match mir_node_ref.deref() {
             Op::Add(add) => {

@@ -33,7 +33,7 @@ impl Link<Root> {
         match self.borrow().deref() {
             Root::Function(f) => format!("Root::Function: {:#?}", f),
             Root::Evaluator(e) => format!("Root::Evaluator: {:#?}", e),
-            Root::None => format!("Root::None"),
+            Root::None => "Root::None".to_string(),
         }
     }
     pub fn set(&self, other: &Link<Root>) {

@@ -628,27 +628,24 @@ impl<'a> UnrollingFirstPass<'a> {
                         } else {
                             unreachable!(); // raise diag
                         };
-                    } else {
-                        if let Op::Matrix(indexable_matrix) = indexable.borrow().deref() {
-                            let indexable_vec =
-                                indexable_matrix.children().borrow().deref().clone();
-                            let row_accessed = match indexable_vec.get(row) {
-                                Some(row_accessed) => row_accessed,
+                    } else if let Op::Matrix(indexable_matrix) = indexable.borrow().deref() {
+                        let indexable_vec = indexable_matrix.children().borrow().deref().clone();
+                        let row_accessed = match indexable_vec.get(row) {
+                            Some(row_accessed) => row_accessed,
+                            None => unreachable!(), // raise diag
+                        };
+
+                        if let Op::Vector(row_accessed_vector) = row_accessed.borrow().deref() {
+                            let row_accessed_vec =
+                                row_accessed_vector.children().borrow().deref().clone();
+                            let child_accessed = match row_accessed_vec.get(col) {
+                                Some(child_accessed) => child_accessed,
                                 None => unreachable!(), // raise diag
                             };
-
-                            if let Op::Vector(row_accessed_vector) = row_accessed.borrow().deref() {
-                                let row_accessed_vec =
-                                    row_accessed_vector.children().borrow().deref().clone();
-                                let child_accessed = match row_accessed_vec.get(col) {
-                                    Some(child_accessed) => child_accessed,
-                                    None => unreachable!(), // raise diag
-                                };
-                                updated_accessor = Some(child_accessed.clone());
-                            } else {
-                                unreachable!(); // raise diag
-                            };
-                        }
+                            updated_accessor = Some(child_accessed.clone());
+                        } else {
+                            unreachable!(); // raise diag
+                        };
                     };
                 }
 

@@ -88,8 +88,7 @@ pub fn duplicate_node(
                 .iter()
                 .cloned()
                 .map(|x| duplicate_node(x, current_replace_map))
-                .collect::<Vec<_>>()
-                .into();
+                .collect::<Vec<_>>();
             let new_selector = duplicate_node(selector, current_replace_map);
             let new_body = duplicate_node(body, current_replace_map);
 
@@ -172,20 +171,18 @@ pub fn duplicate_node(
                     .as_parameter_mut()
                     .unwrap()
                     .set_ref_node(owner_ref);
+            } else if let Some((_replaced_node, replaced_by)) =
+                current_replace_map.get(&owner_ref.as_op().unwrap().get_ptr())
+            {
+                new_param
+                    .as_parameter_mut()
+                    .unwrap()
+                    .set_ref_node(replaced_by.clone().as_owner().unwrap());
             } else {
-                if let Some((_replaced_node, replaced_by)) =
-                    current_replace_map.get(&owner_ref.as_op().unwrap().get_ptr())
-                {
-                    new_param
-                        .as_parameter_mut()
-                        .unwrap()
-                        .set_ref_node(replaced_by.clone().as_owner().unwrap());
-                } else {
-                    new_param
-                        .as_parameter_mut()
-                        .unwrap()
-                        .set_ref_node(owner_ref);
-                }
+                new_param
+                    .as_parameter_mut()
+                    .unwrap()
+                    .set_ref_node(owner_ref);
             }
             new_param
         }
@@ -388,20 +385,18 @@ pub fn duplicate_node_or_replace(
                         .as_parameter_mut()
                         .unwrap()
                         .set_ref_node(owner_ref);
+                } else if let Some((_replaced_node, replaced_by)) =
+                    current_replace_map.get(&owner_ref.as_op().unwrap().get_ptr())
+                {
+                    new_param
+                        .as_parameter_mut()
+                        .unwrap()
+                        .set_ref_node(replaced_by.clone().as_owner().unwrap());
                 } else {
-                    if let Some((_replaced_node, replaced_by)) =
-                        current_replace_map.get(&owner_ref.as_op().unwrap().get_ptr())
-                    {
-                        new_param
-                            .as_parameter_mut()
-                            .unwrap()
-                            .set_ref_node(replaced_by.clone().as_owner().unwrap());
-                    } else {
-                        new_param
-                            .as_parameter_mut()
-                            .unwrap()
-                            .set_ref_node(owner_ref);
-                    }
+                    new_param
+                        .as_parameter_mut()
+                        .unwrap()
+                        .set_ref_node(owner_ref);
                 }
 
                 current_replace_map.insert(node.get_ptr(), (node.clone(), new_param));
