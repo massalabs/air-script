@@ -1,9 +1,12 @@
 use std::ops::Deref;
 
-use air_parser::ast::TraceSegment;
+use air_parser::{
+    ast::{self, TraceSegment},
+    SemanticAnalysisError,
+};
 use air_pass::Pass;
 
-use miden_diagnostics::{DiagnosticsHandler, Severity /*, SourceSpan*/};
+use miden_diagnostics::{DiagnosticsHandler, Severity};
 use mir::ir::{ConstantValue, Link, Mir, MirValue, Op, Parent, SpannedMirValue};
 
 use crate::{graph::NodeIndex, ir::*, CompileError};
@@ -87,30 +90,89 @@ impl<'a> AirBuilder<'a> {
         }
     }
 
-    fn insert_mir_operation(&mut self, mir_node: &Link<Op>) -> NodeIndex {
+    // Use square and multiply algorithm to expand the exp into a series of multiplications
+    fn expand_exp(&mut self, lhs: NodeIndex, rhs: u64) -> NodeIndex {
+        match rhs {
+            0 => self.insert_op(Operation::Value(Value::Constant(1))),
+            1 => lhs,
+            n if n % 2 == 0 => {
+                let square = self.insert_op(Operation::Mul(lhs, lhs));
+                self.expand_exp(square, n / 2)
+            }
+            n => {
+                let square = self.insert_op(Operation::Mul(lhs, lhs));
+                let rec = self.expand_exp(square, (n - 1) / 2);
+                self.insert_op(Operation::Mul(lhs, rec))
+            }
+        }
+    }
+
+    fn insert_mir_operation(&mut self, mir_node: &Link<Op>) -> Result<NodeIndex, CompileError> {
         let mir_node = Self::vec_to_scalar(mir_node);
         let mir_node_ref = mir_node.borrow();
         match mir_node_ref.deref() {
             Op::Add(add) => {
                 let lhs = add.lhs.clone();
                 let rhs = add.rhs.clone();
-                let lhs_node_index = self.insert_mir_operation(&lhs);
-                let rhs_node_index = self.insert_mir_operation(&rhs);
-                self.insert_op(Operation::Add(lhs_node_index, rhs_node_index))
+                let lhs_node_index = self.insert_mir_operation(&lhs)?;
+                let rhs_node_index = self.insert_mir_operation(&rhs)?;
+                Ok(self.insert_op(Operation::Add(lhs_node_index, rhs_node_index)))
             }
             Op::Sub(sub) => {
                 let lhs = sub.lhs.clone();
                 let rhs = sub.rhs.clone();
-                let lhs_node_index = self.insert_mir_operation(&lhs);
-                let rhs_node_index = self.insert_mir_operation(&rhs);
-                self.insert_op(Operation::Sub(lhs_node_index, rhs_node_index))
+                let lhs_node_index = self.insert_mir_operation(&lhs)?;
+                let rhs_node_index = self.insert_mir_operation(&rhs)?;
+                Ok(self.insert_op(Operation::Sub(lhs_node_index, rhs_node_index)))
             }
             Op::Mul(mul) => {
                 let lhs = mul.lhs.clone();
                 let rhs = mul.rhs.clone();
-                let lhs_node_index = self.insert_mir_operation(&lhs);
-                let rhs_node_index = self.insert_mir_operation(&rhs);
-                self.insert_op(Operation::Mul(lhs_node_index, rhs_node_index))
+                let lhs_node_index = self.insert_mir_operation(&lhs)?;
+                let rhs_node_index = self.insert_mir_operation(&rhs)?;
+                Ok(self.insert_op(Operation::Mul(lhs_node_index, rhs_node_index)))
+            }
+            Op::Exp(exp) => {
+                let lhs = exp.lhs.clone();
+                let rhs = exp.rhs.clone();
+                let lhs_node_index = self.insert_mir_operation(&lhs)?;
+
+                // Remove the accessor for rhs if it exists
+                let rhs = match rhs.borrow().deref() {
+                    Op::Accessor(accessor) => accessor.indexable.clone(),
+                    _ => rhs.clone(),
+                };
+
+                let Some(value_ref) = rhs.as_value() else {
+                    return Err(CompileError::SemanticAnalysis(
+                        SemanticAnalysisError::InvalidExpr(
+                            // TODO: replace by rhs.span
+                            ast::InvalidExprError::NonConstantExponent(self.trace_columns[0].span),
+                        ),
+                    ));
+                };
+
+                let mir_value = value_ref.value.value.clone();
+
+                let MirValue::Constant(constant_value) = mir_value else {
+                    return Err(CompileError::SemanticAnalysis(
+                        SemanticAnalysisError::InvalidExpr(
+                            // TODO: replace by rhs.span
+                            ast::InvalidExprError::NonConstantExponent(self.trace_columns[0].span),
+                        ),
+                    ));
+                };
+
+                let ConstantValue::Felt(rhs_value) = constant_value else {
+                    return Err(CompileError::SemanticAnalysis(
+                        SemanticAnalysisError::InvalidExpr(
+                            // TODO: replace by rhs.span
+                            ast::InvalidExprError::NonConstantExponent(self.trace_columns[0].span),
+                        ),
+                    ));
+                };
+
+                Ok(self.expand_exp(lhs_node_index, rhs_value))
             }
             Op::Value(value) => {
                 let mir_value = &value.value.value;
@@ -146,11 +208,54 @@ impl<'a> AirBuilder<'a> {
                     _ => unreachable!(),
                 };
 
-                self.insert_op(Operation::Value(value))
+                Ok(self.insert_op(Operation::Value(value)))
             }
             Op::Enf(enf) => {
                 let child = enf.expr.clone();
                 self.insert_mir_operation(&child)
+            }
+            Op::Accessor(accessor) => {
+                let offset = accessor.offset;
+                let child = accessor.indexable.clone();
+
+                let Some(value) = child.as_value() else {
+                    unreachable!();
+                };
+
+                let mir_value = &value.value.value;
+
+                let value = match mir_value {
+                    MirValue::Constant(constant_value) => {
+                        if let ConstantValue::Felt(felt) = constant_value {
+                            crate::ir::Value::Constant(*felt)
+                        } else {
+                            unreachable!()
+                        }
+                    }
+                    MirValue::TraceAccess(trace_access) => {
+                        crate::ir::Value::TraceAccess(crate::ir::TraceAccess {
+                            segment: trace_access.segment,
+                            column: trace_access.column,
+                            row_offset: offset,
+                        })
+                    }
+                    MirValue::PeriodicColumn(periodic_column_access) => {
+                        crate::ir::Value::PeriodicColumn(crate::ir::PeriodicColumnAccess {
+                            name: periodic_column_access.name,
+                            cycle: periodic_column_access.cycle,
+                        })
+                    }
+                    MirValue::PublicInput(public_input_access) => {
+                        crate::ir::Value::PublicInput(crate::ir::PublicInputAccess {
+                            name: public_input_access.name,
+                            index: public_input_access.index,
+                        })
+                    }
+                    MirValue::RandomValue(rv) => crate::ir::Value::RandomValue(*rv),
+                    _ => unreachable!(),
+                };
+
+                Ok(self.insert_op(Operation::Value(value)))
             }
             _ => panic!("Should not have Mir op in graph: {:?}", mir_node),
         }
@@ -255,7 +360,7 @@ impl<'a> AirBuilder<'a> {
                             row_offset: trace_access.row_offset,
                         },
                     )));
-                let rhs = self.insert_mir_operation(&rhs);
+                let rhs = self.insert_mir_operation(&rhs)?;
 
                 // Compare the inferred trace segment and domain of the operands
                 let domain = boundary.kind.into();
@@ -405,8 +510,8 @@ impl<'a> AirBuilder<'a> {
             Op::Sub(sub) => {
                 let lhs = sub.lhs.clone();
                 let rhs = sub.rhs.clone();
-                let lhs_node_index = self.insert_mir_operation(&lhs);
-                let rhs_node_index = self.insert_mir_operation(&rhs);
+                let lhs_node_index = self.insert_mir_operation(&lhs)?;
+                let rhs_node_index = self.insert_mir_operation(&rhs)?;
                 let root = self.insert_op(Operation::Sub(lhs_node_index, rhs_node_index));
                 let (trace_segment, domain) = self
                     .air

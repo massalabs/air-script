@@ -2,11 +2,11 @@ use core::panic;
 use std::ops::Deref;
 
 use air_parser::ast::AccessType;
-use air_parser::{ast, symbols, LexicalScope, SemanticAnalysisError};
+use air_parser::{ast, symbols, LexicalScope};
 use air_pass::Pass;
 use miden_diagnostics::{DiagnosticsHandler, Severity, SourceSpan, Span, Spanned};
 
-use crate::ir::{Accessor, Add, Boundary, Enf, Evaluator, Matrix, Mul, Owner, Root, Sub};
+use crate::ir::{Accessor, Add, Boundary, Enf, Evaluator, Exp, Matrix, Mul, Owner, Root, Sub};
 use crate::{
     ir::{
         Builder, Call, ConstantValue, Fold, FoldOperator, For, Function, Link, Mir, MirType,
@@ -586,14 +586,8 @@ impl<'a> MirBuilder<'a> {
                 Ok(node)
             }
             ast::BinaryOp::Exp => {
-                let ast::ScalarExpr::Const(rhs) = bin_op.rhs.as_ref() else {
-                    return Err(CompileError::SemanticAnalysis(
-                        SemanticAnalysisError::InvalidExpr(
-                            ast::InvalidExprError::NonConstantExponent(bin_op.rhs.span()),
-                        ),
-                    ));
-                };
-                self.expand_exp(lhs, rhs.item)
+                let node = Exp::builder().lhs(lhs).rhs(rhs).build();
+                Ok(node)
             }
             ast::BinaryOp::Eq => {
                 let sub_node = Sub::builder().lhs(lhs).rhs(rhs).build();
@@ -852,15 +846,6 @@ impl<'a> MirBuilder<'a> {
                     .build());
             }
 
-            if let Some(tab) = self.trace_access_binding(access) {
-                return Ok(Value::builder()
-                    .value(SpannedMirValue {
-                        span: Default::default(),
-                        value: MirValue::TraceAccessBinding(tab),
-                    })
-                    .build());
-            }
-
             // Must be a trace segment name
             if let Some(trace_access) = self.trace_access(access) {
                 return Ok(Value::builder()
@@ -868,8 +853,16 @@ impl<'a> MirBuilder<'a> {
                         span: Default::default(),
                         value: MirValue::TraceAccess(trace_access),
                     })
-                    .build()
-                );
+                    .build());
+            }
+
+            if let Some(tab) = self.trace_access_binding(access) {
+                return Ok(Value::builder()
+                    .value(SpannedMirValue {
+                        span: Default::default(),
+                        value: MirValue::TraceAccessBinding(tab),
+                    })
+                    .build());
 
                 /*let mut node = Value::builder()
                     .value(SpannedMirValue {
@@ -898,12 +891,12 @@ impl<'a> MirBuilder<'a> {
 
         //    // If we reach here, this must be a let-bound variable
         if let Some(let_bound_access_expr) = self.bindings.get(access.name.as_ref()).cloned() {
-
             let accessor: Link<Op> = Accessor::create(
                 duplicate_node(let_bound_access_expr, &mut Default::default()),
                 access.access_type.clone(),
-                access.offset
+                access.offset,
             );
+
             return Ok(accessor);
 
             /*match access.access_type {
@@ -926,15 +919,13 @@ impl<'a> MirBuilder<'a> {
         }
 
         if let Some(trace_access) = self.trace_access(access) {
-            
             return Ok(Value::builder()
                 .value(SpannedMirValue {
                     span: Default::default(),
                     value: MirValue::TraceAccess(trace_access),
                 })
-                .build()
-            );
-            
+                .build());
+
             /*let mut node = Value::builder()
                 .value(SpannedMirValue {
                     span: Default::default(),
@@ -954,8 +945,6 @@ impl<'a> MirBuilder<'a> {
 
         // Otherwise, we check bindings, trace bindings, random value bindings, and public inputs, in that order
         if let Some(tab) = self.trace_access_binding(access) {
-            
-
             return Ok(Value::builder()
                 .value(SpannedMirValue {
                     span: Default::default(),
@@ -963,7 +952,6 @@ impl<'a> MirBuilder<'a> {
                 })
                 .build());
         }
-
 
         if let Some(random_value) = self.random_value_access(access) {
             return Ok(Value::builder()
@@ -1045,7 +1033,7 @@ impl<'a> MirBuilder<'a> {
                     }),
                     AccessType::Slice(range_expr) => Some(TraceAccessBinding {
                         segment: binding.segment,
-                        offset: binding.offset,
+                        offset: binding.offset + range_expr.to_slice_range().start,
                         size: range_expr.to_slice_range().count(),
                     }),
                     _ => None,
@@ -1092,37 +1080,11 @@ impl<'a> MirBuilder<'a> {
                         "unexpected trace access type encountered during lowering: {:#?}",
                         access
                     ),*/
-                    _ => None
+                    _ => None,
                 };
             }
         }
         None
-    }
-
-    // Use square and multiply algorithm to expand the exp into a series of multiplications
-    fn expand_exp(&mut self, lhs: Link<Op>, rhs: u64) -> Result<Link<Op>, CompileError> {
-        // 0 -> 1
-        // 1 -> lhs
-        // n (n pair) ->
-        match rhs {
-            0 => self.translate_const(&ast::ConstantExpr::Scalar(1)),
-            1 => Ok(duplicate_node(lhs.clone(), &mut Default::default())),
-            n if n % 2 == 0 => {
-                let new_lhs = duplicate_node(lhs.clone(), &mut Default::default());
-                let new_rhs = duplicate_node(lhs.clone(), &mut Default::default());
-                let square = Mul::create(new_lhs, new_rhs);
-                self.expand_exp(square, n / 2)
-            }
-            n => {
-                let new_lhs = duplicate_node(lhs.clone(), &mut Default::default());
-                let new_rhs = duplicate_node(lhs.clone(), &mut Default::default());
-                let new_lhs_clone = duplicate_node(lhs.clone(), &mut Default::default());
-                let square = Mul::create(new_lhs, new_rhs);
-                let rec: Link<Op> = self.expand_exp(square, (n - 1) / 2)?;
-                let node = Mul::builder().lhs(new_lhs_clone).rhs(rec).build();
-                Ok(node)
-            }
-        }
     }
 }
 

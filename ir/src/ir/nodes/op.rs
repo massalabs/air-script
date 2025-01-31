@@ -8,6 +8,8 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
+use super::Exp;
+
 /// The combined Operators and Leaves of the MIR Graph
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
 pub enum Op {
@@ -16,6 +18,7 @@ pub enum Op {
     Add(Add),
     Sub(Sub),
     Mul(Mul),
+    Exp(Exp),
     If(If),
     For(For),
     Call(Call),
@@ -38,6 +41,7 @@ impl Parent for Op {
             Op::Add(a) => a.children(),
             Op::Sub(s) => s.children(),
             Op::Mul(m) => m.children(),
+            Op::Exp(e) => e.children(),
             Op::If(i) => i.children(),
             Op::For(f) => f.children(),
             Op::Call(c) => c.children(),
@@ -61,6 +65,7 @@ impl Child for Op {
             Op::Add(a) => a.get_parents(),
             Op::Sub(s) => s.get_parents(),
             Op::Mul(m) => m.get_parents(),
+            Op::Exp(e) => e.get_parents(),
             Op::If(i) => i.get_parents(),
             Op::For(f) => f.get_parents(),
             Op::Call(c) => c.get_parents(),
@@ -80,6 +85,7 @@ impl Child for Op {
             Op::Add(a) => a.add_parent(parent),
             Op::Sub(s) => s.add_parent(parent),
             Op::Mul(m) => m.add_parent(parent),
+            Op::Exp(e) => e.add_parent(parent),
             Op::If(i) => i.add_parent(parent),
             Op::For(f) => f.add_parent(parent),
             Op::Call(c) => c.add_parent(parent),
@@ -99,6 +105,7 @@ impl Child for Op {
             Op::Add(a) => a.remove_parent(parent),
             Op::Sub(s) => s.remove_parent(parent),
             Op::Mul(m) => m.remove_parent(parent),
+            Op::Exp(e) => e.remove_parent(parent),
             Op::If(i) => i.remove_parent(parent),
             Op::For(f) => f.remove_parent(parent),
             Op::Call(c) => c.remove_parent(parent),
@@ -121,6 +128,7 @@ impl Link<Op> {
             Op::Add(a) => format!("Op::Add@{}({:#?})", self.get_ptr(), a),
             Op::Sub(s) => format!("Op::Sub@{}({:#?})", self.get_ptr(), s),
             Op::Mul(m) => format!("Op::Mul@{}({:#?})", self.get_ptr(), m),
+            Op::Exp(e) => format!("Op::Exp@{}({:#?})", self.get_ptr(), e),
             Op::If(i) => format!("Op::If@{}({:#?})", self.get_ptr(), i),
             Op::For(f) => format!("Op::For@{}({:#?})", self.get_ptr(), f),
             Op::Call(c) => format!("Op::Call@{}({:#?})", self.get_ptr(), c),
@@ -169,6 +177,9 @@ impl Link<Op> {
             Op::Mul(ref mut mul) => {
                 mul._node = Some(node.clone());
             }
+            Op::Exp(ref mut exp) => {
+                exp._node = Some(node.clone());
+            }
             Op::If(ref mut if_op) => {
                 if_op._node = Some(node.clone());
             }
@@ -216,6 +227,9 @@ impl Link<Op> {
             }
             Op::Mul(ref mut mul) => {
                 mul._owner = Some(owner.clone());
+            }
+            Op::Exp(ref mut exp) => {
+                exp._owner = Some(owner.clone());
             }
             Op::If(ref mut if_op) => {
                 if_op._owner = Some(owner.clone());
@@ -285,6 +299,14 @@ impl Link<Op> {
             Op::Mul(ref mut mul) => {
                 let node: Link<Node> = Node::Mul(back).into();
                 mul._node = Some(node.clone());
+                node
+            }
+            Op::Exp(Exp {
+                _node: Some(link), ..
+            }) => link.clone(),
+            Op::Exp(ref mut exp) => {
+                let node: Link<Node> = Node::Exp(back).into();
+                exp._node = Some(node.clone());
                 node
             }
             Op::If(If {
@@ -405,6 +427,14 @@ impl Link<Op> {
                 mul._owner = Some(owner.clone());
                 mul._owner.clone()
             }
+            Op::Exp(Exp {
+                _owner: Some(link), ..
+            }) => Some(link.clone()),
+            Op::Exp(ref mut exp) => {
+                let owner: Link<Owner> = Owner::Exp(back).into();
+                exp._owner = Some(owner.clone());
+                exp._owner.clone()
+            }
             Op::If(If {
                 _owner: Some(link), ..
             }) => Some(link.clone()),
@@ -523,6 +553,18 @@ impl Link<Op> {
     pub fn as_mul_mut(&self) -> Option<RefMut<Mul>> {
         get_inner_mut(self.borrow_mut(), |op| match op {
             Op::Mul(inner) => Some(inner),
+            _ => None,
+        })
+    }
+    pub fn as_exp(&self) -> Option<Ref<Exp>> {
+        get_inner(self.borrow(), |op| match op {
+            Op::Exp(inner) => Some(inner),
+            _ => None,
+        })
+    }
+    pub fn as_exp_mut(&self) -> Option<RefMut<Exp>> {
+        get_inner_mut(self.borrow_mut(), |op| match op {
+            Op::Exp(inner) => Some(inner),
             _ => None,
         })
     }

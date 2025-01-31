@@ -39,6 +39,7 @@ pub trait Visitor {
             Node::Add(a) => self.visit_add(graph, a.clone().into()),
             Node::Sub(s) => self.visit_sub(graph, s.clone().into()),
             Node::Mul(m) => self.visit_mul(graph, m.clone().into()),
+            Node::Exp(e) => self.visit_exp(graph, e.clone().into()),
             Node::If(i) => self.visit_if(graph, i.clone().into()),
             Node::For(f) => self.visit_for(graph, f.clone().into()),
             Node::Call(c) => self.visit_call(graph, c.clone().into()),
@@ -82,6 +83,9 @@ pub trait Visitor {
         Ok(())
     }
     fn visit_mul(&mut self, _graph: &mut Graph, _mul: Link<Op>) -> Result<(), CompileError> {
+        Ok(())
+    }
+    fn visit_exp(&mut self, _graph: &mut Graph, _exp: Link<Op>) -> Result<(), CompileError> {
         Ok(())
     }
     fn visit_if(&mut self, _graph: &mut Graph, _if_node: Link<Op>) -> Result<(), CompileError> {

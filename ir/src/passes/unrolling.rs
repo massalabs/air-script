@@ -369,6 +369,40 @@ impl<'a> UnrollingFirstPass<'a> {
         Ok(updated_mul)
     }
 
+    fn visit_exp_bis(
+        &mut self,
+        _graph: &mut Graph,
+        exp: Link<Op>,
+    ) -> Result<Option<Link<Op>>, CompileError> {
+        let mut updated_exp = None;
+
+        {
+            let exp_ref = exp.as_exp().unwrap();
+            let lhs = exp_ref.lhs.clone();
+            let rhs = exp_ref.rhs.clone();
+
+            if let (Op::Vector(lhs_vector), Op::Vector(rhs_vector)) =
+                (lhs.borrow().deref(), rhs.borrow().deref())
+            {
+                let lhs_vec = lhs_vector.children().borrow().deref().clone();
+                let rhs_vec = rhs_vector.children().borrow().deref().clone();
+
+                if lhs_vec.len() != rhs_vec.len() {
+                    // Raise diag
+                } else {
+                    let mut new_vec = vec![];
+                    for (lhs, rhs) in lhs_vec.iter().zip(rhs_vec.iter()) {
+                        let new_node = Exp::create(lhs.clone(), rhs.clone());
+                        new_vec.push(new_node);
+                    }
+                    updated_exp = Some(Vector::create(new_vec));
+                }
+            };
+        }
+
+        Ok(updated_exp)
+    }
+
     fn visit_enf_bis(
         &mut self,
         _graph: &mut Graph,
@@ -573,7 +607,6 @@ impl<'a> UnrollingFirstPass<'a> {
         _graph: &mut Graph,
         accessor: Link<Op>,
     ) -> Result<Option<Link<Op>>, CompileError> {
-
         let mut updated_accessor = None;
 
         {
@@ -581,49 +614,22 @@ impl<'a> UnrollingFirstPass<'a> {
             let indexable = accessor_ref.indexable.clone();
             let access_type = accessor_ref.access_type.clone();
             let offset = accessor_ref.offset;
-            match access_type {
-                AccessType::Default => {
-                    /*// Check that the child node is a scalar, raise diag otherwise
-                    if indexable.clone().as_vector().is_some() {
-                        unreachable!(); // raise diag
-                    }
-                    if indexable.clone().as_matrix().is_some() {
-                        unreachable!(); // raise diag
-                    }*/
-                    updated_accessor = Some(indexable.clone());
 
-                    if let Some(value) = indexable.clone().as_value() {
-                        let mir_value = value.value.value.clone();
-
-                        match mir_value {
-                            MirValue::TraceAccess(trace_access) => {
-                                let new_node = Value::create(SpannedMirValue {
-                                    span: Default::default(),
-                                    value: MirValue::TraceAccess(TraceAccess {
-                                        segment: trace_access.segment,
-                                        column: trace_access.column,
-                                        row_offset: offset,
-                                    }),
-                                });
-                                updated_accessor = Some(new_node);
-                            },
-                            _ => unreachable!()
+            if indexable.clone().as_parameter().is_none() {
+                match access_type {
+                    AccessType::Default => {
+                        /*// Check that the child node is a scalar, raise diag otherwise
+                        if indexable.clone().as_vector().is_some() {
+                            unreachable!(); // raise diag
                         }
-                    }
-                }
-                AccessType::Index(index) => {
-                    // Check that the child node is a vector, raise diag otherwise
-                    // Replace the current node by the index-th element of the vector
-                    // Raise diag if index is out of bounds
+                        if indexable.clone().as_matrix().is_some() {
+                            unreachable!(); // raise diag
+                        }*/
+                        updated_accessor = Some(indexable.clone());
 
-                    if let Op::Vector(indexable_vector) = indexable.borrow().deref() {
-                        let indexable_vec = indexable_vector.children().borrow().deref().clone();
-                        let child_accessed = match indexable_vec.get(index) {
-                            Some(child_accessed) => child_accessed,
-                            None => unreachable!(), // raise diag
-                        };
-                        if let Some(value) = child_accessed.clone().as_value() {
+                        if let Some(value) = indexable.clone().as_value() {
                             let mir_value = value.value.value.clone();
+
                             match mir_value {
                                 MirValue::TraceAccess(trace_access) => {
                                     let new_node = Value::create(SpannedMirValue {
@@ -631,68 +637,101 @@ impl<'a> UnrollingFirstPass<'a> {
                                         value: MirValue::TraceAccess(TraceAccess {
                                             segment: trace_access.segment,
                                             column: trace_access.column,
-                                            row_offset: offset,
+                                            row_offset: trace_access.row_offset + offset,
                                         }),
                                     });
                                     updated_accessor = Some(new_node);
-                                },
-                                _ => {
-                                    updated_accessor = Some(child_accessed.clone());
                                 }
+                                _ => unreachable!(),
+                            }
+                        }
+                    }
+                    AccessType::Index(index) => {
+                        // Check that the child node is a vector, raise diag otherwise
+                        // Replace the current node by the index-th element of the vector
+                        // Raise diag if index is out of bounds
+
+                        if let Op::Vector(indexable_vector) = indexable.borrow().deref() {
+                            let indexable_vec =
+                                indexable_vector.children().borrow().deref().clone();
+                            let child_accessed = match indexable_vec.get(index) {
+                                Some(child_accessed) => child_accessed,
+                                None => unreachable!(), // raise diag
+                            };
+                            if let Some(value) = child_accessed.clone().as_value() {
+                                let mir_value = value.value.value.clone();
+                                match mir_value {
+                                    MirValue::TraceAccess(trace_access) => {
+                                        let new_node = Value::create(SpannedMirValue {
+                                            span: Default::default(),
+                                            value: MirValue::TraceAccess(TraceAccess {
+                                                segment: trace_access.segment,
+                                                column: trace_access.column,
+                                                row_offset: trace_access.row_offset + offset,
+                                            }),
+                                        });
+                                        updated_accessor = Some(new_node);
+                                    }
+                                    _ => {
+                                        updated_accessor = Some(child_accessed.clone());
+                                    }
+                                }
+                            } else {
+                                updated_accessor = Some(child_accessed.clone());
                             }
                         } else {
-                            updated_accessor = Some(child_accessed.clone());
-                        }
-                    } else {
-                        unreachable!("indexable is {:?}", indexable); // raise diag
-                    };
-                }
-                AccessType::Matrix(row, col) => {
-                    // Check that the child node is a matrix, raise diag otherwise
-                    // Replace the current node by the index-th element of the vector
-                    // Raise diag if index is out of bounds
-
-                    if let Op::Vector(indexable_vector) = indexable.borrow().deref() {
-                        let indexable_vec = indexable_vector.children().borrow().deref().clone();
-                        let row_accessed = match indexable_vec.get(row) {
-                            Some(row_accessed) => row_accessed,
-                            None => unreachable!(), // raise diag
+                            unreachable!("indexable is {:?}", indexable); // raise diag
                         };
+                    }
+                    AccessType::Matrix(row, col) => {
+                        // Check that the child node is a matrix, raise diag otherwise
+                        // Replace the current node by the index-th element of the vector
+                        // Raise diag if index is out of bounds
 
-                        if let Op::Vector(row_accessed_vector) = row_accessed.borrow().deref() {
-                            let row_accessed_vec =
-                                row_accessed_vector.children().borrow().deref().clone();
-                            let child_accessed = match row_accessed_vec.get(col) {
-                                Some(child_accessed) => child_accessed,
+                        if let Op::Vector(indexable_vector) = indexable.borrow().deref() {
+                            let indexable_vec =
+                                indexable_vector.children().borrow().deref().clone();
+                            let row_accessed = match indexable_vec.get(row) {
+                                Some(row_accessed) => row_accessed,
                                 None => unreachable!(), // raise diag
                             };
-                            updated_accessor = Some(child_accessed.clone());
-                        } else {
-                            unreachable!(); // raise diag
-                        };
-                    } else if let Op::Matrix(indexable_matrix) = indexable.borrow().deref() {
-                        let indexable_vec = indexable_matrix.children().borrow().deref().clone();
-                        let row_accessed = match indexable_vec.get(row) {
-                            Some(row_accessed) => row_accessed,
-                            None => unreachable!(), // raise diag
-                        };
 
-                        if let Op::Vector(row_accessed_vector) = row_accessed.borrow().deref() {
-                            let row_accessed_vec =
-                                row_accessed_vector.children().borrow().deref().clone();
-                            let child_accessed = match row_accessed_vec.get(col) {
-                                Some(child_accessed) => child_accessed,
+                            if let Op::Vector(row_accessed_vector) = row_accessed.borrow().deref() {
+                                let row_accessed_vec =
+                                    row_accessed_vector.children().borrow().deref().clone();
+                                let child_accessed = match row_accessed_vec.get(col) {
+                                    Some(child_accessed) => child_accessed,
+                                    None => unreachable!(), // raise diag
+                                };
+                                updated_accessor = Some(child_accessed.clone());
+                            } else {
+                                unreachable!(); // raise diag
+                            };
+                        } else if let Op::Matrix(indexable_matrix) = indexable.borrow().deref() {
+                            let indexable_vec =
+                                indexable_matrix.children().borrow().deref().clone();
+                            let row_accessed = match indexable_vec.get(row) {
+                                Some(row_accessed) => row_accessed,
                                 None => unreachable!(), // raise diag
                             };
-                            updated_accessor = Some(child_accessed.clone());
-                        } else {
-                            unreachable!(); // raise diag
-                        };
-                    };
-                }
 
-                AccessType::Slice(_range_expr) => {
-                    unreachable!(); // Slices are not scalar, raise diag
+                            if let Op::Vector(row_accessed_vector) = row_accessed.borrow().deref() {
+                                let row_accessed_vec =
+                                    row_accessed_vector.children().borrow().deref().clone();
+                                let child_accessed = match row_accessed_vec.get(col) {
+                                    Some(child_accessed) => child_accessed,
+                                    None => unreachable!(), // raise diag
+                                };
+                                updated_accessor = Some(child_accessed.clone());
+                            } else {
+                                unreachable!(); // raise diag
+                            };
+                        };
+                    }
+
+                    AccessType::Slice(_range_expr) => {
+                        unreachable!(); // Slices are not scalar, raise diag
+                    }
                 }
             }
         }
@@ -751,6 +790,7 @@ impl<'a> UnrollingFirstPass<'a> {
             }
 
             let mut new_vec = vec![];
+
             for i in 0..iterator_expected_len {
                 let new_node = Parameter::create(i, MirType::Felt);
                 new_vec.push(new_node.clone());
@@ -876,6 +916,7 @@ impl Visitor for UnrollingFirstPass<'_> {
             Node::Add(a) => self.visit_add_bis(graph, a.clone().into()),
             Node::Sub(s) => self.visit_sub_bis(graph, s.clone().into()),
             Node::Mul(m) => self.visit_mul_bis(graph, m.clone().into()),
+            Node::Exp(e) => self.visit_exp_bis(graph, e.clone().into()),
             Node::If(i) => self.visit_if_bis(graph, i.clone().into()),
             Node::For(f) => self.visit_for_bis(graph, f.clone().into()),
             Node::Call(c) => self.visit_call_bis(graph, c.clone().into()),

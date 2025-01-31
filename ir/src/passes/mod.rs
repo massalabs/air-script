@@ -13,7 +13,7 @@ use std::ops::Deref;
 use air_pass::Pass;
 
 use crate::ir::{
-    Accessor, Add, Boundary, Call, Enf, Fold, For, If, Link, Matrix, Mul, Node, Op, Parameter,
+    Accessor, Add, Boundary, Call, Enf, Exp, Fold, For, If, Link, Matrix, Mul, Node, Op, Parameter,
     Parent, Sub, Value, Vector,
 };
 
@@ -65,6 +65,13 @@ pub fn duplicate_node(
             let new_lhs_node = duplicate_node(lhs, current_replace_map);
             let new_rhs_node = duplicate_node(rhs, current_replace_map);
             Mul::create(new_lhs_node, new_rhs_node)
+        }
+        Op::Exp(exp) => {
+            let lhs = exp.lhs.clone();
+            let rhs = exp.rhs.clone();
+            let new_lhs_node = duplicate_node(lhs, current_replace_map);
+            let new_rhs_node = duplicate_node(rhs, current_replace_map);
+            Exp::create(new_lhs_node, new_rhs_node)
         }
         Op::If(if_node) => {
             let condition = if_node.condition.clone();
@@ -240,6 +247,14 @@ pub fn duplicate_node_or_replace(
             let new_lhs_node = current_replace_map.get(&lhs.get_ptr()).unwrap().1.clone();
             let new_rhs_node = current_replace_map.get(&rhs.get_ptr()).unwrap().1.clone();
             let new_node = Mul::create(new_lhs_node, new_rhs_node);
+            current_replace_map.insert(node.get_ptr(), (node.clone(), new_node));
+        }
+        Op::Exp(exp) => {
+            let lhs = exp.lhs.clone();
+            let rhs = exp.rhs.clone();
+            let new_lhs_node = current_replace_map.get(&lhs.get_ptr()).unwrap().1.clone();
+            let new_rhs_node = current_replace_map.get(&rhs.get_ptr()).unwrap().1.clone();
+            let new_node = Exp::create(new_lhs_node, new_rhs_node);
             current_replace_map.insert(node.get_ptr(), (node.clone(), new_node));
         }
         Op::If(if_node) => {

@@ -5,7 +5,8 @@ use miden_diagnostics::{DiagnosticsHandler, Severity, SourceSpan};
 
 use crate::{
     ir::{
-        Accessor, Graph, Link, Mir, MirType, MirValue, Node, Op, Parameter, Parent, Root, SpannedMirValue, TraceAccessBinding, Value, Vector
+        Accessor, Graph, Link, Mir, MirType, MirValue, Node, Op, Parameter, Parent, Root,
+        SpannedMirValue, TraceAccessBinding, Value, Vector,
     },
     CompileError,
 };
@@ -568,23 +569,21 @@ impl Visitor for InliningSecondPass<'_> {
                             };
                             trace_segments_arg_vector_len += size;
                         } else if let Some(accessor) = child.as_accessor() {
-                            let Accessor {
-                                access_type,
-                                indexable,
-                                offset,
-                                ..
-                            } = accessor.deref();
+                            let Accessor { indexable, .. } = accessor.deref();
 
                             if let Some(value) = indexable.as_value() {
                                 let Value {
                                     value: SpannedMirValue { value, .. },
                                     ..
                                 } = value.deref();
-    
+
                                 let param_size = match value {
                                     MirValue::TraceAccessBinding(tab) => tab.size,
                                     MirValue::TraceAccess(_) => 1,
-                                    _ => unreachable!("expected trace access binding, got {:?}", value),
+                                    _ => unreachable!(
+                                        "expected trace access binding, got {:?}",
+                                        value
+                                    ),
                                 };
                                 trace_segments_arg_vector_len += param_size;
                             } else if let Some(parameter) = indexable.as_parameter() {
@@ -680,40 +679,44 @@ impl Visitor for InliningSecondPass<'_> {
 
                             args_unpacked.push(arg.clone());
                         } else if let Some(accessor) = arg.as_accessor() {
-                            let Accessor {
-                                access_type,
-                                indexable,
-                                offset,
-                                ..
-                            } = accessor.deref();
+                            let Accessor { indexable, .. } = accessor.deref();
 
                             if let Some(value) = indexable.as_value() {
                                 let Value {
                                     value: SpannedMirValue { value, .. },
                                     ..
                                 } = value.deref();
-    
-                                let param_size = match value {
+
+                                let _param_size = match value {
                                     MirValue::TraceAccessBinding(tab) => tab.size,
                                     MirValue::TraceAccess(_) => 1,
-                                    _ => unreachable!("expected trace access binding, got {:?}", value),
+                                    _ => unreachable!(
+                                        "expected trace access binding, got {:?}",
+                                        value
+                                    ),
                                 };
-                                
+
                                 args_unpacked.push(indexable.clone());
                             } else if let Some(parameter) = indexable.as_parameter() {
                                 let Parameter { ty, .. } = parameter.deref();
-                                let size = match ty {
+                                let _size = match ty {
                                     MirType::Felt => 1,
                                     MirType::Vector(len) => *len,
                                     _ => unreachable!("expected felt or vector, got {:?}", ty),
                                 };
-                                
+
                                 args_unpacked.push(indexable.clone());
                             } else {
-                                unreachable!("expected value or parameter (or accessor on one), got {:?}", arg);
+                                unreachable!(
+                                    "expected value or parameter (or accessor on one), got {:?}",
+                                    arg
+                                );
                             }
                         } else {
-                            unreachable!("expected value or parameter (or accessor on one), got {:?}", arg);
+                            unreachable!(
+                                "expected value or parameter (or accessor on one), got {:?}",
+                                arg
+                            );
                         }
                     }
                 }
