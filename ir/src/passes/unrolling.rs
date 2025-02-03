@@ -839,21 +839,6 @@ impl<'a> UnrollingFirstPass<'a> {
         unreachable!("Calls should have been inlined before this pass");
     }
 
-    fn visit_function_bis(
-        &mut self,
-        _graph: &mut Graph,
-        _function: Link<Root>,
-    ) -> Result<Option<Link<Op>>, CompileError> {
-        unreachable!("Functions should have been inlined before this pass");
-    }
-
-    fn visit_evaluator_bis(
-        &mut self,
-        _graph: &mut Graph,
-        _evaluator: Link<Root>,
-    ) -> Result<Option<Link<Op>>, CompileError> {
-        unreachable!("Evaluators should have been inlined before this pass");
-    }
     fn visit_vector_bis(
         &mut self,
         _graph: &mut Graph,
@@ -907,24 +892,34 @@ impl Visitor for UnrollingFirstPass<'_> {
     }
 
     fn visit_node(&mut self, graph: &mut Graph, node: Link<Node>) -> Result<(), CompileError> {
-        let updated_op = match node.borrow().deref() {
-            Node::Function(f) => self.visit_function_bis(graph, f.clone().into()),
-            Node::Evaluator(e) => self.visit_evaluator_bis(graph, e.clone().into()),
-            Node::Enf(e) => self.visit_enf_bis(graph, e.clone().into()),
-            Node::Boundary(b) => self.visit_boundary_bis(graph, b.clone().into()),
-            Node::Add(a) => self.visit_add_bis(graph, a.clone().into()),
-            Node::Sub(s) => self.visit_sub_bis(graph, s.clone().into()),
-            Node::Mul(m) => self.visit_mul_bis(graph, m.clone().into()),
-            Node::Exp(e) => self.visit_exp_bis(graph, e.clone().into()),
-            Node::If(i) => self.visit_if_bis(graph, i.clone().into()),
-            Node::For(f) => self.visit_for_bis(graph, f.clone().into()),
-            Node::Call(c) => self.visit_call_bis(graph, c.clone().into()),
-            Node::Fold(f) => self.visit_fold_bis(graph, f.clone().into()),
-            Node::Vector(v) => self.visit_vector_bis(graph, v.clone().into()),
-            Node::Matrix(m) => self.visit_matrix_bis(graph, m.clone().into()),
-            Node::Accessor(a) => self.visit_accessor_bis(graph, a.clone().into()),
-            Node::Parameter(p) => self.visit_parameter_bis(graph, p.clone().into()),
-            Node::Value(v) => self.visit_value_bis(graph, v.clone().into()),
+        let updated_op: Result<Option<Link<Op>>, CompileError> = match node.borrow().deref() {
+            Node::Function(f) => {
+                unreachable!("Functions should have been inlined before this pass")
+            }
+            Node::Evaluator(e) => {
+                unreachable!("Evaluators should have been inlined before this pass")
+            }
+            Node::Enf(e) => to_link_and(e.clone(), graph, |g, el| self.visit_enf_bis(g, el)),
+            Node::Boundary(b) => {
+                to_link_and(b.clone(), graph, |g, el| self.visit_boundary_bis(g, el))
+            }
+            Node::Add(a) => to_link_and(a.clone(), graph, |g, el| self.visit_add_bis(g, el)),
+            Node::Sub(s) => to_link_and(s.clone(), graph, |g, el| self.visit_sub_bis(g, el)),
+            Node::Mul(m) => to_link_and(m.clone(), graph, |g, el| self.visit_mul_bis(g, el)),
+            Node::Exp(e) => to_link_and(e.clone(), graph, |g, el| self.visit_exp_bis(g, el)),
+            Node::If(i) => to_link_and(i.clone(), graph, |g, el| self.visit_if_bis(g, el)),
+            Node::For(f) => to_link_and(f.clone(), graph, |g, el| self.visit_for_bis(g, el)),
+            Node::Call(c) => to_link_and(c.clone(), graph, |g, el| self.visit_call_bis(g, el)),
+            Node::Fold(f) => to_link_and(f.clone(), graph, |g, el| self.visit_fold_bis(g, el)),
+            Node::Vector(v) => to_link_and(v.clone(), graph, |g, el| self.visit_vector_bis(g, el)),
+            Node::Matrix(m) => to_link_and(m.clone(), graph, |g, el| self.visit_matrix_bis(g, el)),
+            Node::Accessor(a) => {
+                to_link_and(a.clone(), graph, |g, el| self.visit_accessor_bis(g, el))
+            }
+            Node::Parameter(p) => {
+                to_link_and(p.clone(), graph, |g, el| self.visit_parameter_bis(g, el))
+            }
+            Node::Value(v) => to_link_and(v.clone(), graph, |g, el| self.visit_value_bis(g, el)),
             Node::None => Ok(None),
         };
 
@@ -1034,5 +1029,20 @@ impl Visitor for UnrollingSecondPass<'_> {
             );
         }
         Ok(())
+    }
+}
+
+fn to_link_and<F>(
+    back: BackLink<Op>,
+    graph: &mut Graph,
+    f: F,
+) -> Result<Option<Link<Op>>, CompileError>
+where
+    F: FnOnce(&mut Graph, Link<Op>) -> Result<Option<Link<Op>>, CompileError>,
+{
+    if let Some(op) = back.to_link() {
+        f(graph, op)
+    } else {
+        Ok(None)
     }
 }
