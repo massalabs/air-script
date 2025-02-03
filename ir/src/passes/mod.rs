@@ -310,7 +310,7 @@ pub fn duplicate_node_or_replace(
                     param.as_parameter_mut().unwrap().set_ref_node(new_owner.clone());
                 }
                 
-                params_for_ref_node.entry(new_owner.get_ptr()).or_insert_with(Vec::new).extend(params.clone());
+                params_for_ref_node.entry(new_owner.get_ptr()).or_default().extend(params.clone());
             }
         }
         Op::Call(call) => {
@@ -427,7 +427,7 @@ pub fn duplicate_node_or_replace(
                         .set_ref_node(owner_ref.clone());
                     params_for_ref_node
                         .entry(owner_ref.get_ptr())
-                        .or_insert_with(Vec::new)
+                        .or_default()
                         .push(new_param.clone());
                 }
 

@@ -148,7 +148,7 @@ impl Pass for Unrolling<'_> {
         // The second pass actually inlines the For nodes
         let mut second_pass =
             UnrollingSecondPass::new(self.diagnostics, first_pass.bodies_to_inline.clone());
-        second_pass.all_for_nodes = first_pass.all_for_nodes.clone();
+        second_pass.all_for_nodes.clone_from(&first_pass.all_for_nodes);
         Visitor::run(&mut second_pass, ir.constraint_graph_mut())?;
 
         /*let graph = ir.constraint_graph();
@@ -492,7 +492,7 @@ impl<'a> UnrollingFirstPass<'a> {
 
         self.params_for_ref_node
             .entry(owner_ref.get_ptr())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(parameter.clone());
         Ok(None)
     }
