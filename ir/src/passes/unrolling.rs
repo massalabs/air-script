@@ -69,6 +69,7 @@ pub struct UnrollingSecondPass<'a> {
     bodies_to_inline: Vec<(Link<Op>, ForInliningContext)>,
     for_inlining_context: Option<ForInliningContext>,
     nodes_to_replace: HashMap<usize, (Link<Op>, Link<Op>)>,
+    params_for_ref_node: HashMap<usize, Vec<Link<Op>>>,
 }
 impl<'a> UnrollingSecondPass<'a> {
     pub fn new(
@@ -81,6 +82,7 @@ impl<'a> UnrollingSecondPass<'a> {
             bodies_to_inline,
             for_inlining_context: None,
             nodes_to_replace: HashMap::new(),
+            params_for_ref_node: HashMap::new(),
         }
     }
 }
@@ -763,27 +765,24 @@ impl<'a> UnrollingFirstPass<'a> {
             if iterators.is_empty() {
                 unreachable!(); // Raise diag
             }
-            let iterator_expected_len = iterators[0]
+
+
+            let iterator_expected_len = match iterators[0]
                 .clone()
-                .as_vector()
-                .unwrap_or_else(|| {
-                    unreachable!("Iterators should be vectors, got {:?}", iterators[0])
-                })
-                .children()
-                .borrow()
-                .len();
+                .as_vector() {
+                    Some(vec) => vec.children().borrow().len(),
+                    _ => 1
+                };
 
             for iterator in iterators.iter().skip(1) {
-                if iterator
-                    .clone()
-                    .as_vector()
-                    .unwrap_or_else(|| {
-                        unreachable!("Iterators should be vectors, got {:?}", iterator)
-                    })
-                    .children()
-                    .borrow()
-                    .len()
-                    != iterator_expected_len
+                let iterator_len = match iterator
+                .clone()
+                .as_vector() {
+                    Some(vec) => vec.children().borrow().len(),
+                    _ => 1
+                };
+
+                if iterator_len != iterator_expected_len
                 {
                     unreachable!(); // Raise diag
                 }
@@ -799,7 +798,7 @@ impl<'a> UnrollingFirstPass<'a> {
                     .iter()
                     .map(|op| match op.clone().as_vector() {
                         Some(vec) => vec.children().borrow()[i].clone(),
-                        _ => unreachable!(),
+                        _ => op.clone(),
                     })
                     .collect::<Vec<_>>();
                 let selector = if let Op::None = selector.borrow().deref() {
@@ -858,9 +857,9 @@ impl<'a> UnrollingFirstPass<'a> {
     fn visit_vector_bis(
         &mut self,
         _graph: &mut Graph,
-        _vector: Link<Op>,
+        vector: Link<Op>,
     ) -> Result<Option<Link<Op>>, CompileError> {
-        /*let mut updated_vector = None;
+        let mut updated_vector = None;
 
         {
             // safe to unwrap because we just dispatched on it
@@ -874,8 +873,8 @@ impl<'a> UnrollingFirstPass<'a> {
             }
         }
 
-        Ok(updated_vector)*/
-        Ok(None)
+        Ok(updated_vector)
+        //Ok(None)
     }
     fn visit_matrix_bis(
         &mut self,
@@ -959,6 +958,7 @@ impl Visitor for UnrollingSecondPass<'_> {
 
             self.for_inlining_context = for_inlining_context;
             self.nodes_to_replace.clear();
+            self.params_for_ref_node.clear();
 
             self.scan_node(
                 graph,
@@ -1025,6 +1025,7 @@ impl Visitor for UnrollingSecondPass<'_> {
                     .unwrap()
                     .ref_node
                     .as_node(),
+                &mut self.params_for_ref_node,
             );
         } else {
             unreachable!(

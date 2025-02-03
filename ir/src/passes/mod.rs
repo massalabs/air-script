@@ -210,6 +210,7 @@ pub fn duplicate_node_or_replace(
     node: Link<Op>,
     replace_parameter_list: Vec<Link<Op>>,
     ref_node: Link<Node>,
+    params_for_ref_node: &mut HashMap<usize, Vec<Link<Op>>>,
 ) {
     match node.borrow().deref() {
         Op::Enf(enf) => {
@@ -299,7 +300,7 @@ pub fn duplicate_node_or_replace(
                 .unwrap_or(Link::new(Op::None))
                 .clone();
             let new_node = For::create(new_iterators, new_body, new_selector);
-            current_replace_map.insert(node.get_ptr(), (node.clone(), new_node));
+            current_replace_map.insert(node.get_ptr(), (node.clone(), new_node.clone()));
         }
         Op::Call(call) => {
             let arguments = call.arguments.clone();
@@ -401,7 +402,7 @@ pub fn duplicate_node_or_replace(
                     new_param
                         .as_parameter_mut()
                         .unwrap()
-                        .set_ref_node(owner_ref);
+                        .set_ref_node(owner_ref.clone());
                 } else if let Some((_replaced_node, replaced_by)) =
                     current_replace_map.get(&owner_ref.as_op().unwrap().get_ptr())
                 {
@@ -413,11 +414,17 @@ pub fn duplicate_node_or_replace(
                     new_param
                         .as_parameter_mut()
                         .unwrap()
-                        .set_ref_node(owner_ref);
+                        .set_ref_node(owner_ref.clone());
                 }
 
-                current_replace_map.insert(node.get_ptr(), (node.clone(), new_param));
+                current_replace_map.insert(node.get_ptr(), (node.clone(), new_param.clone()));
+
+                params_for_ref_node
+                    .entry(owner_ref.get_ptr())
+                    .or_insert_with(Vec::new)
+                    .push(new_param);
             }
+            
         }
         Op::Value(value) => {
             let new_node = Value::create(value.value.clone());
