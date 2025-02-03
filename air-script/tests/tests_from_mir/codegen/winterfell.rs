@@ -217,7 +217,7 @@ fn selectors() {
             .transpile(Target::Winterfell)
             .unwrap();
 
-    let expected = expect_file!["../selectors/selectors.rs"];
+    let expected = expect_file!["../selectors/selectors_with_evaluators.rs"];
     expected.assert_eq(&generated_air);
 }
 

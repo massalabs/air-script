@@ -85,9 +85,9 @@ impl Air for ListFoldingAir {
         let main_next = main_frame.next();
         let aux_current = aux_frame.current();
         let aux_next = aux_frame.next();
-        result[0] = aux_next[1] - (aux_current[5] + aux_current[6] + aux_current[7] + aux_current[8] + aux_current[9] * aux_current[10] * aux_current[11] * aux_current[12]);
-        result[1] = aux_next[2] - (aux_current[5] + aux_current[6] + aux_current[7] + aux_current[8] + aux_current[9] * aux_current[10] * aux_current[11] * aux_current[12]);
-        result[2] = aux_next[3] - (aux_current[5] * aux_current[9] + aux_current[6] * aux_current[10] + aux_current[7] * aux_current[11] + aux_current[8] * aux_current[12] + (aux_current[5] + aux_current[9]) * (aux_current[6] + aux_current[10]) * (aux_current[7] + aux_current[11]) * (aux_current[8] + aux_current[12]));
-        result[3] = aux_next[4] - (E::from(main_current[1]) + aux_current[5] * aux_current[9] + aux_current[6] * aux_current[10] + aux_current[7] * aux_current[11] + aux_current[8] * aux_current[12] + aux_current[5] * aux_current[9] + aux_current[6] * aux_current[10] + aux_current[7] * aux_current[11] + aux_current[8] * aux_current[12]);
+        result[0] = aux_next[1] - (E::ZERO + aux_current[5] + aux_current[6] + aux_current[7] + aux_current[8] + E::ONE * aux_current[9] * aux_current[10] * aux_current[11] * aux_current[12]);
+        result[1] = aux_next[2] - (E::ZERO + aux_current[5] + aux_current[6] + aux_current[7] + aux_current[8] + E::ONE * aux_current[9] * aux_current[10] * aux_current[11] * aux_current[12]);
+        result[2] = aux_next[3] - (E::ZERO + aux_current[5] * aux_current[9] + aux_current[6] * aux_current[10] + aux_current[7] * aux_current[11] + aux_current[8] * aux_current[12] + E::ONE * (aux_current[5] + aux_current[9]) * (aux_current[6] + aux_current[10]) * (aux_current[7] + aux_current[11]) * (aux_current[8] + aux_current[12]));
+        result[3] = aux_next[4] - (E::from(main_current[1]) + E::ZERO + aux_current[5] * aux_current[9] + aux_current[6] * aux_current[10] + aux_current[7] * aux_current[11] + aux_current[8] * aux_current[12] + E::ZERO + aux_current[5] * aux_current[9] + aux_current[6] * aux_current[10] + aux_current[7] * aux_current[11] + aux_current[8] * aux_current[12]);
     }
 }
