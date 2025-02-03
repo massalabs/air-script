@@ -35,7 +35,9 @@ pub struct Unrolling<'a> {
 
 impl<'a> Unrolling<'a> {
     pub fn new(diagnostics: &'a DiagnosticsHandler) -> Self {
-        Self { diagnostics }
+        Self {
+            diagnostics,
+        }
     }
 }
 
@@ -47,6 +49,9 @@ pub struct UnrollingFirstPass<'a> {
     work_stack: Vec<Link<Node>>,
 
     bodies_to_inline: Vec<(Link<Op>, ForInliningContext)>,
+
+    params_for_ref_node: HashMap<usize, Vec<Link<Op>>>,
+    all_for_nodes: HashMap<usize, (Link<Op>, Link<Owner>)>,
 }
 
 impl<'a> UnrollingFirstPass<'a> {
@@ -55,6 +60,8 @@ impl<'a> UnrollingFirstPass<'a> {
             diagnostics,
             work_stack: vec![],
             bodies_to_inline: vec![],
+            params_for_ref_node: HashMap::new(),
+            all_for_nodes: HashMap::new()
         }
     }
 }
@@ -70,6 +77,7 @@ pub struct UnrollingSecondPass<'a> {
     for_inlining_context: Option<ForInliningContext>,
     nodes_to_replace: HashMap<usize, (Link<Op>, Link<Op>)>,
     params_for_ref_node: HashMap<usize, Vec<Link<Op>>>,
+    all_for_nodes: HashMap<usize, (Link<Op>, Link<Owner>)>,
 }
 impl<'a> UnrollingSecondPass<'a> {
     pub fn new(
@@ -83,6 +91,7 @@ impl<'a> UnrollingSecondPass<'a> {
             for_inlining_context: None,
             nodes_to_replace: HashMap::new(),
             params_for_ref_node: HashMap::new(),
+            all_for_nodes: HashMap::new(),
         }
     }
 }
@@ -139,6 +148,7 @@ impl Pass for Unrolling<'_> {
         // The second pass actually inlines the For nodes
         let mut second_pass =
             UnrollingSecondPass::new(self.diagnostics, first_pass.bodies_to_inline.clone());
+        second_pass.all_for_nodes = first_pass.all_for_nodes.clone();
         Visitor::run(&mut second_pass, ir.constraint_graph_mut())?;
 
         /*let graph = ir.constraint_graph();
@@ -473,10 +483,17 @@ impl<'a> UnrollingFirstPass<'a> {
     fn visit_parameter_bis(
         &mut self,
         _graph: &mut Graph,
-        _parameter: Link<Op>,
+        parameter: Link<Op>,
     ) -> Result<Option<Link<Op>>, CompileError> {
         // FIXME: Just check that the parameter is a scalar, raise diag otherwise
         // List comprehension bodies should only be scalar expressions
+
+        let owner_ref = parameter.as_parameter().unwrap().ref_node.to_link().unwrap_or_else(|| panic!("Ref node invalid"));
+
+        self.params_for_ref_node
+            .entry(owner_ref.get_ptr())
+            .or_insert_with(Vec::new)
+            .push(parameter.clone());
         Ok(None)
     }
 
@@ -766,7 +783,6 @@ impl<'a> UnrollingFirstPass<'a> {
                 unreachable!(); // Raise diag
             }
 
-
             let iterator_expected_len = match iterators[0]
                 .clone()
                 .as_vector() {
@@ -892,11 +908,20 @@ impl Visitor for UnrollingFirstPass<'_> {
     }
 
     fn visit_node(&mut self, graph: &mut Graph, node: Link<Node>) -> Result<(), CompileError> {
+
+        if let Some(owner) = node.clone().as_owner() {
+            if let Some(op) = owner.clone().as_op() {
+                if let Some(_for_node) = op.as_for() {
+                    self.all_for_nodes.insert(op.get_ptr(), (op.clone(), owner.clone()));
+                }
+            }
+        }
+
         let updated_op: Result<Option<Link<Op>>, CompileError> = match node.borrow().deref() {
-            Node::Function(f) => {
+            Node::Function(_f) => {
                 unreachable!("Functions should have been inlined before this pass")
             }
-            Node::Evaluator(e) => {
+            Node::Evaluator(_e) => {
                 unreachable!("Evaluators should have been inlined before this pass")
             }
             Node::Enf(e) => to_link_and(e.clone(), graph, |g, el| self.visit_enf_bis(g, el)),
@@ -935,6 +960,7 @@ impl Visitor for UnrollingSecondPass<'_> {
     fn work_stack(&mut self) -> &mut Vec<Link<Node>> {
         &mut self.work_stack
     }
+
     fn run(&mut self, graph: &mut Graph) -> Result<(), CompileError> {
         for root in self.root_nodes_to_visit(graph).iter() {
             /*println!("Visiting root node: {idx} - {:?}", root);
@@ -961,7 +987,7 @@ impl Visitor for UnrollingSecondPass<'_> {
             )?;
 
             while let Some(node) = self.work_stack().pop() {
-                self.visit_node(graph, node)?;
+                self.visit_node(graph, node.clone())?;
             }
 
             //println!("END Visiting root node: {idx} - {:?}", root);
@@ -1020,6 +1046,10 @@ impl Visitor for UnrollingSecondPass<'_> {
                     .unwrap()
                     .ref_node
                     .as_node(),
+                    Some(self.all_for_nodes.get(&self.for_inlining_context
+                        .clone()
+                        .unwrap()
+                        .ref_node.get_ptr()).unwrap().1.clone()),
                 &mut self.params_for_ref_node,
             );
         } else {

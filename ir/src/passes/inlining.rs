@@ -391,19 +391,6 @@ impl Visitor for InliningSecondPass<'_> {
 
                 while let Some(node) = self.work_stack().pop() {
                     self.visit_node(graph, node.clone())?;
-
-                    if let Some(op_node) = node.as_op() {
-                        if op_node.as_for().is_some() {
-                            let prev_owner_ptr = op_node.as_owner().unwrap().get_ptr();
-
-                            if let Some(params) = self.params_for_ref_node.get(&prev_owner_ptr) {
-                                let new_owner = self.nodes_to_replace.get(&op_node.get_ptr()).unwrap().1.clone().as_owner().unwrap();
-                                for param in params.iter() {
-                                    param.as_parameter_mut().unwrap().set_ref_node(new_owner.clone());
-                                }
-                            }
-                        }
-                    }
                 }
 
                 //println!("END Visiting root node: {idx} - {:?}", root_node);
@@ -450,7 +437,18 @@ impl Visitor for InliningSecondPass<'_> {
             }
 
             if let Some(updated_op) = updated_op {
+                let prev_owner_ptr = updated_op.as_owner().unwrap().get_ptr();
+
+                let params = self.params_for_ref_node.get(&prev_owner_ptr).cloned();
+
                 root_node.as_op().unwrap().set(&updated_op);
+
+                if let Some(params) = params {
+                    let new_owner = root_node.clone().as_op().unwrap().clone().as_owner().unwrap();
+                    for param in params.iter() {
+                        param.as_parameter_mut().unwrap().set_ref_node(new_owner.clone());
+                    }
+                }
             }
         }
         Ok(())
@@ -536,6 +534,7 @@ impl Visitor for InliningSecondPass<'_> {
                             .borrow()
                             .clone(),
                         self.call_inlining_context.clone().unwrap().ref_node,
+                        None,
                         &mut self.params_for_ref_node,
                     );
                 } else {
@@ -746,6 +745,7 @@ impl Visitor for InliningSecondPass<'_> {
                         call_op.clone(),
                         args_unpacked,
                         self.call_inlining_context.clone().unwrap().ref_node,
+                        None,
                         &mut self.params_for_ref_node,
                     );
                 }

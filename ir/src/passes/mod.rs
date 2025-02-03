@@ -13,8 +13,7 @@ use std::ops::Deref;
 use air_pass::Pass;
 
 use crate::ir::{
-    Accessor, Add, Boundary, Call, Enf, Exp, Fold, For, If, Link, Matrix, Mul, Node, Op, Parameter,
-    Parent, Sub, Value, Vector,
+    Accessor, Add, Boundary, Call, Enf, Exp, Fold, For, If, Link, Matrix, Mul, Node, Op, Owner, Parameter, Parent, Sub, Value, Vector
 };
 
 pub struct DumpAst;
@@ -210,8 +209,11 @@ pub fn duplicate_node_or_replace(
     node: Link<Op>,
     replace_parameter_list: Vec<Link<Op>>,
     ref_node: Link<Node>,
+    ref_owner: Option<Link<Owner>>,
     params_for_ref_node: &mut HashMap<usize, Vec<Link<Op>>>,
 ) {
+    let prev_owner_ptr = node.as_owner().map(|owner| owner.get_ptr());
+
     match node.borrow().deref() {
         Op::Enf(enf) => {
             let expr = enf.expr.clone();
@@ -301,6 +303,15 @@ pub fn duplicate_node_or_replace(
                 .clone();
             let new_node = For::create(new_iterators, new_body, new_selector);
             current_replace_map.insert(node.get_ptr(), (node.clone(), new_node.clone()));
+
+            if let Some(params) = params_for_ref_node.get(&prev_owner_ptr.unwrap()).cloned() {
+                let new_owner = new_node.clone().as_owner().unwrap();
+                for param in params.iter() {
+                    param.as_parameter_mut().unwrap().set_ref_node(new_owner.clone());
+                }
+                
+                params_for_ref_node.entry(new_owner.get_ptr()).or_insert_with(Vec::new).extend(params.clone());
+            }
         }
         Op::Call(call) => {
             let arguments = call.arguments.clone();
@@ -387,12 +398,18 @@ pub fn duplicate_node_or_replace(
             current_replace_map.insert(node.get_ptr(), (node.clone(), new_node));
         }
         Op::Parameter(parameter) => {
-            let owner_ref = parameter.ref_node.to_link().unwrap_or_else(|| {
-                println!("replace_parameter_list: {:?}", replace_parameter_list);
-                panic!("invalid ref_node for parameter {:?}", parameter)
-            });
 
-            if owner_ref == ref_node.as_owner().unwrap() {
+            let owner_ref = parameter
+                .ref_node
+                .to_link()
+                .unwrap_or_else(|| panic!("invalid ref_node for parameter {:?}", parameter));
+
+            let ref_owner = match ref_owner {
+                Some(owner) => owner,
+                None => ref_node.as_owner().unwrap(),
+            };
+            
+            if owner_ref == ref_owner {
                 let new_node = replace_parameter_list[parameter.position].clone();
                 current_replace_map.insert(node.get_ptr(), (node.clone(), new_node));
             } else {
@@ -403,26 +420,19 @@ pub fn duplicate_node_or_replace(
                         .as_parameter_mut()
                         .unwrap()
                         .set_ref_node(owner_ref.clone());
-                } else if let Some((_replaced_node, replaced_by)) =
-                    current_replace_map.get(&owner_ref.as_op().unwrap().get_ptr())
-                {
-                    new_param
-                        .as_parameter_mut()
-                        .unwrap()
-                        .set_ref_node(replaced_by.clone().as_owner().unwrap());
                 } else {
                     new_param
                         .as_parameter_mut()
                         .unwrap()
                         .set_ref_node(owner_ref.clone());
+                    params_for_ref_node
+                        .entry(owner_ref.get_ptr())
+                        .or_insert_with(Vec::new)
+                        .push(new_param.clone());
                 }
 
-                current_replace_map.insert(node.get_ptr(), (node.clone(), new_param.clone()));
+                current_replace_map.insert(node.get_ptr(), (node.clone(), new_param));
 
-                params_for_ref_node
-                    .entry(owner_ref.get_ptr())
-                    .or_insert_with(Vec::new)
-                    .push(new_param);
             }
             
         }
