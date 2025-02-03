@@ -444,9 +444,18 @@ impl Visitor for InliningSecondPass<'_> {
                 root_node.as_op().unwrap().set(&updated_op);
 
                 if let Some(params) = params {
-                    let new_owner = root_node.clone().as_op().unwrap().clone().as_owner().unwrap();
+                    let new_owner = root_node
+                        .clone()
+                        .as_op()
+                        .unwrap()
+                        .clone()
+                        .as_owner()
+                        .unwrap();
                     for param in params.iter() {
-                        param.as_parameter_mut().unwrap().set_ref_node(new_owner.clone());
+                        param
+                            .as_parameter_mut()
+                            .unwrap()
+                            .set_ref_node(new_owner.clone());
                     }
                 }
             }
@@ -508,7 +517,6 @@ impl Visitor for InliningSecondPass<'_> {
         }
 
         {
-           
             // First, check if it's a known Call to inline,
             // if so, set the context and visit the body
             let call_op = node.clone().as_op().unwrap_or_else(|| {
@@ -576,7 +584,10 @@ impl Visitor for InliningSecondPass<'_> {
                                 let param_size = match value {
                                     MirValue::TraceAccessBinding(tab) => tab.size,
                                     MirValue::TraceAccess(_) => 1,
-                                    _ => unreachable!("expected trace access binding, got {:?}", value),
+                                    _ => unreachable!(
+                                        "expected trace access binding, got {:?}",
+                                        value
+                                    ),
                                 };
                                 trace_segments_arg_vector_len += param_size;
                             } else if let Some(parameter) = child.as_parameter() {

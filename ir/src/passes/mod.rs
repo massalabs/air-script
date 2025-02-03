@@ -13,7 +13,8 @@ use std::ops::Deref;
 use air_pass::Pass;
 
 use crate::ir::{
-    Accessor, Add, Boundary, Call, Enf, Exp, Fold, For, If, Link, Matrix, Mul, Node, Op, Owner, Parameter, Parent, Sub, Value, Vector
+    Accessor, Add, Boundary, Call, Enf, Exp, Fold, For, If, Link, Matrix, Mul, Node, Op, Owner,
+    Parameter, Parent, Sub, Value, Vector,
 };
 
 pub struct DumpAst;
@@ -307,10 +308,16 @@ pub fn duplicate_node_or_replace(
             if let Some(params) = params_for_ref_node.get(&prev_owner_ptr.unwrap()).cloned() {
                 let new_owner = new_node.clone().as_owner().unwrap();
                 for param in params.iter() {
-                    param.as_parameter_mut().unwrap().set_ref_node(new_owner.clone());
+                    param
+                        .as_parameter_mut()
+                        .unwrap()
+                        .set_ref_node(new_owner.clone());
                 }
-                
-                params_for_ref_node.entry(new_owner.get_ptr()).or_default().extend(params.clone());
+
+                params_for_ref_node
+                    .entry(new_owner.get_ptr())
+                    .or_default()
+                    .extend(params.clone());
             }
         }
         Op::Call(call) => {
@@ -398,7 +405,6 @@ pub fn duplicate_node_or_replace(
             current_replace_map.insert(node.get_ptr(), (node.clone(), new_node));
         }
         Op::Parameter(parameter) => {
-
             let owner_ref = parameter
                 .ref_node
                 .to_link()
@@ -408,7 +414,7 @@ pub fn duplicate_node_or_replace(
                 Some(owner) => owner,
                 None => ref_node.as_owner().unwrap(),
             };
-            
+
             if owner_ref == ref_owner {
                 let new_node = replace_parameter_list[parameter.position].clone();
                 current_replace_map.insert(node.get_ptr(), (node.clone(), new_node));
@@ -432,9 +438,7 @@ pub fn duplicate_node_or_replace(
                 }
 
                 current_replace_map.insert(node.get_ptr(), (node.clone(), new_param));
-
             }
-            
         }
         Op::Value(value) => {
             let new_node = Value::create(value.value.clone());

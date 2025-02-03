@@ -35,9 +35,7 @@ pub struct Unrolling<'a> {
 
 impl<'a> Unrolling<'a> {
     pub fn new(diagnostics: &'a DiagnosticsHandler) -> Self {
-        Self {
-            diagnostics,
-        }
+        Self { diagnostics }
     }
 }
 
@@ -61,7 +59,7 @@ impl<'a> UnrollingFirstPass<'a> {
             work_stack: vec![],
             bodies_to_inline: vec![],
             params_for_ref_node: HashMap::new(),
-            all_for_nodes: HashMap::new()
+            all_for_nodes: HashMap::new(),
         }
     }
 }
@@ -148,7 +146,9 @@ impl Pass for Unrolling<'_> {
         // The second pass actually inlines the For nodes
         let mut second_pass =
             UnrollingSecondPass::new(self.diagnostics, first_pass.bodies_to_inline.clone());
-        second_pass.all_for_nodes.clone_from(&first_pass.all_for_nodes);
+        second_pass
+            .all_for_nodes
+            .clone_from(&first_pass.all_for_nodes);
         Visitor::run(&mut second_pass, ir.constraint_graph_mut())?;
 
         /*let graph = ir.constraint_graph();
@@ -488,7 +488,12 @@ impl<'a> UnrollingFirstPass<'a> {
         // FIXME: Just check that the parameter is a scalar, raise diag otherwise
         // List comprehension bodies should only be scalar expressions
 
-        let owner_ref = parameter.as_parameter().unwrap().ref_node.to_link().unwrap_or_else(|| panic!("Ref node invalid"));
+        let owner_ref = parameter
+            .as_parameter()
+            .unwrap()
+            .ref_node
+            .to_link()
+            .unwrap_or_else(|| panic!("Ref node invalid"));
 
         self.params_for_ref_node
             .entry(owner_ref.get_ptr())
@@ -783,23 +788,18 @@ impl<'a> UnrollingFirstPass<'a> {
                 unreachable!(); // Raise diag
             }
 
-            let iterator_expected_len = match iterators[0]
-                .clone()
-                .as_vector() {
-                    Some(vec) => vec.children().borrow().len(),
-                    _ => 1
-                };
+            let iterator_expected_len = match iterators[0].clone().as_vector() {
+                Some(vec) => vec.children().borrow().len(),
+                _ => 1,
+            };
 
             for iterator in iterators.iter().skip(1) {
-                let iterator_len = match iterator
-                .clone()
-                .as_vector() {
+                let iterator_len = match iterator.clone().as_vector() {
                     Some(vec) => vec.children().borrow().len(),
-                    _ => 1
+                    _ => 1,
                 };
 
-                if iterator_len != iterator_expected_len
-                {
+                if iterator_len != iterator_expected_len {
                     unreachable!(); // Raise diag
                 }
             }
@@ -908,11 +908,11 @@ impl Visitor for UnrollingFirstPass<'_> {
     }
 
     fn visit_node(&mut self, graph: &mut Graph, node: Link<Node>) -> Result<(), CompileError> {
-
         if let Some(owner) = node.clone().as_owner() {
             if let Some(op) = owner.clone().as_op() {
                 if let Some(_for_node) = op.as_for() {
-                    self.all_for_nodes.insert(op.get_ptr(), (op.clone(), owner.clone()));
+                    self.all_for_nodes
+                        .insert(op.get_ptr(), (op.clone(), owner.clone()));
                 }
             }
         }
@@ -1046,10 +1046,20 @@ impl Visitor for UnrollingSecondPass<'_> {
                     .unwrap()
                     .ref_node
                     .as_node(),
-                    Some(self.all_for_nodes.get(&self.for_inlining_context
-                        .clone()
+                Some(
+                    self.all_for_nodes
+                        .get(
+                            &self
+                                .for_inlining_context
+                                .clone()
+                                .unwrap()
+                                .ref_node
+                                .get_ptr(),
+                        )
                         .unwrap()
-                        .ref_node.get_ptr()).unwrap().1.clone()),
+                        .1
+                        .clone(),
+                ),
                 &mut self.params_for_ref_node,
             );
         } else {
