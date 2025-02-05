@@ -200,7 +200,7 @@ impl Link<Node> {
             to_update = match root_inner_val.clone().borrow().deref() {
                 Root::Function(_) => Node::Function(BackLink::from(root_inner_val)),
                 Root::Evaluator(_) => Node::Evaluator(BackLink::from(root_inner_val)),
-                Root::None => Node::None,
+                Root::None(span) => Node::None, //(span)
             };
         } else {
             unreachable!();

@@ -185,7 +185,7 @@ impl Link<Owner> {
             to_update = match root_inner_val.clone().borrow().deref() {
                 Root::Function(_) => Owner::Function(BackLink::from(root_inner_val)),
                 Root::Evaluator(_) => Owner::Evaluator(BackLink::from(root_inner_val)),
-                Root::None => Owner::None,
+                Root::None(span) => Owner::None, /*(span)*/
             };
         } else {
             unreachable!();

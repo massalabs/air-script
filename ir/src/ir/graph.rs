@@ -29,7 +29,7 @@ impl Graph {
         match self.functions.insert(ident, node) {
             None => Ok(()),
             Some(link) => {
-                if let Root::None = *link.borrow() {
+                if let Root::None(_) = *link.borrow() {
                     Ok(())
                 } else {
                     Err(CompileError::Failed)
@@ -64,7 +64,7 @@ impl Graph {
         match self.evaluators.insert(ident, node) {
             None => Ok(()),
             Some(link) => {
-                if let Root::None = *link.borrow() {
+                if let Root::None(_) = *link.borrow() {
                     Ok(())
                 } else {
                     Err(CompileError::Failed)

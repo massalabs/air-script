@@ -345,7 +345,7 @@ impl<'a> MirBuilder<'a> {
             match func.clone().borrow().deref() {
                 Root::Function(f) => f.body.borrow_mut().push(op.clone()),
                 Root::Evaluator(e) => e.body.borrow_mut().push(op.clone()),
-                Root::None => {
+                Root::None(_span) => {
                     unreachable!("expected function or evaluator, got None")
                 }
             };
@@ -475,7 +475,7 @@ impl<'a> MirBuilder<'a> {
                 .constraint_graph_mut()
                 .insert_boundary_constraints_root(node_to_add.clone()),
             false => {
-                if self.root.borrow().deref() == &Root::None {
+                if let &Root::None(_) = self.root.borrow().deref() {
                     // Insert in integrity
                     self.mir
                         .constraint_graph_mut()

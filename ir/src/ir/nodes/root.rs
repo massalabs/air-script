@@ -3,18 +3,25 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
+use miden_diagnostics::SourceSpan;
+
 use crate::ir::{
     get_inner, get_inner_mut, BackLink, Evaluator, Function, Link, Node, Op, Owner, Parent,
 };
 
 /// The root nodes of the MIR Graph
 /// These represent the top level functions and evaluators
-#[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
+#[derive(Clone, PartialEq, Eq, Debug, Hash)]
 pub enum Root {
     Function(Function),
     Evaluator(Evaluator),
-    #[default]
-    None,
+    None(SourceSpan),
+}
+
+impl Default for Root {
+    fn default() -> Self {
+        Root::None(SourceSpan::default())
+    }
 }
 
 impl Parent for Root {
@@ -23,7 +30,7 @@ impl Parent for Root {
         match self {
             Root::Function(f) => f.children(),
             Root::Evaluator(e) => e.children(),
-            Root::None => Link::default(),
+            Root::None(_) => Link::default(),
         }
     }
 }
@@ -33,7 +40,7 @@ impl Link<Root> {
         match self.borrow().deref() {
             Root::Function(f) => format!("Root::Function: {:#?}", f),
             Root::Evaluator(e) => format!("Root::Evaluator: {:#?}", e),
-            Root::None => "Root::None".to_string(),
+            Root::None(_) => "Root::None".to_string(),
         }
     }
     pub fn set(&self, other: &Link<Root>) {
@@ -60,7 +67,8 @@ impl Link<Root> {
                 e._node = Some(node.clone());
                 node
             }
-            Root::None => Node::None.into(),
+            Root::None(span) => Node::None /*(span)*/
+                .into(),
         }
     }
     pub fn as_owner(&self) -> Link<Owner> {
@@ -82,7 +90,8 @@ impl Link<Root> {
                 e._owner = Some(owner.clone());
                 owner
             }
-            Root::None => Owner::None.into(),
+            Root::None(span) => Owner::None /*(span)*/
+                .into(),
         }
     }
     pub fn as_function(&self) -> Option<Ref<Function>> {
