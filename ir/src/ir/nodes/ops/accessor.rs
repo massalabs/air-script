@@ -2,7 +2,7 @@ use crate::ir::{BackLink, Builder, Child, Link, Node, Op, Owner, Parent};
 use air_parser::ast::{AccessType, RangeBound, Type};
 use std::{any::Any, hash::Hash};
 
-#[derive(Clone, PartialEq, Eq, Debug, Builder)]
+#[derive(Hash, Clone, PartialEq, Eq, Debug, Builder)]
 #[enum_wrapper(Op)]
 pub struct Accessor {
     pub parents: Vec<BackLink<Owner>>,
@@ -22,51 +22,8 @@ impl Default for Accessor {
             offset: 0,
             _node: None,
             _owner: None,
+            span: SourceSpan::default(),
         }
-    }
-}
-
-impl Hash for Accessor {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.type_id().hash(state);
-        match &self.access_type {
-            AccessType::Default => 0.hash(state),
-            AccessType::Slice(range_expr) => {
-                1.hash(state);
-                match &range_expr.start {
-                    RangeBound::Const(constant) => constant.hash(state),
-                    RangeBound::SymbolAccess(symbol_access) => {
-                        symbol_access.name.hash(state);
-                        match symbol_access.ty {
-                            Some(Type::Felt) => {
-                                0.hash(state);
-                            }
-                            Some(Type::Vector(x)) => {
-                                1.hash(state);
-                                x.hash(state);
-                            }
-                            Some(Type::Matrix(x, y)) => {
-                                2.hash(state);
-                                x.hash(state);
-                                y.hash(state);
-                            }
-                            None => {}
-                        }
-                    }
-                }
-            }
-            AccessType::Index(index) => {
-                2.hash(state);
-                index.hash(state);
-            }
-            AccessType::Matrix(x, y) => {
-                3.hash(state);
-                x.hash(state);
-                y.hash(state);
-            }
-        }
-        self.offset.hash(state);
-        self.indexable.hash(state);
     }
 }
 

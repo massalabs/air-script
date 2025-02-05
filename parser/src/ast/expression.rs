@@ -600,7 +600,7 @@ impl fmt::Display for ScalarExpr {
 }
 
 /// Represents a symbol access to a named constant.
-#[derive(Clone, Spanned, Debug)]
+#[derive(Hash, Clone, Spanned, Debug)]
 pub struct ConstSymbolAccess {
     #[span]
     pub span: SourceSpan,
@@ -628,7 +628,7 @@ impl fmt::Display for ConstSymbolAccess {
     }
 }
 
-#[derive(Debug, Clone, Spanned)]
+#[derive(Hash, Debug, Clone, Spanned)]
 pub struct RangeExpr {
     #[span]
     pub span: SourceSpan,
@@ -690,7 +690,7 @@ impl fmt::Display for RangeExpr {
     }
 }
 
-#[derive(Clone, Spanned, PartialEq, Eq, Debug)]
+#[derive(Hash, Clone, Spanned, PartialEq, Eq, Debug)]
 pub enum RangeBound {
     SymbolAccess(ConstSymbolAccess),
     Const(Span<usize>),
@@ -809,7 +809,7 @@ impl fmt::Display for Boundary {
 }
 
 /// Represents the way an identifier is accessed/referenced in the source.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Hash, Debug, Clone, Eq, PartialEq)]
 pub enum AccessType {
     /// Access refers to the entire bound value
     Default,
