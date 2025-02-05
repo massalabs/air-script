@@ -2,7 +2,7 @@ use std::{collections::HashMap, ops::Deref, rc::Rc};
 
 use air_parser::ast::AccessType;
 use air_pass::Pass;
-use miden_diagnostics::DiagnosticsHandler;
+use miden_diagnostics::{DiagnosticsHandler, Spanned};
 //use miden_diagnostics::DiagnosticsHandler;
 
 use crate::{ir::*, CompileError};
@@ -807,7 +807,8 @@ impl<'a> UnrollingFirstPass<'a> {
             let mut new_vec = vec![];
 
             for i in 0..iterator_expected_len {
-                let new_node = Parameter::create(i, MirType::Felt);
+                let new_node =
+                    Parameter::create(i, MirType::Felt, for_node.as_for().unwrap().deref().span());
                 new_vec.push(new_node.clone());
 
                 let iterators_i = iterators

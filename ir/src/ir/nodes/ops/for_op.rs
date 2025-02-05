@@ -1,6 +1,8 @@
+use miden_diagnostics::{SourceSpan, Spanned};
+
 use crate::ir::{BackLink, Builder, Child, Link, Node, Op, Owner, Parent};
 
-#[derive(Default, Clone, PartialEq, Eq, Debug, Hash, Builder)]
+#[derive(Default, Clone, PartialEq, Eq, Debug, Hash, Builder, Spanned)]
 #[enum_wrapper(Op)]
 pub struct For {
     pub parents: Vec<BackLink<Owner>>,
@@ -9,14 +11,22 @@ pub struct For {
     pub selector: Link<Op>,
     pub _node: Option<Link<Node>>,
     pub _owner: Option<Link<Owner>>,
+    #[span]
+    span: SourceSpan,
 }
 
 impl For {
-    pub fn create(iterators: Link<Vec<Link<Op>>>, expr: Link<Op>, selector: Link<Op>) -> Link<Op> {
+    pub fn create(
+        iterators: Link<Vec<Link<Op>>>,
+        expr: Link<Op>,
+        selector: Link<Op>,
+        span: SourceSpan,
+    ) -> Link<Op> {
         Op::For(Self {
             iterators,
             expr,
             selector,
+            span,
             ..Default::default()
         })
         .into()

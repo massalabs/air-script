@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use std::ops::Deref;
 
 use air_pass::Pass;
+use miden_diagnostics::Spanned;
 
 use crate::ir::{
     Accessor, Add, Boundary, Call, Enf, Exp, Fold, For, If, Link, Matrix, Mul, Node, Op, Owner,
@@ -83,8 +84,12 @@ pub fn duplicate_node(
             If::create(new_condition, new_then_branch, new_else_branch)
         }
         Op::For(for_node) => {
-            let new_for_node: Link<Op> =
-                For::create(Link::default(), Link::default(), Link::default());
+            let new_for_node: Link<Op> = For::create(
+                Link::default(),
+                Link::default(),
+                Link::default(),
+                for_node.span(),
+            );
             current_replace_map.insert(node.get_ptr(), (node, new_for_node.clone()));
 
             let iterators = for_node.iterators.clone();
@@ -172,7 +177,8 @@ pub fn duplicate_node(
                 .ref_node
                 .to_link()
                 .unwrap_or_else(|| panic!("invalid ref_node for parameter {:?}", parameter));
-            let new_param = Parameter::create(parameter.position, parameter.ty.clone());
+            let new_param =
+                Parameter::create(parameter.position, parameter.ty.clone(), parameter.span());
 
             if let Some(_root_ref) = owner_ref.as_root() {
                 new_param
@@ -302,7 +308,7 @@ pub fn duplicate_node_or_replace(
                 .map(|selector| selector.1.clone())
                 .unwrap_or(Link::new(Op::None))
                 .clone();
-            let new_node = For::create(new_iterators, new_body, new_selector);
+            let new_node = For::create(new_iterators, new_body, new_selector, for_node.span());
             current_replace_map.insert(node.get_ptr(), (node.clone(), new_node.clone()));
 
             if let Some(params) = params_for_ref_node.get(&prev_owner_ptr.unwrap()).cloned() {
@@ -419,7 +425,8 @@ pub fn duplicate_node_or_replace(
                 let new_node = replace_parameter_list[parameter.position].clone();
                 current_replace_map.insert(node.get_ptr(), (node.clone(), new_node));
             } else {
-                let new_param = Parameter::create(parameter.position, parameter.ty.clone());
+                let new_param =
+                    Parameter::create(parameter.position, parameter.ty.clone(), parameter.span());
 
                 if let Some(_root_ref) = owner_ref.as_root() {
                     new_param

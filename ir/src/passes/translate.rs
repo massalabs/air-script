@@ -123,7 +123,7 @@ impl<'a> MirBuilder<'a> {
         let mut all_params_flatten = Vec::new();
 
         self.root_name = Some(ident);
-        let mut ev = Evaluator::builder();
+        let mut ev = Evaluator::builder().span(ast_eval.span);
         let mut i = 0;
 
         for trace_segment in &ast_eval.params {
@@ -132,8 +132,9 @@ impl<'a> MirBuilder<'a> {
             //        println!("trace_segment: {:#?}", trace_segment);
             for binding in &trace_segment.bindings {
                 //            println!("binding: {:#?}", binding);
+                let span = binding.name.map_or(SourceSpan::UNKNOWN, |n| n.span());
                 let params =
-                    self.translate_params_ev(ident, binding.name.as_ref(), &binding.ty, &mut i)?;
+                    self.translate_params_ev(span, binding.name.as_ref(), &binding.ty, &mut i)?;
 
                 for param in params {
                     all_params_flatten_for_trace_segment.push(param.clone());
@@ -208,16 +209,20 @@ impl<'a> MirBuilder<'a> {
         let mut params = Vec::new();
 
         self.root_name = Some(ident);
-        let mut func = Function::builder();
+        let mut func = Function::builder().span(ast_func.span());
         let mut i = 0;
         for (param_ident, ty) in ast_func.params.iter() {
             let name = Some(param_ident);
-            let param = self.translate_params_fn(ident, name, ty, &mut i)?;
+            let param = self.translate_params_fn(param_ident.span(), name, ty, &mut i)?;
             params.push(param.clone());
             func = func.parameters(param.clone());
         }
         i += 1;
-        let ret = Parameter::create(i, self.translate_type(&ast_func.return_type));
+        let ret = Parameter::create(
+            i,
+            self.translate_type(&ast_func.return_type),
+            ast_func.span(),
+        );
         params.push(ret.clone());
 
         let func = func.return_type(ret).build();
@@ -253,21 +258,21 @@ impl<'a> MirBuilder<'a> {
 
     fn translate_params_ev(
         &mut self,
-        _func_ident: &'a ast::QualifiedIdentifier,
+        span: SourceSpan,
         name: Option<&'a ast::Identifier>,
         ty: &ast::Type,
         i: &mut usize,
     ) -> Result<Vec<Link<Op>>, CompileError> {
         match ty {
             ast::Type::Felt => {
-                let param = Parameter::create(*i, MirType::Felt);
+                let param = Parameter::create(*i, MirType::Felt, span);
                 *i += 1;
                 Ok(vec![param])
             }
             ast::Type::Vector(size) => {
                 let mut params = Vec::new();
                 for _ in 0..*size {
-                    let param = Parameter::create(*i, MirType::Felt);
+                    let param = Parameter::create(*i, MirType::Felt, span);
                     *i += 1;
                     params.push(param);
                 }
@@ -291,19 +296,19 @@ impl<'a> MirBuilder<'a> {
 
     fn translate_params_fn(
         &mut self,
-        _func_ident: &'a ast::QualifiedIdentifier,
+        span: SourceSpan,
         name: Option<&'a ast::Identifier>,
         ty: &ast::Type,
         i: &mut usize,
     ) -> Result<Link<Op>, CompileError> {
         match ty {
             ast::Type::Felt => {
-                let param = Parameter::create(*i, MirType::Felt);
+                let param = Parameter::create(*i, MirType::Felt, span);
                 *i += 1;
                 Ok(param)
             }
             ast::Type::Vector(size) => {
-                let param = Parameter::create(*i, MirType::Vector(*size));
+                let param = Parameter::create(*i, MirType::Vector(*size), span);
                 *i += 1;
                 Ok(param)
             }
@@ -420,13 +425,17 @@ impl<'a> MirBuilder<'a> {
 
         self.bindings.enter();
         for (index, binding) in list_comp.bindings.iter().enumerate() {
-            let binding_node =
-                Parameter::create(/*binding.span(), */ index, ast::Type::Felt.into());
+            let binding_node = Parameter::create(index, ast::Type::Felt.into(), binding.span());
             params.push(binding_node.clone());
             self.bindings.insert(binding, binding_node);
         }
 
-        let for_node = For::create(iterator_nodes.into(), Op::None.into(), Op::None.into());
+        let for_node = For::create(
+            iterator_nodes.into(),
+            Op::None.into(),
+            Op::None.into(),
+            list_comp.span(),
+        );
         set_all_ref_nodes(params, for_node.as_owner().unwrap());
 
         let body_node = self.translate_scalar_expr(&list_comp.body)?;
@@ -734,13 +743,17 @@ impl<'a> MirBuilder<'a> {
         self.bindings.enter();
         let mut params = Vec::new();
         for (index, binding) in list_comp.bindings.iter().enumerate() {
-            let binding_node =
-                Parameter::create(/*binding.span(), */ index, ast::Type::Felt.into());
+            let binding_node = Parameter::create(index, ast::Type::Felt.into(), binding.span());
             params.push(binding_node.clone());
             self.bindings.insert(binding, binding_node);
         }
 
-        let for_node = For::create(iterator_nodes, Op::None.into(), Op::None.into());
+        let for_node = For::create(
+            iterator_nodes,
+            Op::None.into(),
+            Op::None.into(),
+            list_comp.span(),
+        );
         set_all_ref_nodes(params, for_node.as_owner().unwrap());
 
         let selector_node = if let Some(selector) = &list_comp.selector {

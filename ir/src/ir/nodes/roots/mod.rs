@@ -4,11 +4,12 @@ use std::hash::{Hash, Hasher};
 
 pub use evaluator::Evaluator;
 pub use function::Function;
+use miden_diagnostics::{SourceSpan, Spanned};
 
 use super::MirType;
 use crate::ir::{BackLink, Builder, Child, Link, Node, Op, Owner};
 
-#[derive(Builder, Default, Clone, Eq, Debug)]
+#[derive(Builder, Default, Clone, Eq, Debug, Spanned)]
 #[enum_wrapper(Op)]
 pub struct Parameter {
     parents: Vec<BackLink<Owner>>,
@@ -16,16 +17,19 @@ pub struct Parameter {
     pub position: usize,
     pub ty: MirType,
     pub _node: Option<Link<Node>>,
+    #[span]
+    span: SourceSpan,
 }
 
 impl Parameter {
-    pub fn create(position: usize, ty: MirType) -> Link<Op> {
+    pub fn create(position: usize, ty: MirType, span: SourceSpan) -> Link<Op> {
         Op::Parameter(Self {
             parents: Vec::default(),
             ref_node: BackLink::none(),
             position,
             ty,
             _node: None,
+            span,
         })
         .into()
     }
