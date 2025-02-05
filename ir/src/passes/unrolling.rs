@@ -18,17 +18,6 @@ use super::{duplicate_node_or_replace, visitor::Visitor};
 ///
 /// TODO:
 /// - [ ] Implement diagnostics for better error handling
-
-#[derive(Clone, Debug)]
-pub struct ForInliningContext {
-    body: Link<Op>,
-    iterators: Vec<Link<Op>>,
-    selector: Option<Link<Op>>,
-    ref_node: Link<Op>,
-}
-
-impl ForInliningContext {}
-
 pub struct Unrolling<'a> {
     diagnostics: &'a DiagnosticsHandler,
 }
@@ -38,6 +27,16 @@ impl<'a> Unrolling<'a> {
         Self { diagnostics }
     }
 }
+
+/// This structure is used to keep track of what is needed to inline a For node
+#[derive(Clone, Debug)]
+pub struct ForInliningContext {
+    body: Link<Op>,
+    iterators: Vec<Link<Op>>,
+    selector: Option<Link<Op>>,
+    ref_node: Link<Op>,
+}
+impl ForInliningContext {}
 
 pub struct UnrollingFirstPass<'a> {
     #[allow(unused)]
@@ -81,6 +80,7 @@ impl<'a> UnrollingSecondPass<'a> {
     pub fn new(
         diagnostics: &'a DiagnosticsHandler,
         bodies_to_inline: Vec<(Link<Op>, ForInliningContext)>,
+        all_for_nodes: HashMap<usize, (Link<Op>, Link<Owner>)>,
     ) -> Self {
         Self {
             diagnostics,
@@ -89,7 +89,7 @@ impl<'a> UnrollingSecondPass<'a> {
             for_inlining_context: None,
             nodes_to_replace: HashMap::new(),
             params_for_ref_node: HashMap::new(),
-            all_for_nodes: HashMap::new(),
+            all_for_nodes,
         }
     }
 }
@@ -100,84 +100,17 @@ impl Pass for Unrolling<'_> {
     type Error = CompileError;
 
     fn run<'a>(&mut self, mut ir: Self::Input<'a>) -> Result<Self::Output<'a>, Self::Error> {
-        /*let graph = ir.constraint_graph();
-        let functions = graph.get_function_nodes();
-        let evaluators = graph.get_evaluator_nodes();
-        let bc = graph.boundary_constraints_roots.borrow().deref().clone();
-        let ic = graph.integrity_constraints_roots.borrow().deref().clone();
-
-        println!("Before Unrolling pass");
-        println!();
-        for fns in functions {
-            println!("fns: {:?}", fns);
-        }
-        println!();
-        for evs in evaluators {
-            println!("evs: {:?}", evs);
-        }
-        println!();
-
-        for bc in bc {
-            println!("bc: {:?}", bc);
-        }
-        println!();
-        for ic in ic {
-            println!("ic: {:?}", ic);
-        }
-        println!();*/
-
-        /*println!("****************************");
-        println!("Starting first UNROLLING pass");
-        println!("****************************");*/
-
         // The first pass unrolls all nodes fully, except for For nodes
         let mut first_pass = UnrollingFirstPass::new(self.diagnostics);
         Visitor::run(&mut first_pass, ir.constraint_graph_mut())?;
 
-        /*println!(
-            "first_pass.bodies_to_inline.clone(): {:?}",
-            first_pass.bodies_to_inline.clone()
-        );*/
-
-        /*println!("****************************");
-        println!("Starting second UNROLLING pass");
-        println!("****************************");*/
-
         // The second pass actually inlines the For nodes
-        let mut second_pass =
-            UnrollingSecondPass::new(self.diagnostics, first_pass.bodies_to_inline.clone());
-        second_pass
-            .all_for_nodes
-            .clone_from(&first_pass.all_for_nodes);
+        let mut second_pass = UnrollingSecondPass::new(
+            self.diagnostics,
+            first_pass.bodies_to_inline.clone(),
+            first_pass.all_for_nodes.clone(),
+        );
         Visitor::run(&mut second_pass, ir.constraint_graph_mut())?;
-
-        /*let graph = ir.constraint_graph();
-        let functions = graph.get_function_nodes();
-        let evaluators = graph.get_evaluator_nodes();
-        let bc = graph.boundary_constraints_roots.borrow().deref().clone();
-        let ic = graph.integrity_constraints_roots.borrow().deref().clone();
-
-        println!();
-        println!();
-        println!("After Unrolling pass");
-        println!();
-        for fns in functions {
-            println!("fns: {:?}", fns);
-        }
-        println!();
-        for evs in evaluators {
-            println!("evs: {:?}", evs);
-        }
-        println!();
-
-        for bc in bc {
-            println!("bc: {:?}", bc);
-        }
-        println!();
-        for ic in ic {
-            println!("ic: {:?}", ic);
-        }
-        println!();*/
 
         Ok(ir)
     }

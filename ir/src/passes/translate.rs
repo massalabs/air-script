@@ -494,13 +494,13 @@ impl<'a> MirBuilder<'a> {
         &mut self,
         c: &Span<ast::ConstantExpr>,
     ) -> Result<Link<Op>, CompileError> {
-        self.translate_const(&c.item)
+        self.translate_const(&c.item, c.span())
     }
 
     fn translate_range(&mut self, range_expr: &ast::RangeExpr) -> Result<Link<Op>, CompileError> {
         let values = range_expr.to_slice_range();
         let const_expr = ast::ConstantExpr::Vector(values.map(|v| v as u64).collect());
-        self.translate_const(&const_expr)
+        self.translate_const(&const_expr, range_expr.span)
     }
 
     fn translate_vector_expr(&mut self, v: &'a [ast::Expr]) -> Result<Link<Op>, CompileError> {
@@ -557,7 +557,7 @@ impl<'a> MirBuilder<'a> {
                 if let Some(pc) = self.mir.periodic_columns.get(&qual_ident).cloned() {
                     let node = Value::builder()
                         .value(SpannedMirValue {
-                            span: Default::default(),
+                            span: access.span(),
                             value: MirValue::PeriodicColumn(crate::ir::PeriodicColumnAccess::new(
                                 qual_ident,
                                 pc.period(),
@@ -630,7 +630,8 @@ impl<'a> MirBuilder<'a> {
                 symbols::Sum => {
                     assert_eq!(call.args.len(), 1);
                     let iterator_node = self.translate_expr(call.args.first().unwrap())?;
-                    let accumulator_node = self.translate_const(&ast::ConstantExpr::Scalar(0))?;
+                    let accumulator_node =
+                        self.translate_const(&ast::ConstantExpr::Scalar(0), call.span())?;
                     let node = Fold::builder()
                         .span(call.span())
                         .iterator(iterator_node)
@@ -642,7 +643,8 @@ impl<'a> MirBuilder<'a> {
                 symbols::Prod => {
                     assert_eq!(call.args.len(), 1);
                     let iterator_node = self.translate_expr(call.args.first().unwrap())?;
-                    let accumulator_node = self.translate_const(&ast::ConstantExpr::Scalar(1))?;
+                    let accumulator_node =
+                        self.translate_const(&ast::ConstantExpr::Scalar(1), call.span())?;
                     let node = Fold::builder()
                         .span(call.span())
                         .iterator(iterator_node)
@@ -800,7 +802,7 @@ impl<'a> MirBuilder<'a> {
         scalar_expr: &'a ast::ScalarExpr,
     ) -> Result<Link<Op>, CompileError> {
         match scalar_expr {
-            ast::ScalarExpr::Const(c) => self.translate_scalar_const(c.item),
+            ast::ScalarExpr::Const(c) => self.translate_scalar_const(c.item, c.span()),
             ast::ScalarExpr::SymbolAccess(s) => self.translate_symbol_access(s),
             ast::ScalarExpr::BoundedSymbolAccess(s) => self.translate_bounded_symbol_access(s),
             ast::ScalarExpr::Binary(b) => self.translate_binary_op(b),
@@ -809,10 +811,14 @@ impl<'a> MirBuilder<'a> {
         }
     }
 
-    fn translate_scalar_const(&mut self, c: u64) -> Result<Link<Op>, CompileError> {
+    fn translate_scalar_const(
+        &mut self,
+        c: u64,
+        span: SourceSpan,
+    ) -> Result<Link<Op>, CompileError> {
         let value = SpannedMirValue {
             value: MirValue::Constant(ConstantValue::Felt(c)),
-            span: Default::default(),
+            span,
         };
         let node = Value::builder().value(value).build();
         Ok(node)
@@ -831,27 +837,39 @@ impl<'a> MirBuilder<'a> {
         Ok(node)
     }
 
-    fn translate_const(&mut self, c: &ast::ConstantExpr) -> Result<Link<Op>, CompileError> {
+    fn translate_const(
+        &mut self,
+        c: &ast::ConstantExpr,
+        span: SourceSpan,
+    ) -> Result<Link<Op>, CompileError> {
         match c {
-            ast::ConstantExpr::Scalar(s) => self.translate_scalar_const(*s),
-            ast::ConstantExpr::Vector(v) => self.translate_vector_const(v.clone()),
-            ast::ConstantExpr::Matrix(m) => self.translate_matrix_const(m.clone()),
+            ast::ConstantExpr::Scalar(s) => self.translate_scalar_const(*s, span),
+            ast::ConstantExpr::Vector(v) => self.translate_vector_const(v.clone(), span),
+            ast::ConstantExpr::Matrix(m) => self.translate_matrix_const(m.clone(), span),
         }
     }
 
-    fn translate_vector_const(&mut self, v: Vec<u64>) -> Result<Link<Op>, CompileError> {
-        let mut node = Vector::builder().size(v.len()).span(Default::default());
+    fn translate_vector_const(
+        &mut self,
+        v: Vec<u64>,
+        span: SourceSpan,
+    ) -> Result<Link<Op>, CompileError> {
+        let mut node = Vector::builder().size(v.len()).span(span);
         for value in v.iter() {
-            let value_node = self.translate_scalar_const(*value)?;
+            let value_node = self.translate_scalar_const(*value, span)?;
             node = node.elements(value_node);
         }
         Ok(node.build())
     }
 
-    fn translate_matrix_const(&mut self, m: Vec<Vec<u64>>) -> Result<Link<Op>, CompileError> {
-        let mut node = Matrix::builder().size(m.len()).span(Default::default());
+    fn translate_matrix_const(
+        &mut self,
+        m: Vec<Vec<u64>>,
+        span: SourceSpan,
+    ) -> Result<Link<Op>, CompileError> {
+        let mut node = Matrix::builder().size(m.len()).span(span);
         for row in m.iter() {
-            let row_node = self.translate_vector_const(row.clone())?;
+            let row_node = self.translate_vector_const(row.clone(), span)?;
             node = node.elements(row_node);
         }
         let node = node.build();
@@ -869,7 +887,7 @@ impl<'a> MirBuilder<'a> {
             if let Some(rv) = self.random_value_access(access) {
                 return Ok(Value::builder()
                     .value(SpannedMirValue {
-                        span: Default::default(),
+                        span: access.span(),
                         value: MirValue::RandomValue(rv),
                     })
                     .build());
@@ -879,7 +897,7 @@ impl<'a> MirBuilder<'a> {
             if let Some(trace_access) = self.trace_access(access) {
                 return Ok(Value::builder()
                     .value(SpannedMirValue {
-                        span: Default::default(),
+                        span: access.span(),
                         value: MirValue::TraceAccess(trace_access),
                     })
                     .build());
@@ -888,7 +906,7 @@ impl<'a> MirBuilder<'a> {
             if let Some(tab) = self.trace_access_binding(access) {
                 return Ok(Value::builder()
                     .value(SpannedMirValue {
-                        span: Default::default(),
+                        span: access.span(),
                         value: MirValue::TraceAccessBinding(tab),
                     })
                     .build());
@@ -917,7 +935,7 @@ impl<'a> MirBuilder<'a> {
         if let Some(trace_access) = self.trace_access(access) {
             return Ok(Value::builder()
                 .value(SpannedMirValue {
-                    span: Default::default(),
+                    span: access.span(),
                     value: MirValue::TraceAccess(trace_access),
                 })
                 .build());
@@ -927,7 +945,7 @@ impl<'a> MirBuilder<'a> {
         if let Some(tab) = self.trace_access_binding(access) {
             return Ok(Value::builder()
                 .value(SpannedMirValue {
-                    span: Default::default(),
+                    span: access.span(),
                     value: MirValue::TraceAccessBinding(tab),
                 })
                 .build());
@@ -936,7 +954,7 @@ impl<'a> MirBuilder<'a> {
         if let Some(random_value) = self.random_value_access(access) {
             return Ok(Value::builder()
                 .value(SpannedMirValue {
-                    span: Default::default(),
+                    span: access.span(),
                     value: MirValue::RandomValue(random_value),
                 })
                 .build());
@@ -945,7 +963,7 @@ impl<'a> MirBuilder<'a> {
         if let Some(public_input) = self.public_input_access(access) {
             return Ok(Value::builder()
                 .value(SpannedMirValue {
-                    span: Default::default(),
+                    span: access.span(),
                     value: MirValue::PublicInput(public_input),
                 })
                 .build());
