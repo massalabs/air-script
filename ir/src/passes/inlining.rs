@@ -486,7 +486,7 @@ impl Visitor for InliningSecondPass<'_> {
                         .parameters
                         .clone();
 
-                    check_evaluator_argument_sizes(&args, callee_params, &self.diagnostics)?;
+                    check_evaluator_argument_sizes(&args, callee_params, self.diagnostics)?;
 
                     let args_unpacked = unpack_evaluator_arguments(&args);
 
@@ -508,7 +508,7 @@ impl Visitor for InliningSecondPass<'_> {
 
 /// Helper function to check, for each trace segment, that the total size of arguments is correct
 fn check_evaluator_argument_sizes(
-    args: &Vec<Link<Op>>,
+    args: &[Link<Op>],
     callee_params: Vec<Vec<Link<Op>>>,
     diagnostics: &DiagnosticsHandler,
 ) -> Result<(), CompileError> {
@@ -601,7 +601,7 @@ fn check_evaluator_argument_sizes(
 }
 
 /// Helper function to unpack the arguments of a call to an evaluator
-fn unpack_evaluator_arguments(args: &Vec<Link<Op>>) -> Vec<Link<Op>> {
+fn unpack_evaluator_arguments(args: &[Link<Op>]) -> Vec<Link<Op>> {
     let mut args_unpacked = Vec::new();
     for args_for_trace_segment in args.iter() {
         let Some(trace_segment_vec) = args_for_trace_segment.as_vector() else {
