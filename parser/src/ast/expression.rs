@@ -600,7 +600,7 @@ impl fmt::Display for ScalarExpr {
 }
 
 /// Represents a symbol access to a named constant.
-#[derive(Hash, Clone, Spanned, Debug)]
+#[derive(Clone, Spanned, Debug)]
 pub struct ConstSymbolAccess {
     #[span]
     pub span: SourceSpan,
@@ -622,13 +622,19 @@ impl PartialEq for ConstSymbolAccess {
         self.name.eq(&other.name) && self.ty.eq(&other.ty)
     }
 }
+impl std::hash::Hash for ConstSymbolAccess {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+        self.ty.hash(state);
+    }
+}
 impl fmt::Display for ConstSymbolAccess {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", &self.name)
     }
 }
 
-#[derive(Hash, Debug, Clone, Spanned)]
+#[derive(Debug, Clone, Spanned)]
 pub struct RangeExpr {
     #[span]
     pub span: SourceSpan,
@@ -682,6 +688,12 @@ impl Eq for RangeExpr {}
 impl PartialEq for RangeExpr {
     fn eq(&self, other: &Self) -> bool {
         self.start.eq(&other.start) && self.end.eq(&other.end)
+    }
+}
+impl std::hash::Hash for RangeExpr {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.start.hash(state);
+        self.end.hash(state);
     }
 }
 impl fmt::Display for RangeExpr {
