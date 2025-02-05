@@ -2,8 +2,7 @@ use std::{collections::HashMap, ops::Deref, rc::Rc};
 
 use air_parser::ast::AccessType;
 use air_pass::Pass;
-use miden_diagnostics::{DiagnosticsHandler, SourceSpan, Spanned};
-//use miden_diagnostics::DiagnosticsHandler;
+use miden_diagnostics::{DiagnosticsHandler, Spanned};
 
 use crate::{ir::*, CompileError};
 
@@ -45,9 +44,13 @@ pub struct UnrollingFirstPass<'a> {
     // general context
     work_stack: Vec<Link<Node>>,
 
+    // For each child of a For node encountered, we store the context to inline it in the second pass
     bodies_to_inline: Vec<(Link<Op>, ForInliningContext)>,
 
+    // We keep track of all parameters referencing a given For node
     params_for_ref_node: HashMap<usize, Vec<Link<Op>>>,
+    // We keep a reference to For nodes in order to avoid the backlinks stored in Parameters
+    // referencing them to be dropped
     all_for_nodes: HashMap<usize, (Link<Op>, Link<Owner>)>,
 }
 
@@ -69,11 +72,16 @@ pub struct UnrollingSecondPass<'a> {
 
     // general context
     work_stack: Vec<Link<Node>>,
-
+    // A list of all the children of For nodes to inline
     bodies_to_inline: Vec<(Link<Op>, ForInliningContext)>,
+    // The current context for inlining a For node, if any
     for_inlining_context: Option<ForInliningContext>,
+    // A map of nodes to replace with their inlined version
     nodes_to_replace: HashMap<usize, (Link<Op>, Link<Op>)>,
+    // We keep track of all parameters referencing a given For node
     params_for_ref_node: HashMap<usize, Vec<Link<Op>>>,
+    // We keep a reference to For nodes in order to avoid the backlinks stored in Parameters
+    // referencing them to be dropped
     all_for_nodes: HashMap<usize, (Link<Op>, Link<Owner>)>,
 }
 impl<'a> UnrollingSecondPass<'a> {
@@ -116,13 +124,16 @@ impl Pass for Unrolling<'_> {
     }
 }
 
+// For the first pass of Unrolling, we use a tweeked version of the Visitor trait,
+// each visit_*_bis function returns an Option<Link<Op>> instead of Result<(), CompileError>,
+// to mutate the nodes (e.g. modifying a Operation<Vectors> to Vector<Operations>)
 impl<'a> UnrollingFirstPass<'a> {
     fn visit_value_bis(
         &mut self,
         _graph: &mut Graph,
         value: Link<Op>,
     ) -> Result<Option<Link<Op>>, CompileError> {
-        // safe to un wrap because we just dispatched on it
+        // safe to unwrap because we just dispatched on it
         let mut updated_value = None;
 
         {
@@ -828,10 +839,11 @@ impl Visitor for UnrollingFirstPass<'_> {
     fn work_stack(&mut self) -> &mut Vec<Link<Node>> {
         &mut self.work_stack
     }
+    // We visit all boundary constraints and all integrity constraints
+    // No need to visit the functions or evaluators, as they should have been inlined before this pass
     fn root_nodes_to_visit(&self, graph: &Graph) -> Vec<Link<Node>> {
         let boundary_constraints_roots_ref = graph.boundary_constraints_roots.borrow();
         let integrity_constraints_roots_ref = graph.integrity_constraints_roots.borrow();
-
         let combined_roots = boundary_constraints_roots_ref
             .clone()
             .into_iter()
@@ -846,6 +858,7 @@ impl Visitor for UnrollingFirstPass<'_> {
     }
 
     fn visit_node(&mut self, graph: &mut Graph, node: Link<Node>) -> Result<(), CompileError> {
+        // We keep a reference to all For nodes to avoid dropping the backlinks stored in Parameters
         if let Some(owner) = node.clone().as_owner() {
             if let Some(op) = owner.clone().as_op() {
                 if let Some(_for_node) = op.as_for() {
@@ -886,6 +899,7 @@ impl Visitor for UnrollingFirstPass<'_> {
             Node::None(_) => Ok(None),
         };
 
+        // We update the node if needed
         if let Some(updated_op) = updated_op? {
             node.as_op().unwrap().set(&updated_op);
         }
@@ -898,12 +912,17 @@ impl Visitor for UnrollingSecondPass<'_> {
     fn work_stack(&mut self) -> &mut Vec<Link<Node>> {
         &mut self.work_stack
     }
-
+    // The root nodes visited during the second pass are the children of For nodes to inline
+    fn root_nodes_to_visit(&self, _graph: &Graph) -> Vec<Link<Node>> {
+        self.bodies_to_inline
+            .iter()
+            .map(|(k, _v)| k)
+            .cloned()
+            .map(|op| op.as_node())
+            .collect::<Vec<_>>()
+    }
     fn run(&mut self, graph: &mut Graph) -> Result<(), CompileError> {
         for root in self.root_nodes_to_visit(graph).iter() {
-            /*println!("Visiting root node: {idx} - {:?}", root);
-            println!("");*/
-
             // Set context to inline the body for this index
             let for_inlining_context = self.bodies_to_inline.iter().find_map(|(node, context)| {
                 if Rc::ptr_eq(&node.clone().as_node().link, &root.link) {
@@ -913,9 +932,8 @@ impl Visitor for UnrollingSecondPass<'_> {
                 }
             });
 
-            //println!("SET NEW CONTEXT: {:?}", for_inlining_context);
-
             self.for_inlining_context = for_inlining_context;
+            // We inline a new body, so we clear the nodes to replace and the parameters for the ref node
             self.nodes_to_replace.clear();
             self.params_for_ref_node.clear();
 
@@ -923,15 +941,11 @@ impl Visitor for UnrollingSecondPass<'_> {
                 graph,
                 self.for_inlining_context.clone().unwrap().body.as_node(),
             )?;
-
             while let Some(node) = self.work_stack().pop() {
                 self.visit_node(graph, node.clone())?;
             }
 
-            //println!("END Visiting root node: {idx} - {:?}", root);
-
             // We have finished inlining the body, we can now replace the Root node with the body
-
             let body = self.for_inlining_context.clone().unwrap().body;
             let new_node = self
                 .nodes_to_replace
@@ -940,12 +954,15 @@ impl Visitor for UnrollingSecondPass<'_> {
                 .1
                 .clone();
 
+            // If there is a selector, we need to enforce it on the body
             let new_node_with_selector_if_needed =
                 if let Some(selector) = self.for_inlining_context.clone().unwrap().selector {
                     let zero_node = Value::create(SpannedMirValue {
                         span: Default::default(),
                         value: MirValue::Constant(ConstantValue::Felt(0)),
                     });
+                    // FIXME: The Sub here is used to keep the form of Eq(lhs, rhs) -> Enf(Sub(lhs, rhs) == 0),
+                    // but it introduces an unnecessary zero node
                     Sub::create(
                         Mul::create(selector, new_node, root.span()),
                         zero_node,
@@ -956,23 +973,12 @@ impl Visitor for UnrollingSecondPass<'_> {
                 };
 
             root.as_op().unwrap().set(&new_node_with_selector_if_needed);
-            /*println!("");
-            println!("Updated child of For node: {:?}", root);
-            println!("");*/
 
             // Reset context to None
             self.for_inlining_context = None;
         }
 
         Ok(())
-    }
-    fn root_nodes_to_visit(&self, _graph: &Graph) -> Vec<Link<Node>> {
-        self.bodies_to_inline
-            .iter()
-            .map(|(k, _v)| k)
-            .cloned()
-            .map(|op| op.as_node())
-            .collect::<Vec<_>>()
     }
     fn visit_node(&mut self, _graph: &mut Graph, node: Link<Node>) -> Result<(), CompileError> {
         if node.is_stale() {

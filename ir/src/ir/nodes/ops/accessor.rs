@@ -1,7 +1,7 @@
 use crate::ir::{BackLink, Builder, Child, Link, Node, Op, Owner, Parent};
-use air_parser::ast::{AccessType, RangeBound, Type};
+use air_parser::ast::AccessType;
 use miden_diagnostics::{SourceSpan, Spanned};
-use std::{any::Any, hash::Hash};
+use std::hash::Hash;
 
 #[derive(Hash, Clone, PartialEq, Eq, Debug, Builder, Spanned)]
 #[enum_wrapper(Op)]

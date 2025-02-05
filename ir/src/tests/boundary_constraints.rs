@@ -1,4 +1,4 @@
-use super::{compile, expect_diagnostic};
+use super::compile;
 
 #[test]
 fn boundary_constraints() {
