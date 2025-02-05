@@ -1,8 +1,9 @@
 use crate::ir::{BackLink, Builder, Child, Link, Node, Op, Owner, Parent};
 use air_parser::ast::Boundary as BoundaryKind;
+use miden_diagnostics::{SourceSpan, Spanned};
 use std::hash::Hash;
 
-#[derive(Clone, PartialEq, Eq, Debug, Builder)]
+#[derive(Clone, PartialEq, Eq, Debug, Builder, Spanned)]
 #[enum_wrapper(Op)]
 pub struct Boundary {
     pub parents: Vec<BackLink<Owner>>,
@@ -10,6 +11,8 @@ pub struct Boundary {
     pub expr: Link<Op>,
     pub _node: Option<Link<Node>>,
     pub _owner: Option<Link<Owner>>,
+    #[span]
+    span: SourceSpan,
 }
 
 impl Default for Boundary {
@@ -20,6 +23,7 @@ impl Default for Boundary {
             expr: Link::default(),
             _node: None,
             _owner: None,
+            span: SourceSpan::default(),
         }
     }
 }
@@ -35,10 +39,11 @@ impl Hash for Boundary {
 }
 
 impl Boundary {
-    pub fn create(expr: Link<Op>, kind: BoundaryKind) -> Link<Op> {
+    pub fn create(expr: Link<Op>, kind: BoundaryKind, span: SourceSpan) -> Link<Op> {
         Op::Boundary(Self {
             expr,
             kind,
+            span,
             ..Default::default()
         })
         .into()

@@ -1,7 +1,7 @@
 use std::{collections::HashMap, ops::Deref};
 
 use air_pass::Pass;
-use miden_diagnostics::{DiagnosticsHandler, Severity, SourceSpan};
+use miden_diagnostics::{DiagnosticsHandler, Severity, SourceSpan, Spanned};
 
 use crate::{
     ir::{
@@ -109,7 +109,6 @@ impl Pass for Inlining<'_> {
     type Error = CompileError;
 
     fn run<'a>(&mut self, mut ir: Self::Input<'a>) -> Result<Self::Output<'a>, Self::Error> {
-
         // The first pass only identifies the call graph dependencies and the needed calls to inline
         let mut first_pass = InliningFirstPass::new(self.diagnostics);
         Visitor::run(&mut first_pass, ir.constraint_graph_mut())?;
@@ -133,7 +132,7 @@ impl Pass for Inlining<'_> {
 }
 
 /// Helper function to create the inlining order depending on the dependency graph
-/// 
+///
 /// Raises an error if a circular dependency is detected
 fn create_inlining_order(
     diagnostics: &DiagnosticsHandler,
@@ -247,7 +246,7 @@ impl Visitor for InliningFirstPass<'_> {
         self.current_callees_encountered.clear();
         Ok(())
     }
-    
+
     // When visiting a call, we:
     // - add it to the current list of callees if we're currently visiting the bodies of functions or evaluators (to build the dependency graph)
     // - add it to the list of calls to inline with the func_eval_nodes_where_called map
@@ -351,7 +350,14 @@ impl Visitor for InliningSecondPass<'_> {
                                 .clone(),
                         );
                     }
-                    let new_nodes_vector = Vector::create(new_nodes);
+                    let span = new_nodes
+                        .iter()
+                        .map(|n| n.span())
+                        .fold(SourceSpan::UNKNOWN, |acc, s| {
+                            acc.merge(s).unwrap_or(SourceSpan::UNKNOWN)
+                        });
+                    let new_nodes_vector = Vector::create(new_nodes, span);
+
                     updated_op = Some(new_nodes_vector);
                     //println!("Updating call node of evaluator: {:?}", updated_op);
                 }
@@ -363,7 +369,7 @@ impl Visitor for InliningSecondPass<'_> {
             // Effectively replace the Call node with the updated op
             // Note: We also update the references of Parameters that referenced the node we are replacing
             if let Some(updated_op) = updated_op {
-                // 
+                //
                 let prev_owner_ptr = updated_op.as_owner().unwrap().get_ptr();
                 let params = self.params_for_ref_node.get(&prev_owner_ptr).cloned();
 
@@ -435,7 +441,7 @@ impl Visitor for InliningSecondPass<'_> {
                     node
                 )
             });
-            
+
             // First, check if it's a known Call to inline,
             // if so, set the context and scan its body
             if call_op.clone().as_call().is_some() {
@@ -501,7 +507,11 @@ impl Visitor for InliningSecondPass<'_> {
 }
 
 /// Helper function to check, for each trace segment, that the total size of arguments is correct
-fn check_evaluator_argument_sizes(args: &Vec<Link<Op>>, callee_params: Vec<Vec<Link<Op>>>, diagnostics: &DiagnosticsHandler) -> Result<(), CompileError> {
+fn check_evaluator_argument_sizes(
+    args: &Vec<Link<Op>>,
+    callee_params: Vec<Vec<Link<Op>>>,
+    diagnostics: &DiagnosticsHandler,
+) -> Result<(), CompileError> {
     for ((trace_segment_id, trace_segments_params), trace_segments_arg) in
         callee_params.iter().enumerate().zip(args.iter())
     {
@@ -520,10 +530,7 @@ fn check_evaluator_argument_sizes(args: &Vec<Link<Op>>, callee_params: Vec<Vec<L
                 let param_size = match value {
                     MirValue::TraceAccessBinding(tab) => tab.size,
                     MirValue::TraceAccess(_) => 1,
-                    _ => unreachable!(
-                        "expected trace access binding, got {:?}",
-                        value
-                    ),
+                    _ => unreachable!("expected trace access binding, got {:?}", value),
                 };
                 trace_segments_arg_vector_len += param_size;
             } else if let Some(parameter) = child.as_parameter() {
@@ -546,10 +553,7 @@ fn check_evaluator_argument_sizes(args: &Vec<Link<Op>>, callee_params: Vec<Vec<L
                     let param_size = match value {
                         MirValue::TraceAccessBinding(tab) => tab.size,
                         MirValue::TraceAccess(_) => 1,
-                        _ => unreachable!(
-                            "expected trace access binding, got {:?}",
-                            value
-                        ),
+                        _ => unreachable!("expected trace access binding, got {:?}", value),
                     };
                     trace_segments_arg_vector_len += param_size;
                 } else if let Some(parameter) = indexable.as_parameter() {
@@ -601,7 +605,9 @@ fn unpack_evaluator_arguments(args: &Vec<Link<Op>>) -> Vec<Link<Op>> {
     let mut args_unpacked = Vec::new();
     for args_for_trace_segment in args.iter() {
         let Some(trace_segment_vec) = args_for_trace_segment.as_vector() else {
-            unreachable!("Arguments of a Call node to Evaluator should be a Vectors for each trace segment");
+            unreachable!(
+                "Arguments of a Call node to Evaluator should be a Vectors for each trace segment"
+            );
         };
         let children = trace_segment_vec.children();
         for arg in children.borrow().deref() {
@@ -616,13 +622,11 @@ fn unpack_evaluator_arguments(args: &Vec<Link<Op>>) -> Vec<Link<Op>> {
                         if tab.size > 1 {
                             for index in 0..tab.size {
                                 let new_arg = Value::create(SpannedMirValue {
-                                    value: MirValue::TraceAccessBinding(
-                                        TraceAccessBinding {
-                                            size: 1,
-                                            segment: tab.segment,
-                                            offset: tab.offset + index,
-                                        },
-                                    ),
+                                    value: MirValue::TraceAccessBinding(TraceAccessBinding {
+                                        size: 1,
+                                        segment: tab.segment,
+                                        offset: tab.offset + index,
+                                    }),
                                     span: *span,
                                 });
                                 args_unpacked.push(new_arg);
@@ -653,10 +657,7 @@ fn unpack_evaluator_arguments(args: &Vec<Link<Op>>) -> Vec<Link<Op>> {
                     let _param_size = match value {
                         MirValue::TraceAccessBinding(tab) => tab.size,
                         MirValue::TraceAccess(_) => 1,
-                        _ => unreachable!(
-                            "expected trace access binding, got {:?}",
-                            value
-                        ),
+                        _ => unreachable!("expected trace access binding, got {:?}", value),
                     };
 
                     args_unpacked.push(indexable.clone());

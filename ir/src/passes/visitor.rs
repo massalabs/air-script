@@ -49,7 +49,7 @@ pub trait Visitor {
             Node::Accessor(a) => self.visit_accessor(graph, a.clone().into()),
             Node::Parameter(p) => self.visit_parameter(graph, p.clone().into()),
             Node::Value(v) => self.visit_value(graph, v.clone().into()),
-            Node::None => Ok(()),
+            Node::None(_) => Ok(()),
         }
     }
     fn visit_function(

@@ -6,7 +6,6 @@ mod functions;
 mod integrity_constraints;
 mod ir;
 mod list_folding;
-mod mutability;
 mod pub_inputs;
 mod random_values;
 mod selectors;

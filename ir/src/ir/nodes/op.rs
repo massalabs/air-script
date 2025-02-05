@@ -2,6 +2,7 @@ use crate::ir::{
     get_inner, get_inner_mut, Accessor, Add, BackLink, Boundary, Call, Child, Enf, Fold, For, If,
     Link, Matrix, Mul, Node, Owner, Parameter, Parent, Sub, Value, Vector,
 };
+use miden_diagnostics::{SourceSpan, Spanned};
 
 use std::{
     cell::{Ref, RefMut},
@@ -11,7 +12,7 @@ use std::{
 use super::Exp;
 
 /// The combined Operators and Leaves of the MIR Graph
-#[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
+#[derive(Clone, PartialEq, Eq, Debug, Hash, Spanned)]
 pub enum Op {
     Enf(Enf),
     Boundary(Boundary),
@@ -28,8 +29,13 @@ pub enum Op {
     Accessor(Accessor),
     Parameter(Parameter),
     Value(Value),
-    #[default]
-    None,
+    None(SourceSpan),
+}
+
+impl Default for Op {
+    fn default() -> Self {
+        Op::None(Default::default())
+    }
 }
 
 impl Parent for Op {
@@ -51,7 +57,7 @@ impl Parent for Op {
             Op::Accessor(a) => a.children(),
             Op::Parameter(_) => Link::default(),
             Op::Value(_) => Link::default(),
-            Op::None => Link::default(),
+            Op::None(_) => Link::default(),
         }
     }
 }
@@ -75,7 +81,7 @@ impl Child for Op {
             Op::Accessor(a) => a.get_parents(),
             Op::Parameter(p) => p.get_parents(),
             Op::Value(v) => v.get_parents(),
-            Op::None => Default::default(),
+            Op::None(_) => Default::default(),
         }
     }
     fn add_parent(&mut self, parent: Link<Self::Parent>) {
@@ -95,7 +101,7 @@ impl Child for Op {
             Op::Accessor(a) => a.add_parent(parent),
             Op::Parameter(p) => p.add_parent(parent),
             Op::Value(v) => v.add_parent(parent),
-            Op::None => {}
+            Op::None(_) => {}
         }
     }
     fn remove_parent(&mut self, parent: Link<Self::Parent>) {
@@ -115,7 +121,7 @@ impl Child for Op {
             Op::Accessor(a) => a.remove_parent(parent),
             Op::Parameter(p) => p.remove_parent(parent),
             Op::Value(v) => v.remove_parent(parent),
-            Op::None => {}
+            Op::None(_) => {}
         }
     }
 }
@@ -138,7 +144,7 @@ impl Link<Op> {
             Op::Accessor(a) => format!("Op::Accessor@{}({:#?})", self.get_ptr(), a),
             Op::Parameter(p) => format!("Op::Parameter@{}({:#?})", self.get_ptr(), p),
             Op::Value(v) => format!("Op::Value@{}({:#?})", self.get_ptr(), v),
-            Op::None => "Op::None".to_string(),
+            Op::None(_) => "Op::None".to_string(),
         }
     }
     pub fn set(&self, other: &Link<Op>) {
@@ -207,7 +213,7 @@ impl Link<Op> {
             Op::Value(ref mut value) => {
                 value._node = Some(node.clone());
             }
-            Op::None => {}
+            Op::None(_) => {}
         }
     }
 
@@ -254,7 +260,7 @@ impl Link<Op> {
             }
             Op::Parameter(ref mut _parameter) => {}
             Op::Value(ref mut _value) => {}
-            Op::None => {}
+            Op::None(_) => {}
         }
     }
 
@@ -381,7 +387,7 @@ impl Link<Op> {
                 value._node = Some(node.clone());
                 node
             }
-            Op::None => Node::None.into(),
+            Op::None(span) => Node::None(*span).into(),
         }
     }
     pub fn as_owner(&self) -> Option<Link<Owner>> {
@@ -493,7 +499,7 @@ impl Link<Op> {
             }
             Op::Parameter(_) => None,
             Op::Value(_) => None,
-            Op::None => None,
+            Op::None(_) => None,
         }
     }
     pub fn as_enf(&self) -> Option<Ref<Enf>> {

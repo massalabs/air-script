@@ -1,6 +1,7 @@
 use crate::ir::{BackLink, Builder, Child, Link, Node, Op, Owner, Parent, Root};
+use miden_diagnostics::{SourceSpan, Spanned};
 
-#[derive(Default, Clone, PartialEq, Eq, Debug, Hash, Builder)]
+#[derive(Default, Clone, PartialEq, Eq, Debug, Hash, Builder, Spanned)]
 #[enum_wrapper(Op)]
 pub struct Call {
     pub parents: Vec<BackLink<Owner>>,
@@ -9,13 +10,16 @@ pub struct Call {
     pub arguments: Link<Vec<Link<Op>>>,
     pub _node: Option<Link<Node>>,
     pub _owner: Option<Link<Owner>>,
+    #[span]
+    span: SourceSpan,
 }
 
 impl Call {
-    pub fn create(function: Link<Root>, arguments: Vec<Link<Op>>) -> Link<Op> {
+    pub fn create(function: Link<Root>, arguments: Vec<Link<Op>>, span: SourceSpan) -> Link<Op> {
         Op::Call(Self {
             function,
             arguments: Link::new(arguments),
+            span,
             ..Default::default()
         })
         .into()

@@ -1,5 +1,5 @@
 use air_parser::ast::{self, Identifier, QualifiedIdentifier, TraceSegmentId};
-use miden_diagnostics::SourceSpan;
+use miden_diagnostics::{SourceSpan, Spanned};
 
 use crate::ir::{BackLink, Builder, Child, Link, Node, Op, Owner, TraceAccess};
 
@@ -60,8 +60,9 @@ pub struct RandomValueBinding {
 
 /// Represents a typed value in the [MIR]
 ///
-#[derive(Debug, Eq, PartialEq, Clone, Hash)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash, Spanned)]
 pub struct SpannedMirValue {
+    #[span]
     pub span: SourceSpan,
     pub value: MirValue,
 }
@@ -119,10 +120,11 @@ impl Default for SpannedMirValue {
     }
 }
 
-#[derive(Default, Clone, PartialEq, Eq, Debug, Hash, Builder)]
+#[derive(Default, Clone, PartialEq, Eq, Debug, Hash, Builder, Spanned)]
 #[enum_wrapper(Op)]
 pub struct Value {
     pub parents: Vec<BackLink<Owner>>,
+    #[span]
     pub value: SpannedMirValue,
     pub _node: Option<Link<Node>>,
 }

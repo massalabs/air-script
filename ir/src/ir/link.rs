@@ -1,3 +1,4 @@
+use miden_diagnostics::{SourceSpan, Spanned};
 use std::cell::RefCell;
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -87,6 +88,15 @@ impl<T> From<Rc<RefCell<T>>> for Link<T> {
     }
 }
 
+impl<T> Spanned for Link<T>
+where
+    T: Spanned,
+{
+    fn span(&self) -> SourceSpan {
+        self.borrow().span()
+    }
+}
+
 pub struct BackLink<T> {
     pub link: Option<Weak<RefCell<T>>>,
 }
@@ -165,4 +175,16 @@ impl<T> From<Rc<RefCell<T>>> for BackLink<T> {
 
 impl<T> Hash for BackLink<T> {
     fn hash<H: std::hash::Hasher>(&self, _state: &mut H) {}
+}
+
+impl<T> Spanned for BackLink<T>
+where
+    T: Spanned,
+{
+    fn span(&self) -> SourceSpan {
+        match self.to_link() {
+            Some(link) => link.span(),
+            None => SourceSpan::default(),
+        }
+    }
 }

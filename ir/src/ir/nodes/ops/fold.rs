@@ -1,6 +1,7 @@
 use crate::ir::{BackLink, Builder, Child, Link, Node, Op, Owner, Parent};
+use miden_diagnostics::{SourceSpan, Spanned};
 
-#[derive(Default, Clone, PartialEq, Eq, Debug, Hash, Builder)]
+#[derive(Default, Clone, PartialEq, Eq, Debug, Hash, Builder, Spanned)]
 #[enum_wrapper(Op)]
 pub struct Fold {
     pub parents: Vec<BackLink<Owner>>,
@@ -9,6 +10,8 @@ pub struct Fold {
     pub initial_value: Link<Op>,
     pub _node: Option<Link<Node>>,
     pub _owner: Option<Link<Owner>>,
+    #[span]
+    span: SourceSpan,
 }
 
 #[derive(Default, Clone, PartialEq, Eq, Debug, Hash)]
@@ -20,11 +23,17 @@ pub enum FoldOperator {
 }
 
 impl Fold {
-    pub fn create(iterator: Link<Op>, operator: FoldOperator, initial_value: Link<Op>) -> Link<Op> {
+    pub fn create(
+        iterator: Link<Op>,
+        operator: FoldOperator,
+        initial_value: Link<Op>,
+        span: SourceSpan,
+    ) -> Link<Op> {
         Op::Fold(Self {
             iterator,
             operator,
             initial_value,
+            span,
             ..Default::default()
         })
         .into()

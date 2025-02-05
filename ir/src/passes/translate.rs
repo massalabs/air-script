@@ -177,12 +177,16 @@ impl<'a> MirBuilder<'a> {
                 match &binding.ty {
                     ast::Type::Vector(size) => {
                         let mut params_vec = Vec::new();
+                        let mut span = SourceSpan::UNKNOWN;
                         for _ in 0..*size {
                             let param = all_params_flatten_for_trace_segment[i].clone();
                             i += 1;
-                            params_vec.push(param);
+                            params_vec.push(param.clone());
+                            if let Some(s) = span.merge(param.span()) {
+                                span = s;
+                            }
                         }
-                        let vector_node = Vector::create(params_vec);
+                        let vector_node = Vector::create(params_vec, span);
                         self.bindings.insert(name.unwrap(), vector_node.clone());
                     }
                     ast::Type::Felt => {
@@ -432,8 +436,8 @@ impl<'a> MirBuilder<'a> {
 
         let for_node = For::create(
             iterator_nodes.into(),
-            Op::None.into(),
-            Op::None.into(),
+            Op::None(list_comp.span()).into(),
+            Op::None(list_comp.span()).into(),
             list_comp.span(),
         );
         set_all_ref_nodes(params, for_node.as_owner().unwrap());
@@ -457,7 +461,7 @@ impl<'a> MirBuilder<'a> {
             .borrow_mut()
             .clone_from(&selector_node.borrow());
 
-        let enf_node: Link<Op> = Enf::create(for_node);
+        let enf_node: Link<Op> = Enf::create(for_node, list_comp.span());
         let node = self.insert_enforce(enf_node);
         self.bindings.exit();
         node
@@ -467,7 +471,7 @@ impl<'a> MirBuilder<'a> {
         let node_to_add = if let Op::Enf(_) = node.clone().borrow().deref() {
             node
         } else {
-            Enf::builder().expr(node).build()
+            Enf::builder().expr(node.clone()).span(node.span()).build()
         };
         match self.in_boundary {
             true => self
@@ -500,7 +504,10 @@ impl<'a> MirBuilder<'a> {
     }
 
     fn translate_vector_expr(&mut self, v: &'a [ast::Expr]) -> Result<Link<Op>, CompileError> {
-        let mut node = Vector::builder().size(v.len());
+        let span = v.iter().fold(SourceSpan::UNKNOWN, |acc, expr| {
+            acc.merge(expr.span()).unwrap_or(acc)
+        });
+        let mut node = Vector::builder().size(v.len()).span(span);
         for value in v.iter() {
             let value_node = self.translate_expr(value)?;
             node = node.elements(value_node);
@@ -512,7 +519,10 @@ impl<'a> MirBuilder<'a> {
         &mut self,
         v: &'a [ast::ScalarExpr],
     ) -> Result<Link<Op>, CompileError> {
-        let mut node = Vector::builder().size(v.len());
+        let span = v.iter().fold(SourceSpan::UNKNOWN, |acc, expr| {
+            acc.merge(expr.span()).unwrap_or(acc)
+        });
+        let mut node = Vector::builder().size(v.len()).span(span);
         for value in v.iter() {
             let value_node = self.translate_scalar_expr(value)?;
             node = node.elements(value_node);
@@ -524,7 +534,10 @@ impl<'a> MirBuilder<'a> {
         &mut self,
         m: &'a Span<Vec<Vec<ast::ScalarExpr>>>,
     ) -> Result<Link<Op>, CompileError> {
-        let mut node = Matrix::builder().size(m.len());
+        let span = m.iter().flatten().fold(SourceSpan::UNKNOWN, |acc, expr| {
+            acc.merge(expr.span()).unwrap_or(acc)
+        });
+        let mut node = Matrix::builder().size(m.len()).span(span);
         for row in m.iter() {
             let row_node = self.translate_vector_scalar_expr(row)?;
             node = node.elements(row_node);
@@ -583,24 +596,24 @@ impl<'a> MirBuilder<'a> {
         let rhs = self.translate_scalar_expr(&bin_op.rhs)?;
         match bin_op.op {
             ast::BinaryOp::Add => {
-                let node = Add::builder().lhs(lhs).rhs(rhs).build();
+                let node = Add::builder().lhs(lhs).rhs(rhs).span(bin_op.span()).build();
                 Ok(node)
             }
             ast::BinaryOp::Sub => {
-                let node = Sub::builder().lhs(lhs).rhs(rhs).build();
+                let node = Sub::builder().lhs(lhs).rhs(rhs).span(bin_op.span()).build();
                 Ok(node)
             }
             ast::BinaryOp::Mul => {
-                let node = Mul::builder().lhs(lhs).rhs(rhs).build();
+                let node = Mul::builder().lhs(lhs).rhs(rhs).span(bin_op.span()).build();
                 Ok(node)
             }
             ast::BinaryOp::Exp => {
-                let node = Exp::builder().lhs(lhs).rhs(rhs).build();
+                let node = Exp::builder().lhs(lhs).rhs(rhs).span(bin_op.span()).build();
                 Ok(node)
             }
             ast::BinaryOp::Eq => {
-                let sub_node = Sub::builder().lhs(lhs).rhs(rhs).build();
-                Ok(Enf::builder().expr(sub_node).build())
+                let sub_node = Sub::builder().lhs(lhs).rhs(rhs).span(bin_op.span()).build();
+                Ok(Enf::builder().expr(sub_node).span(bin_op.span()).build())
             }
         }
     }
@@ -619,6 +632,7 @@ impl<'a> MirBuilder<'a> {
                     let iterator_node = self.translate_expr(call.args.first().unwrap())?;
                     let accumulator_node = self.translate_const(&ast::ConstantExpr::Scalar(0))?;
                     let node = Fold::builder()
+                        .span(call.span())
                         .iterator(iterator_node)
                         .operator(FoldOperator::Add)
                         .initial_value(accumulator_node)
@@ -630,6 +644,7 @@ impl<'a> MirBuilder<'a> {
                     let iterator_node = self.translate_expr(call.args.first().unwrap())?;
                     let accumulator_node = self.translate_const(&ast::ConstantExpr::Scalar(1))?;
                     let node = Fold::builder()
+                        .span(call.span())
                         .iterator(iterator_node)
                         .operator(FoldOperator::Mul)
                         .initial_value(accumulator_node)
@@ -721,7 +736,7 @@ impl<'a> MirBuilder<'a> {
             } else {
                 panic!("Unknown function or evaluator: {:?}", resolved_callee);
             }
-            let mut call_node = Call::builder().function(callee_node);
+            let mut call_node = Call::builder().function(callee_node).span(call.span());
             for arg in arg_nodes {
                 call_node = call_node.arguments(arg);
             }
@@ -750,8 +765,8 @@ impl<'a> MirBuilder<'a> {
 
         let for_node = For::create(
             iterator_nodes,
-            Op::None.into(),
-            Op::None.into(),
+            Op::None(Default::default()).into(),
+            Op::None(Default::default()).into(),
             list_comp.span(),
         );
         set_all_ref_nodes(params, for_node.as_owner().unwrap());
@@ -809,6 +824,7 @@ impl<'a> MirBuilder<'a> {
     ) -> Result<Link<Op>, CompileError> {
         let access_node = self.translate_symbol_access(&access.column)?;
         let node = Boundary::builder()
+            .span(access.span())
             .kind(access.boundary)
             .expr(access_node)
             .build();
@@ -824,7 +840,7 @@ impl<'a> MirBuilder<'a> {
     }
 
     fn translate_vector_const(&mut self, v: Vec<u64>) -> Result<Link<Op>, CompileError> {
-        let mut node = Vector::builder().size(v.len());
+        let mut node = Vector::builder().size(v.len()).span(Default::default());
         for value in v.iter() {
             let value_node = self.translate_scalar_const(*value)?;
             node = node.elements(value_node);
@@ -833,7 +849,7 @@ impl<'a> MirBuilder<'a> {
     }
 
     fn translate_matrix_const(&mut self, m: Vec<Vec<u64>>) -> Result<Link<Op>, CompileError> {
-        let mut node = Matrix::builder().size(m.len());
+        let mut node = Matrix::builder().size(m.len()).span(Default::default());
         for row in m.iter() {
             let row_node = self.translate_vector_const(row.clone())?;
             node = node.elements(row_node);
@@ -892,6 +908,7 @@ impl<'a> MirBuilder<'a> {
                 duplicate_node(let_bound_access_expr, &mut Default::default()),
                 access.access_type.clone(),
                 access.offset,
+                access.span(),
             );
 
             return Ok(accessor);

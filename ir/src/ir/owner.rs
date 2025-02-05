@@ -1,9 +1,10 @@
+use miden_diagnostics::{SourceSpan, Spanned};
 use std::ops::Deref;
 
 use crate::ir::{BackLink, Child, Link, Op, Parent, Root};
 
 /// The nodes that can own Op nodes
-#[derive(Default, Clone, Eq, Debug)]
+#[derive(Clone, Eq, Debug, Spanned)]
 pub enum Owner {
     Function(BackLink<Root>),
     Evaluator(BackLink<Root>),
@@ -20,8 +21,7 @@ pub enum Owner {
     Enf(BackLink<Op>),
     For(BackLink<Op>),
     If(BackLink<Op>),
-    #[default]
-    None,
+    None(SourceSpan),
 }
 
 impl Parent for Owner {
@@ -43,7 +43,7 @@ impl Parent for Owner {
             Owner::Vector(v) => v.children(),
             Owner::Matrix(m) => m.children(),
             Owner::Accessor(a) => a.children(),
-            Owner::None => Link::default(),
+            Owner::None(_) => Link::default(),
         }
     }
 }
@@ -67,7 +67,7 @@ impl Child for Owner {
             Owner::Vector(v) => v.get_parents(),
             Owner::Matrix(m) => m.get_parents(),
             Owner::Accessor(a) => a.get_parents(),
-            Owner::None => Vec::default(),
+            Owner::None(_) => Vec::default(),
         }
     }
     fn add_parent(&mut self, parent: Link<Self::Parent>) {
@@ -87,7 +87,7 @@ impl Child for Owner {
             Owner::Vector(v) => v.add_parent(parent),
             Owner::Matrix(m) => m.add_parent(parent),
             Owner::Accessor(a) => a.add_parent(parent),
-            Owner::None => (),
+            Owner::None(_) => (),
         }
     }
     fn remove_parent(&mut self, parent: Link<Self::Parent>) {
@@ -107,7 +107,7 @@ impl Child for Owner {
             Owner::Vector(v) => v.remove_parent(parent),
             Owner::Matrix(m) => m.remove_parent(parent),
             Owner::Accessor(a) => a.remove_parent(parent),
-            Owner::None => (),
+            Owner::None(_) => (),
         }
     }
 }
@@ -130,7 +130,7 @@ impl PartialEq for Owner {
             (Owner::Vector(lhs), Owner::Vector(rhs)) => lhs.to_link() == rhs.to_link(),
             (Owner::Matrix(lhs), Owner::Matrix(rhs)) => lhs.to_link() == rhs.to_link(),
             (Owner::Accessor(lhs), Owner::Accessor(rhs)) => lhs.to_link() == rhs.to_link(),
-            (Owner::None, Owner::None) => true,
+            (Owner::None(_), Owner::None(_)) => true,
             _ => false,
         }
     }
@@ -154,7 +154,7 @@ impl std::hash::Hash for Owner {
             Owner::Vector(v) => v.to_link().hash(state),
             Owner::Matrix(m) => m.to_link().hash(state),
             Owner::Accessor(a) => a.to_link().hash(state),
-            Owner::None => Owner::None.hash(state),
+            Owner::None(s) => s.hash(state),
         }
     }
 }
@@ -179,13 +179,13 @@ impl Link<Owner> {
                 Op::Accessor(_) => Owner::Accessor(BackLink::from(op_inner_val)),
                 Op::Parameter(_) => unreachable!(),
                 Op::Value(_) => unreachable!(),
-                Op::None => Owner::None,
+                Op::None(span) => Owner::None(*span),
             };
         } else if let Some(root_inner_val) = self.as_root() {
             to_update = match root_inner_val.clone().borrow().deref() {
                 Root::Function(_) => Owner::Function(BackLink::from(root_inner_val)),
                 Root::Evaluator(_) => Owner::Evaluator(BackLink::from(root_inner_val)),
-                Root::None(span) => Owner::None, /*(span)*/
+                Root::None(span) => Owner::None(*span),
             };
         } else {
             unreachable!();
@@ -211,7 +211,7 @@ impl Link<Owner> {
             Owner::Enf(_) => None,
             Owner::For(_) => None,
             Owner::If(_) => None,
-            Owner::None => None,
+            Owner::None(_) => None,
         }
     }
     pub fn as_op(&self) -> Option<Link<Op>> {
@@ -231,7 +231,7 @@ impl Link<Owner> {
             Owner::Enf(back) => back.to_link(),
             Owner::For(back) => back.to_link(),
             Owner::If(back) => back.to_link(),
-            Owner::None => None,
+            Owner::None(_) => None,
         }
     }
 }
@@ -255,7 +255,7 @@ impl BackLink<Owner> {
                 Owner::Enf(back) => back.to_link().map(|l| l.get_ptr()).unwrap_or(0),
                 Owner::For(back) => back.to_link().map(|l| l.get_ptr()).unwrap_or(0),
                 Owner::If(back) => back.to_link().map(|l| l.get_ptr()).unwrap_or(0),
-                Owner::None => 0,
+                Owner::None(_) => 0,
             })
             .unwrap_or(0)
     }

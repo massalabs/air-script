@@ -3,7 +3,7 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-use miden_diagnostics::SourceSpan;
+use miden_diagnostics::{SourceSpan, Spanned};
 
 use crate::ir::{
     get_inner, get_inner_mut, BackLink, Evaluator, Function, Link, Node, Op, Owner, Parent,
@@ -11,7 +11,7 @@ use crate::ir::{
 
 /// The root nodes of the MIR Graph
 /// These represent the top level functions and evaluators
-#[derive(Clone, PartialEq, Eq, Debug, Hash)]
+#[derive(Clone, PartialEq, Eq, Debug, Hash, Spanned)]
 pub enum Root {
     Function(Function),
     Evaluator(Evaluator),
@@ -67,8 +67,7 @@ impl Link<Root> {
                 e._node = Some(node.clone());
                 node
             }
-            Root::None(span) => Node::None /*(span)*/
-                .into(),
+            Root::None(span) => Node::None(*span).into(),
         }
     }
     pub fn as_owner(&self) -> Link<Owner> {
@@ -90,8 +89,7 @@ impl Link<Root> {
                 e._owner = Some(owner.clone());
                 owner
             }
-            Root::None(span) => Owner::None /*(span)*/
-                .into(),
+            Root::None(span) => Owner::None(*span).into(),
         }
     }
     pub fn as_function(&self) -> Option<Ref<Function>> {

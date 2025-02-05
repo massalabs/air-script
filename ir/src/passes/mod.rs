@@ -43,41 +43,41 @@ pub fn duplicate_node(
         Op::Enf(enf) => {
             let expr = enf.expr.clone();
             let new_expr = duplicate_node(expr, current_replace_map);
-            Enf::create(new_expr)
+            Enf::create(new_expr, enf.span())
         }
         Op::Boundary(boundary) => {
             let expr = boundary.expr.clone();
             let kind = boundary.kind;
             let new_expr = duplicate_node(expr, current_replace_map);
-            Boundary::create(new_expr, kind)
+            Boundary::create(new_expr, kind, boundary.span())
         }
         Op::Add(add) => {
             let lhs = add.lhs.clone();
             let rhs = add.rhs.clone();
             let new_lhs_node = duplicate_node(lhs, current_replace_map);
             let new_rhs_node = duplicate_node(rhs, current_replace_map);
-            Add::create(new_lhs_node, new_rhs_node)
+            Add::create(new_lhs_node, new_rhs_node, add.span())
         }
         Op::Sub(sub) => {
             let lhs = sub.lhs.clone();
             let rhs = sub.rhs.clone();
             let new_lhs_node = duplicate_node(lhs, current_replace_map);
             let new_rhs_node = duplicate_node(rhs, current_replace_map);
-            Sub::create(new_lhs_node, new_rhs_node)
+            Sub::create(new_lhs_node, new_rhs_node, sub.span())
         }
         Op::Mul(mul) => {
             let lhs = mul.lhs.clone();
             let rhs = mul.rhs.clone();
             let new_lhs_node = duplicate_node(lhs, current_replace_map);
             let new_rhs_node = duplicate_node(rhs, current_replace_map);
-            Mul::create(new_lhs_node, new_rhs_node)
+            Mul::create(new_lhs_node, new_rhs_node, mul.span())
         }
         Op::Exp(exp) => {
             let lhs = exp.lhs.clone();
             let rhs = exp.rhs.clone();
             let new_lhs_node = duplicate_node(lhs, current_replace_map);
             let new_rhs_node = duplicate_node(rhs, current_replace_map);
-            Exp::create(new_lhs_node, new_rhs_node)
+            Exp::create(new_lhs_node, new_rhs_node, exp.span())
         }
         Op::If(if_node) => {
             let condition = if_node.condition.clone();
@@ -86,7 +86,12 @@ pub fn duplicate_node(
             let new_condition = duplicate_node(condition, current_replace_map);
             let new_then_branch = duplicate_node(then_branch, current_replace_map);
             let new_else_branch = duplicate_node(else_branch, current_replace_map);
-            If::create(new_condition, new_then_branch, new_else_branch)
+            If::create(
+                new_condition,
+                new_then_branch,
+                new_else_branch,
+                if_node.span(),
+            )
         }
         Op::For(for_node) => {
             let new_for_node: Link<Op> = For::create(
@@ -125,7 +130,7 @@ pub fn duplicate_node(
                 .cloned()
                 .map(|x| duplicate_node(x, current_replace_map))
                 .collect::<Vec<_>>();
-            Call::create(function, new_arguments)
+            Call::create(function, new_arguments, call.span())
         }
         Op::Fold(fold) => {
             let iterator = fold.iterator.clone();
@@ -133,7 +138,7 @@ pub fn duplicate_node(
             let initial_value = fold.initial_value.clone();
             let new_iterator = duplicate_node(iterator, current_replace_map);
             let new_initial_value = duplicate_node(initial_value, current_replace_map);
-            Fold::create(new_iterator, operator, new_initial_value)
+            Fold::create(new_iterator, operator, new_initial_value, fold.span())
         }
         Op::Vector(vector) => {
             let children_link = vector.children().clone();
@@ -144,7 +149,7 @@ pub fn duplicate_node(
                 .cloned()
                 .map(|x| duplicate_node(x, current_replace_map))
                 .collect();
-            Vector::create(new_children)
+            Vector::create(new_children, vector.span())
         }
         Op::Matrix(matrix) => {
             let mut new_matrix = Vec::new();
@@ -165,17 +170,17 @@ pub fn duplicate_node(
                     .cloned()
                     .map(|x| duplicate_node(x, current_replace_map))
                     .collect::<Vec<_>>();
-                let new_row = Vector::create(new_row_as_vec);
+                let new_row = Vector::create(new_row_as_vec, row.span());
                 new_matrix.push(new_row);
             }
-            Matrix::create(new_matrix)
+            Matrix::create(new_matrix, matrix.span())
         }
         Op::Accessor(accessor) => {
             let indexable = accessor.indexable.clone();
             let access_type = accessor.access_type.clone();
             let offset = accessor.offset;
             let new_indexable = duplicate_node(indexable, current_replace_map);
-            Accessor::create(new_indexable, access_type, offset)
+            Accessor::create(new_indexable, access_type, offset, accessor.span())
         }
         Op::Parameter(parameter) => {
             let owner_ref = parameter
@@ -206,7 +211,7 @@ pub fn duplicate_node(
             new_param
         }
         Op::Value(value) => Value::create(value.value.clone()),
-        Op::None => Op::None.into(),
+        Op::None(span) => Op::None(*span).into(),
     }
 }
 
@@ -234,14 +239,14 @@ pub fn duplicate_node_or_replace(
         Op::Enf(enf) => {
             let expr = enf.expr.clone();
             let new_expr = current_replace_map.get(&expr.get_ptr()).unwrap().1.clone();
-            let new_node = Enf::create(new_expr);
+            let new_node = Enf::create(new_expr, enf.span());
             current_replace_map.insert(node.get_ptr(), (node.clone(), new_node));
         }
         Op::Boundary(boundary) => {
             let expr = boundary.expr.clone();
             let kind = boundary.kind;
             let new_expr = current_replace_map.get(&expr.get_ptr()).unwrap().1.clone();
-            let new_node = Boundary::create(new_expr, kind);
+            let new_node = Boundary::create(new_expr, kind, boundary.span());
             current_replace_map.insert(node.get_ptr(), (node.clone(), new_node));
         }
         Op::Add(add) => {
@@ -249,7 +254,7 @@ pub fn duplicate_node_or_replace(
             let rhs = add.rhs.clone();
             let new_lhs_node = current_replace_map.get(&lhs.get_ptr()).unwrap().1.clone();
             let new_rhs_node = current_replace_map.get(&rhs.get_ptr()).unwrap().1.clone();
-            let new_node = Add::create(new_lhs_node, new_rhs_node);
+            let new_node = Add::create(new_lhs_node, new_rhs_node, add.span());
             current_replace_map.insert(node.get_ptr(), (node.clone(), new_node));
         }
         Op::Sub(sub) => {
@@ -257,7 +262,7 @@ pub fn duplicate_node_or_replace(
             let rhs = sub.rhs.clone();
             let new_lhs_node = current_replace_map.get(&lhs.get_ptr()).unwrap().1.clone();
             let new_rhs_node = current_replace_map.get(&rhs.get_ptr()).unwrap().1.clone();
-            let new_node = Sub::create(new_lhs_node, new_rhs_node);
+            let new_node = Sub::create(new_lhs_node, new_rhs_node, sub.span());
             current_replace_map.insert(node.get_ptr(), (node.clone(), new_node));
         }
         Op::Mul(mul) => {
@@ -265,7 +270,7 @@ pub fn duplicate_node_or_replace(
             let rhs = mul.rhs.clone();
             let new_lhs_node = current_replace_map.get(&lhs.get_ptr()).unwrap().1.clone();
             let new_rhs_node = current_replace_map.get(&rhs.get_ptr()).unwrap().1.clone();
-            let new_node = Mul::create(new_lhs_node, new_rhs_node);
+            let new_node = Mul::create(new_lhs_node, new_rhs_node, mul.span());
             current_replace_map.insert(node.get_ptr(), (node.clone(), new_node));
         }
         Op::Exp(exp) => {
@@ -273,7 +278,7 @@ pub fn duplicate_node_or_replace(
             let rhs = exp.rhs.clone();
             let new_lhs_node = current_replace_map.get(&lhs.get_ptr()).unwrap().1.clone();
             let new_rhs_node = current_replace_map.get(&rhs.get_ptr()).unwrap().1.clone();
-            let new_node = Exp::create(new_lhs_node, new_rhs_node);
+            let new_node = Exp::create(new_lhs_node, new_rhs_node, exp.span());
             current_replace_map.insert(node.get_ptr(), (node.clone(), new_node));
         }
         Op::If(if_node) => {
@@ -291,7 +296,7 @@ pub fn duplicate_node_or_replace(
                 .unwrap()
                 .1
                 .clone();
-            let new_node = If::create(new_cond, new_then_branch, new_else_branch);
+            let new_node = If::create(new_cond, new_then_branch, new_else_branch, if_node.span());
             current_replace_map.insert(node.get_ptr(), (node.clone(), new_node));
         }
         Op::For(for_node) => {
@@ -315,7 +320,7 @@ pub fn duplicate_node_or_replace(
             let new_selector = current_replace_map
                 .get(&selector.get_ptr())
                 .map(|selector| selector.1.clone())
-                .unwrap_or(Link::new(Op::None))
+                .unwrap_or(Link::new(Op::None(Default::default())))
                 .clone();
             let new_node = For::create(new_iterators, new_body, new_selector, for_node.span());
             current_replace_map.insert(node.get_ptr(), (node.clone(), new_node.clone()));
@@ -350,7 +355,7 @@ pub fn duplicate_node_or_replace(
                         .clone()
                 })
                 .collect::<Vec<_>>();
-            let new_node = Call::create(function, new_arguments);
+            let new_node = Call::create(function, new_arguments, call.span());
             current_replace_map.insert(node.get_ptr(), (node.clone(), new_node));
         }
         Op::Fold(fold) => {
@@ -367,7 +372,7 @@ pub fn duplicate_node_or_replace(
                 .unwrap()
                 .1
                 .clone();
-            let new_node = Fold::create(new_iterator, operator, new_initial_value);
+            let new_node = Fold::create(new_iterator, operator, new_initial_value, fold.span());
             current_replace_map.insert(node.get_ptr(), (node.clone(), new_node));
         }
         Op::Vector(vector) => {
@@ -379,7 +384,7 @@ pub fn duplicate_node_or_replace(
                 .cloned()
                 .map(|child| current_replace_map.get(&child.get_ptr()).unwrap().1.clone())
                 .collect();
-            let new_node = Vector::create(new_children);
+            let new_node = Vector::create(new_children, vector.span());
             current_replace_map.insert(node.get_ptr(), (node.clone(), new_node));
         }
         Op::Matrix(matrix) => {
@@ -401,10 +406,10 @@ pub fn duplicate_node_or_replace(
                     .cloned()
                     .map(|child| current_replace_map.get(&child.get_ptr()).unwrap().1.clone())
                     .collect::<Vec<_>>();
-                let new_row = Vector::create(new_row_as_vec);
+                let new_row = Vector::create(new_row_as_vec, row.span());
                 new_matrix.push(new_row);
             }
-            let new_node = Matrix::create(new_matrix);
+            let new_node = Matrix::create(new_matrix, matrix.span());
             current_replace_map.insert(node.get_ptr(), (node.clone(), new_node));
         }
         Op::Accessor(accessor) => {
@@ -416,7 +421,7 @@ pub fn duplicate_node_or_replace(
                 .unwrap()
                 .1
                 .clone();
-            let new_node = Accessor::create(new_indexable, access_type, offset);
+            let new_node = Accessor::create(new_indexable, access_type, offset, accessor.span());
             current_replace_map.insert(node.get_ptr(), (node.clone(), new_node));
         }
         Op::Parameter(parameter) => {
@@ -460,6 +465,6 @@ pub fn duplicate_node_or_replace(
             let new_node = Value::create(value.value.clone());
             current_replace_map.insert(node.get_ptr(), (node.clone(), new_node));
         }
-        Op::None => {}
+        Op::None(_) => {}
     }
 }

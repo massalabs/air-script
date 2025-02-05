@@ -2,7 +2,7 @@ use std::{collections::HashMap, ops::Deref, rc::Rc};
 
 use air_parser::ast::AccessType;
 use air_pass::Pass;
-use miden_diagnostics::{DiagnosticsHandler, Spanned};
+use miden_diagnostics::{DiagnosticsHandler, SourceSpan, Spanned};
 //use miden_diagnostics::DiagnosticsHandler;
 
 use crate::{ir::*, CompileError};
@@ -207,7 +207,7 @@ impl<'a> UnrollingFirstPass<'a> {
                             });
                             vec.push(val);
                         }
-                        updated_value = Some(Vector::create(vec));
+                        updated_value = Some(Vector::create(vec, value_ref.span()));
                     }
                     ConstantValue::Matrix(m) => {
                         let mut res_m = vec![];
@@ -220,10 +220,10 @@ impl<'a> UnrollingFirstPass<'a> {
                                 });
                                 res_row.push(val);
                             }
-                            let res_row_vec = Vector::create(res_row);
+                            let res_row_vec = Vector::create(res_row, value_ref.span());
                             res_m.push(res_row_vec);
                         }
-                        updated_value = Some(Matrix::create(res_m));
+                        updated_value = Some(Matrix::create(res_m, value_ref.span()));
                     }
                 },
                 MirValue::TraceAccess(_) => {}
@@ -246,7 +246,7 @@ impl<'a> UnrollingFirstPass<'a> {
                         let mut vec = vec![];
                         for index in 0..trace_access_binding.size {
                             let val = Value::create(SpannedMirValue {
-                                span: value_ref.value.span,
+                                span: value_ref.span(),
                                 value: MirValue::TraceAccess(TraceAccess {
                                     segment: trace_access_binding.segment,
                                     column: trace_access_binding.offset + index,
@@ -255,7 +255,7 @@ impl<'a> UnrollingFirstPass<'a> {
                             });
                             vec.push(val);
                         }
-                        updated_value = Some(Vector::create(vec));
+                        updated_value = Some(Vector::create(vec, value_ref.span()));
                     }
                 }
                 MirValue::RandomValueBinding(random_value_binding) => {
@@ -268,7 +268,7 @@ impl<'a> UnrollingFirstPass<'a> {
                         vec.push(val);
                     }
 
-                    updated_value = Some(Vector::create(vec));
+                    updated_value = Some(Vector::create(vec, value_ref.span()));
                 }
             }
         }
@@ -302,10 +302,10 @@ impl<'a> UnrollingFirstPass<'a> {
                 } else {
                     let mut new_vec = vec![];
                     for (lhs, rhs) in lhs_vec.iter().zip(rhs_vec.iter()) {
-                        let new_node = Add::create(lhs.clone(), rhs.clone());
+                        let new_node = Add::create(lhs.clone(), rhs.clone(), add_ref.span());
                         new_vec.push(new_node);
                     }
-                    updated_add = Some(Vector::create(new_vec));
+                    updated_add = Some(Vector::create(new_vec, add_ref.span()));
                 }
             };
         }
@@ -337,10 +337,10 @@ impl<'a> UnrollingFirstPass<'a> {
             } else {
                 let mut new_vec = vec![];
                 for (lhs, rhs) in lhs_vec.iter().zip(rhs_vec.iter()) {
-                    let new_node = Sub::create(lhs.clone(), rhs.clone());
+                    let new_node = Sub::create(lhs.clone(), rhs.clone(), sub_ref.span());
                     new_vec.push(new_node);
                 }
-                updated_sub = Some(Vector::create(new_vec));
+                updated_sub = Some(Vector::create(new_vec, sub_ref.span()));
             }
         };
 
@@ -370,10 +370,10 @@ impl<'a> UnrollingFirstPass<'a> {
                 } else {
                     let mut new_vec = vec![];
                     for (lhs, rhs) in lhs_vec.iter().zip(rhs_vec.iter()) {
-                        let new_node = Mul::create(lhs.clone(), rhs.clone());
+                        let new_node = Mul::create(lhs.clone(), rhs.clone(), mul_ref.span());
                         new_vec.push(new_node);
                     }
-                    updated_mul = Some(Vector::create(new_vec));
+                    updated_mul = Some(Vector::create(new_vec, mul_ref.span()));
                 }
             };
         }
@@ -404,10 +404,10 @@ impl<'a> UnrollingFirstPass<'a> {
                 } else {
                     let mut new_vec = vec![];
                     for (lhs, rhs) in lhs_vec.iter().zip(rhs_vec.iter()) {
-                        let new_node = Exp::create(lhs.clone(), rhs.clone());
+                        let new_node = Exp::create(lhs.clone(), rhs.clone(), exp_ref.span());
                         new_vec.push(new_node);
                     }
-                    updated_exp = Some(Vector::create(new_vec));
+                    updated_exp = Some(Vector::create(new_vec, exp_ref.span()));
                 }
             };
         }
@@ -429,10 +429,10 @@ impl<'a> UnrollingFirstPass<'a> {
                 let ops = vec.children().borrow().deref().clone();
                 let mut new_vec = vec![];
                 for op in ops.iter() {
-                    let new_node = Enf::create(op.clone());
+                    let new_node = Enf::create(op.clone(), enf_ref.span());
                     new_vec.push(new_node);
                 }
-                updated_enf = Some(Vector::create(new_vec));
+                updated_enf = Some(Vector::create(new_vec, enf_ref.span()));
             };
         }
 
@@ -462,13 +462,13 @@ impl<'a> UnrollingFirstPass<'a> {
             match operator {
                 FoldOperator::Add => {
                     for iterator_node in iterator_nodes {
-                        let new_acc_node = Add::create(acc_node, iterator_node);
+                        let new_acc_node = Add::create(acc_node, iterator_node, fold_ref.span());
                         acc_node = new_acc_node;
                     }
                 }
                 FoldOperator::Mul => {
                     for iterator_node in iterator_nodes {
-                        let new_acc_node = Mul::create(acc_node, iterator_node);
+                        let new_acc_node = Mul::create(acc_node, iterator_node, fold_ref.span());
                         acc_node = new_acc_node;
                     }
                 }
@@ -562,11 +562,11 @@ impl<'a> UnrollingFirstPass<'a> {
                 let then_branch_vec = then_branch_vector.children().borrow().deref().clone();
 
                 for then_branch in then_branch_vec {
-                    let new_node = Mul::create(condition.clone(), then_branch);
+                    let new_node = Mul::create(condition.clone(), then_branch, if_ref.span());
                     new_vec.push(new_node);
                 }
             } else {
-                let new_node = Mul::create(condition.clone(), then_branch);
+                let new_node = Mul::create(condition.clone(), then_branch, if_ref.span());
                 new_vec.push(new_node);
             }
 
@@ -579,21 +579,25 @@ impl<'a> UnrollingFirstPass<'a> {
                 let else_branch_vec = else_branch_vector.children().borrow().deref().clone();
 
                 for else_branch in else_branch_vec {
+                    let span = else_branch.span();
                     let new_node = Mul::create(
-                        Sub::create(Value::create(one_constant.clone()), condition.clone()),
+                        Sub::create(Value::create(one_constant.clone()), condition.clone(), span),
                         else_branch,
+                        span,
                     );
                     new_vec.push(new_node);
                 }
             } else {
+                let span = else_branch.span();
                 let new_node = Mul::create(
-                    Sub::create(Value::create(one_constant.clone()), condition.clone()),
+                    Sub::create(Value::create(one_constant.clone()), condition.clone(), span),
                     else_branch,
+                    span,
                 );
                 new_vec.push(new_node);
             }
 
-            updated_if = Some(Vector::create(new_vec));
+            updated_if = Some(Vector::create(new_vec, if_ref.span()));
         }
 
         Ok(updated_if)
@@ -616,10 +620,10 @@ impl<'a> UnrollingFirstPass<'a> {
                 let expr_vec = vec.children().borrow().deref().clone();
                 let mut new_vec = vec![];
                 for expr in expr_vec.iter() {
-                    let new_node = Boundary::create(expr.clone(), kind);
+                    let new_node = Boundary::create(expr.clone(), kind, boundary_ref.span());
                     new_vec.push(new_node);
                 }
-                updated_boundary = Some(Vector::create(new_vec));
+                updated_boundary = Some(Vector::create(new_vec, boundary_ref.span()));
             };
         }
 
@@ -818,7 +822,7 @@ impl<'a> UnrollingFirstPass<'a> {
                         _ => op.clone(),
                     })
                     .collect::<Vec<_>>();
-                let selector = if let Op::None = selector.borrow().deref() {
+                let selector = if let Op::None(_) = selector.borrow().deref() {
                     None
                 } else {
                     Some(selector.clone())
@@ -835,7 +839,7 @@ impl<'a> UnrollingFirstPass<'a> {
                 ));
             }
 
-            let new_vec_op = Vector::create(new_vec.clone());
+            let new_vec_op = Vector::create(new_vec.clone(), for_node.span());
             for param in new_vec {
                 param
                     .as_parameter_mut()
@@ -946,7 +950,7 @@ impl Visitor for UnrollingFirstPass<'_> {
                 to_link_and(p.clone(), graph, |g, el| self.visit_parameter_bis(g, el))
             }
             Node::Value(v) => to_link_and(v.clone(), graph, |g, el| self.visit_value_bis(g, el)),
-            Node::None => Ok(None),
+            Node::None(_) => Ok(None),
         };
 
         if let Some(updated_op) = updated_op? {
@@ -1009,7 +1013,11 @@ impl Visitor for UnrollingSecondPass<'_> {
                         span: Default::default(),
                         value: MirValue::Constant(ConstantValue::Felt(0)),
                     });
-                    Sub::create(Mul::create(selector, new_node), zero_node)
+                    Sub::create(
+                        Mul::create(selector, new_node, root.span()),
+                        zero_node,
+                        root.span(),
+                    )
                 } else {
                     new_node
                 };

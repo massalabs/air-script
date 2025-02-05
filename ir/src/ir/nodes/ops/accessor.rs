@@ -1,8 +1,9 @@
 use crate::ir::{BackLink, Builder, Child, Link, Node, Op, Owner, Parent};
 use air_parser::ast::{AccessType, RangeBound, Type};
+use miden_diagnostics::{SourceSpan, Spanned};
 use std::{any::Any, hash::Hash};
 
-#[derive(Hash, Clone, PartialEq, Eq, Debug, Builder)]
+#[derive(Hash, Clone, PartialEq, Eq, Debug, Builder, Spanned)]
 #[enum_wrapper(Op)]
 pub struct Accessor {
     pub parents: Vec<BackLink<Owner>>,
@@ -11,6 +12,8 @@ pub struct Accessor {
     pub offset: usize,
     pub _node: Option<Link<Node>>,
     pub _owner: Option<Link<Owner>>,
+    #[span]
+    span: SourceSpan,
 }
 
 impl Default for Accessor {
@@ -28,11 +31,17 @@ impl Default for Accessor {
 }
 
 impl Accessor {
-    pub fn create(indexable: Link<Op>, access_type: AccessType, offset: usize) -> Link<Op> {
+    pub fn create(
+        indexable: Link<Op>,
+        access_type: AccessType,
+        offset: usize,
+        span: SourceSpan,
+    ) -> Link<Op> {
         Op::Accessor(Self {
             access_type,
             indexable,
             offset,
+            span,
             ..Default::default()
         })
         .into()

@@ -1,10 +1,11 @@
 use crate::ir::{BackLink, Child, Op};
+use miden_diagnostics::{SourceSpan, Spanned};
 
 use super::{Link, Owner, Parent, Root};
 use std::ops::Deref;
 
 /// All the nodes that can be in the MIR Graph
-#[derive(Default, Clone, Eq, Debug)]
+#[derive(Clone, Eq, Debug, Spanned)]
 pub enum Node {
     Function(BackLink<Root>),
     Evaluator(BackLink<Root>),
@@ -23,8 +24,13 @@ pub enum Node {
     Accessor(BackLink<Op>),
     Parameter(BackLink<Op>),
     Value(BackLink<Op>),
-    #[default]
-    None,
+    None(SourceSpan),
+}
+
+impl Default for Node {
+    fn default() -> Self {
+        Node::None(Default::default())
+    }
 }
 
 impl PartialEq for Node {
@@ -47,7 +53,7 @@ impl PartialEq for Node {
             (Node::Accessor(lhs), Node::Accessor(rhs)) => lhs.to_link() == rhs.to_link(),
             (Node::Parameter(lhs), Node::Parameter(rhs)) => lhs.to_link() == rhs.to_link(),
             (Node::Value(lhs), Node::Value(rhs)) => lhs.to_link() == rhs.to_link(),
-            (Node::None, Node::None) => true,
+            (Node::None(_), Node::None(_)) => true,
             _ => false,
         }
     }
@@ -73,7 +79,7 @@ impl std::hash::Hash for Node {
             Node::Accessor(a) => a.to_link().hash(state),
             Node::Parameter(p) => p.to_link().hash(state),
             Node::Value(v) => v.to_link().hash(state),
-            Node::None => Node::None.hash(state),
+            Node::None(s) => s.hash(state),
         }
     }
 }
@@ -99,7 +105,7 @@ impl Parent for Node {
             Node::Accessor(a) => a.children(),
             Node::Parameter(_p) => Link::default(),
             Node::Value(_v) => Link::default(),
-            Node::None => Link::default(),
+            Node::None(_) => Link::default(),
         }
     }
 }
@@ -125,7 +131,7 @@ impl Child for Node {
             Node::Accessor(a) => a.get_parents(),
             Node::Parameter(p) => p.get_parents(),
             Node::Value(v) => v.get_parents(),
-            Node::None => Vec::default(),
+            Node::None(_) => Vec::default(),
         }
     }
     fn add_parent(&mut self, parent: Link<Self::Parent>) {
@@ -147,7 +153,7 @@ impl Child for Node {
             Node::Accessor(a) => a.add_parent(parent),
             Node::Parameter(p) => p.add_parent(parent),
             Node::Value(v) => v.add_parent(parent),
-            Node::None => {}
+            Node::None(_) => {}
         }
     }
     fn remove_parent(&mut self, parent: Link<Self::Parent>) {
@@ -169,7 +175,7 @@ impl Child for Node {
             Node::Accessor(a) => a.remove_parent(parent),
             Node::Parameter(p) => p.remove_parent(parent),
             Node::Value(v) => v.remove_parent(parent),
-            Node::None => {}
+            Node::None(_) => {}
         }
     }
 }
@@ -194,13 +200,13 @@ impl Link<Node> {
                 Op::Accessor(_) => Node::Accessor(BackLink::from(op_inner_val)),
                 Op::Parameter(_) => Node::Parameter(BackLink::from(op_inner_val)),
                 Op::Value(_) => Node::Value(BackLink::from(op_inner_val)),
-                Op::None => Node::None,
+                Op::None(span) => Node::None(*span),
             };
         } else if let Some(root_inner_val) = self.as_root() {
             to_update = match root_inner_val.clone().borrow().deref() {
                 Root::Function(_) => Node::Function(BackLink::from(root_inner_val)),
                 Root::Evaluator(_) => Node::Evaluator(BackLink::from(root_inner_val)),
-                Root::None(span) => Node::None, //(span)
+                Root::None(span) => Node::None(*span),
             };
         } else {
             unreachable!();
@@ -243,7 +249,7 @@ impl Link<Node> {
             Node::Accessor(_) => None,
             Node::Parameter(_) => None,
             Node::Value(_) => None,
-            Node::None => None,
+            Node::None(_) => None,
         }
     }
     pub fn as_op(&self) -> Option<Link<Op>> {
@@ -265,7 +271,7 @@ impl Link<Node> {
             Node::Accessor(inner) => inner.to_link(),
             Node::Parameter(inner) => inner.to_link(),
             Node::Value(inner) => inner.to_link(),
-            Node::None => None,
+            Node::None(_) => None,
         }
     }
     pub fn as_owner(&self) -> Option<Link<Owner>> {
