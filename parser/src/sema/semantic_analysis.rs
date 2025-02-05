@@ -1045,6 +1045,13 @@ impl<'a> VisitMut<SemanticAnalysisError> for SemanticAnalysis<'a> {
                             )
                             .emit();
                     }
+                    NamespacedIdentifier::Bus(_) => {
+                        self.diagnostics
+                            .diagnostic(Severity::Error)
+                            .with_message("reference to undefined bus")
+                            .with_primary_label(namespaced_id.span(), "this bus is not defined")
+                            .emit();
+                    }
                 }
 
                 ControlFlow::Continue(())
