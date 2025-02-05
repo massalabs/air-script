@@ -876,22 +876,6 @@ impl<'a> MirBuilder<'a> {
                         value: MirValue::TraceAccessBinding(tab),
                     })
                     .build());
-
-                /*let mut node = Value::builder()
-                    .value(SpannedMirValue {
-                        span: Default::default(),
-                        value: MirValue::TraceAccess(ta),
-                    })
-                    .build();
-                if access.offset != 0 {
-                    let accessor: Link<Op> = Accessor::create(
-                        duplicate_node(node, &mut Default::default()),
-                        AccessType::Default,
-                        access.offset
-                    );
-                    node = accessor;
-                }
-                return Ok(node);*/
             }
 
             // It should never be possible to reach this point - semantic analysis
@@ -911,24 +895,6 @@ impl<'a> MirBuilder<'a> {
             );
 
             return Ok(accessor);
-
-            /*match access.access_type {
-                AccessType::Default => {
-
-                    return Ok(duplicate_node(
-                        let_bound_access_expr,
-                        &mut Default::default(),
-                    ))
-                }
-                _ => {
-                    let accessor: Link<Op> = Accessor::create(
-                        duplicate_node(let_bound_access_expr, &mut Default::default()),
-                        access.access_type.clone(),
-                        access.offset
-                    );
-                    return Ok(accessor);
-                }
-            }*/
         }
 
         if let Some(trace_access) = self.trace_access(access) {
@@ -938,22 +904,6 @@ impl<'a> MirBuilder<'a> {
                     value: MirValue::TraceAccess(trace_access),
                 })
                 .build());
-
-            /*let mut node = Value::builder()
-                .value(SpannedMirValue {
-                    span: Default::default(),
-                    value: MirValue::TraceAccess(trace_access),
-                })
-                .build();
-            if access.offset != 0 {
-                let accessor: Link<Op> = Accessor::create(
-                    duplicate_node(node, &mut Default::default()),
-                    access.access_type.clone(),
-                    access.offset
-                );
-                node = accessor;
-            }
-            return Ok(node);*/
         }
 
         // Otherwise, we check bindings, trace bindings, random value bindings, and public inputs, in that order
