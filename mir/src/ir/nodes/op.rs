@@ -1,6 +1,6 @@
 use crate::ir::{
-    get_inner, get_inner_mut, Accessor, Add, BackLink, Boundary, Call, Child, Enf, Fold, For, If,
-    Link, Matrix, Mul, Node, Owner, Parameter, Parent, Sub, Value, Vector,
+    get_inner, get_inner_mut, Accessor, Add, BackLink, Boundary, Call, Child, Enf, Exp, Fold, For,
+    If, Link, Matrix, Mul, Node, Owner, Parameter, Parent, Sub, Value, Vector,
 };
 use miden_diagnostics::{SourceSpan, Spanned};
 
@@ -8,8 +8,6 @@ use std::{
     cell::{Ref, RefMut},
     ops::{Deref, DerefMut},
 };
-
-use super::Exp;
 
 /// The combined [Op]s and leaves of the MIR Graph
 /// These represent the operations that can be present in [Root] bodies
