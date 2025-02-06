@@ -9,12 +9,17 @@ use miden_diagnostics::{SourceSpan, Spanned};
 use super::MirType;
 use crate::ir::{BackLink, Builder, Child, Link, Node, Op, Owner};
 
+/// A MIR operation to represent a `Parameter` in a function or evaluator.
+/// Also used in If and For loops to represent declared parameters.
 #[derive(Builder, Default, Clone, Eq, Debug, Spanned)]
 #[enum_wrapper(Op)]
 pub struct Parameter {
     parents: Vec<BackLink<Owner>>,
+    /// The node that this `Parameter` is referencing (Function, Evaluator, If, For)
     pub ref_node: BackLink<Owner>,
+    /// The position of the `Parameter` in the referred node's `Parameter` list
     pub position: usize,
+    /// The type of the `Parameter`
     pub ty: MirType,
     pub _node: Option<Link<Node>>,
     #[span]
@@ -46,6 +51,8 @@ fn get_hash<T: Hash>(t: &T) -> u64 {
 }
 
 impl PartialEq for Parameter {
+    /// PartialEq uses the ref_node's hash to compare the nodes to allow comparing multiple
+    /// instances of of the same graph (memory locations may differ)
     fn eq(&self, other: &Self) -> bool {
         self.position == other.position
             && self.ty == other.ty
