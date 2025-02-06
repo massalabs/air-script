@@ -52,7 +52,7 @@ impl Link<Root> {
         self.as_owner().update(&other.as_owner());
         self.update(other);
     }
-    /// Convert the current [Root] to a [Node] wrapper,
+    /// Get the current [Root]'s [Node] variant
     /// creating a new [Node] if it doesn't exist, re-using it as a singleton otherwise
     pub fn as_node(&self) -> Link<Node> {
         let back: BackLink<Root> = self.clone().into();
@@ -76,7 +76,7 @@ impl Link<Root> {
             Root::None(span) => Node::None(*span).into(),
         }
     }
-    /// Convert the current [Root] to a [Owner] wrapper,
+    /// Get the current [Root]'s [Owner] variant
     /// creating a new [Owner] if it doesn't exist, re-using it as a singleton otherwise
     pub fn as_owner(&self) -> Link<Owner> {
         let back: BackLink<Root> = self.clone().into();
@@ -100,7 +100,7 @@ impl Link<Root> {
             Root::None(span) => Owner::None(*span).into(),
         }
     }
-    /// Try converting the current [Root] to it's inner [Function].
+    /// Try getting the current [Root]'s inner [Function].
     /// Returns None if the current [Root] is not a [Function] or the Rc count is zero
     pub fn as_function(&self) -> Option<Ref<Function>> {
         get_inner(self.borrow(), |root| match root {
@@ -108,7 +108,7 @@ impl Link<Root> {
             _ => None,
         })
     }
-    /// Try converting the current [Root] to it's inner [Function], borrowing mutably.
+    /// Try getting the current [Root]'s inner [Function], borrowing mutably.
     /// Returns None if the current [Root] is not a [Function] or the Rc count is zero
     pub fn as_function_mut(&self) -> Option<RefMut<Function>> {
         get_inner_mut(self.borrow_mut(), |root| match root {
@@ -116,7 +116,7 @@ impl Link<Root> {
             _ => None,
         })
     }
-    /// Try converting the current [Root] to it's inner [Evaluator].
+    /// Try getting the current [Root]'s inner [Evaluator].
     /// Returns None if the current [Root] is not an [Evaluator] or the Rc count is zero
     pub fn as_evaluator(&self) -> Option<Ref<Evaluator>> {
         get_inner(self.borrow(), |root| match root {
@@ -124,7 +124,7 @@ impl Link<Root> {
             _ => None,
         })
     }
-    /// Try converting the current [Root] to it's inner [Evaluator], borrowing mutably.
+    /// Try getting the current [Root]'s inner [Evaluator], borrowing mutably.
     /// Returns None if the current [Root] is not an [Evaluator] or the Rc count is zero
     pub fn as_evaluator_mut(&self) -> Option<RefMut<Evaluator>> {
         get_inner_mut(self.borrow_mut(), |root| match root {
