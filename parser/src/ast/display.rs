@@ -111,6 +111,7 @@ impl<'a> fmt::Display for DisplayStatement<'a> {
                 write!(f, "enf {}", expr)
             }
             Statement::Expr(ref expr) => write!(f, "return {}", expr),
+            Statement::BusEnforce(ref expr) => write!(f, "bus_enf {}", expr),
         }
     }
 }
