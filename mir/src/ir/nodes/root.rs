@@ -45,7 +45,7 @@ impl Link<Root> {
         }
     }
     /// Update the current node with the other node
-    /// Also updates all instances of Node and Owner wrappers,
+    /// Also updates all instances of [Node] and [Owner] wrappers,
     /// setting them to the new variant
     pub fn set(&self, other: &Link<Root>) {
         self.as_node().update(&other.as_node());

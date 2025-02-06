@@ -192,7 +192,7 @@ impl Child for Node {
 }
 
 impl Link<Node> {
-    /// Update the current node to the right variant of the new inner [Op] or [Root]
+    /// Update the current [Node] to the right variant of the new inner [Op] or [Root]
     /// Note: Only meant to be used internally
     pub fn update_variant(&self) {
         let to_update;
@@ -228,14 +228,14 @@ impl Link<Node> {
         *self.borrow_mut() = to_update;
     }
 
-    /// Check if the node's inner [Op] or [Root] still exists
+    /// Check if the [Node]'s inner [Op] or [Root] still exists
     pub fn is_stale(&self) -> bool {
         match self.as_root() {
             Some(_) => false,
             None => self.as_op().is_none(),
         }
     }
-    /// Debug the current node, shows the inner [Op] or [Root] variant,
+    /// Debug the current [Node], shows the inner [Op] or [Root] variant,
     /// as opposed to the default debug implementation which hides [BackLink]s
     pub fn debug(&self) -> String {
         match self.as_root() {
@@ -247,7 +247,7 @@ impl Link<Node> {
         }
     }
     /// Try getting the current [Node]'s [Root] variant
-    /// Returns None if the node is an [Op] variant or is stale
+    /// Returns None if the [Node] is an [Op] variant or is stale
     pub fn as_root(&self) -> Option<Link<Root>> {
         match self.borrow().deref() {
             Node::Function(f) => f.to_link(),
@@ -271,7 +271,7 @@ impl Link<Node> {
         }
     }
     /// Try getting the current [Node]'s [Op] variant
-    /// Returns None if the node is a [Root] variant or is stale
+    /// Returns None if the [Node] is a [Root] variant or is stale
     pub fn as_op(&self) -> Option<Link<Op>> {
         match self.borrow().deref() {
             Node::Function(_) => None,
@@ -295,7 +295,7 @@ impl Link<Node> {
         }
     }
     /// Try getting the current [Node]'s [Owner] variant
-    /// returns None if the node is stale or is not a [Parent]
+    /// returns None if the [Node] is stale or is not a [Parent]
     pub fn as_owner(&self) -> Option<Link<Owner>> {
         match self.as_root() {
             Some(root) => Some(root.as_owner()),

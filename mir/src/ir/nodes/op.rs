@@ -11,7 +11,7 @@ use std::{
 
 use super::Exp;
 
-/// The combined Ops and leaves of the MIR Graph
+/// The combined [Op]s and leaves of the MIR Graph
 /// These represent the operations that can be present in [Root] bodies
 /// The [Op] enum owns it's inner struct to allow conversion between variants
 #[derive(Clone, PartialEq, Eq, Debug, Hash, Spanned)]
@@ -129,7 +129,7 @@ impl Child for Op {
 }
 
 impl Link<Op> {
-    /// Debug the current Op, showing [std::cell::RefCell]'s `@{pointer}` and inner struct
+    /// Debug the current [Op], showing [std::cell::RefCell]'s `@{pointer}` and inner struct
     /// This is useful to debug shared mutability issues
     pub fn debug(&self) -> String {
         match self.borrow().deref() {
@@ -151,8 +151,8 @@ impl Link<Op> {
             Op::None(_) => "Op::None".to_string(),
         }
     }
-    /// Update the current Op with the other Op
-    /// Also updates all instances of Node and Owner wrappers,
+    /// Update the current [Op] with the other [Op]
+    /// Also updates all instances of [Node] and [Owner] wrappers,
     /// setting them to the new variant
     pub fn set(&self, other: &Link<Op>) {
         let other_node = other.as_node();
