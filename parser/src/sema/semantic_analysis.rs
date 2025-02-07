@@ -1686,6 +1686,7 @@ impl<'a> SemanticAnalysis<'a> {
                     .emit();
                 Err(InvalidAccessError::InvalidBinding)
             }
+            Expr::BusOperation(ref _expr) => todo!()
         }
     }
 
