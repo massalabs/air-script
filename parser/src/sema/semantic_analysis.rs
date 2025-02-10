@@ -1687,6 +1687,7 @@ impl<'a> SemanticAnalysis<'a> {
                 Err(InvalidAccessError::InvalidBinding)
             }
             Expr::BusOperation(ref _expr) => todo!(),
+            Expr::Null(_) => Ok(BindingType::Local(Type::Felt)),
         }
     }
 
