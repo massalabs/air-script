@@ -282,7 +282,7 @@ impl<'a> VisitMut<SemanticAnalysisError> for ConstantPropagation<'a> {
                 }
                 ControlFlow::Continue(())
             }
-            ScalarExpr::BusOperation(_) => todo!(),
+            ScalarExpr::BusOperation(ref mut expr) => self.visit_mut_bus_operation(expr),
         }
     }
 
@@ -600,7 +600,7 @@ impl<'a> VisitMut<SemanticAnalysisError> for ConstantPropagation<'a> {
                 }
                 ControlFlow::Continue(())
             }
-            Expr::BusOperation(ref _expr) => todo!()
+            Expr::BusOperation(ref mut expr) => self.visit_mut_bus_operation(expr),
         }
     }
 
