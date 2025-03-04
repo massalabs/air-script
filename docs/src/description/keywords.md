@@ -17,12 +17,11 @@ AirScript defines the following keywords:
 - `periodic_columns`: used to declare the source section where the [periodic columns are declared](./declarations.md). _They may only be referenced when defining integrity constraints._
 - `prod`: used to fold a list into a single value by multiplying all of the values in the list together.
 - `public_inputs`: used to declare the source section where the [public inputs are declared](./declarations.md). _They may only be referenced when defining boundary constraints._
-- `random_values`: used to declare the source section where the [random values are described](./declarations.md).
+- `buses`: used to declare the source section where the [buses are described](./declarations.md).
+  - `unit`: used to declare a multiset-based bus.
+  - `mult`: used to declare a LogUp-based bus.
 - `sum`: used to fold a list into a single value by summing all of the values in the list.
 - `trace_columns`: used to declare the source section where the [execution trace is described](./declarations.md). _They may only be referenced when defining integrity constraints._
   - `main`: used to declare the main execution trace.
-  - `aux`: used to declare the auxiliary execution trace.
 - `use`: used to [import evaluators](./organization.md#importing-evaluators) from library AirScript modules.
-- `$<identifier>`: used to access random values provided by the verifier.
 - `$main`: used to access columns in the main execution trace by index.
-- `$aux`: used to access columns in the auxiliary execution trace by index.
