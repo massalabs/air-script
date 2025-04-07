@@ -96,9 +96,7 @@ fn fn_use_scalars_and_vectors() {
         ),
     );
 
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(a, 1), (b, 12)]));
+    expected.trace_columns = trace_segment!(0, "$main", [(a, 1), (b, 12)]);
 
     expected.public_inputs.insert(
         ident!(stack_inputs),
@@ -180,9 +178,7 @@ fn fn_call_in_fn() {
         ),
     );
 
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(a, 1), (b, 12)]));
+    expected.trace_columns = trace_segment!(0, "$main", [(a, 1), (b, 12)]);
 
     expected.public_inputs.insert(
         ident!(stack_inputs),
@@ -272,7 +268,7 @@ fn fn_call_in_ev() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(evaluator),
-            vec![trace_segment!(0, "%0", [(a, 1), (b, 12)])],
+            trace_segment!(0, "%0", [(a, 1), (b, 12)]),
             vec![enforce!(eq!(
                 access!(a, 1),
                 call!(fold_scalar_and_vec(expr!(access!(a)), expr!(access!(b))))
@@ -280,9 +276,7 @@ fn fn_call_in_ev() {
         ),
     );
 
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(a, 1), (b, 12)]));
+    expected.trace_columns = trace_segment!(0, "$main", [(a, 1), (b, 12)]);
 
     expected.public_inputs.insert(
         ident!(stack_inputs),
@@ -347,9 +341,7 @@ fn fn_as_lc_iterables() {
         ),
     );
 
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(a, 12), (b, 12)]));
+    expected.trace_columns = trace_segment!(0, "$main", [(a, 12), (b, 12)]);
 
     expected.public_inputs.insert(
         ident!(stack_inputs),
@@ -422,9 +414,7 @@ fn fn_call_in_binary_ops() {
         ),
     );
 
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(a, 12), (b, 12)]));
+    expected.trace_columns = trace_segment!(0, "$main", [(a, 12), (b, 12)]);
 
     expected.public_inputs.insert(
         ident!(stack_inputs),
@@ -507,9 +497,7 @@ fn fn_call_in_vector_def() {
         ),
     );
 
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(a, 12), (b, 12)]));
+    expected.trace_columns = trace_segment!(0, "$main", [(a, 12), (b, 12)]);
 
     expected.public_inputs.insert(
         ident!(stack_inputs),

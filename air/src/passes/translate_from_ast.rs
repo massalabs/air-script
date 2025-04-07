@@ -31,14 +31,14 @@ impl Pass for AstToAir<'_> {
         let boundary_constraints = program.boundary_constraints;
         let integrity_constraints = program.integrity_constraints;
 
-        air.trace_segment_widths = trace_columns.iter().map(|ts| ts.size as u16).collect();
+        air.trace_segment_widths = vec![trace_columns.size as u16];
         air.periodic_columns = program.periodic_columns;
         air.public_inputs = program.public_inputs;
 
         let mut builder = AirBuilder {
             diagnostics: self.diagnostics,
             air: &mut air,
-            trace_columns,
+            trace_columns: vec![trace_columns],
             bindings: Default::default(),
         };
 

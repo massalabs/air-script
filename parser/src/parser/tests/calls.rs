@@ -24,7 +24,7 @@ fn call_fold_identifier() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(test),
-            vec![trace_segment!(0, "%0", [(a, 1), (c, 2)])],
+            trace_segment!(0, "%0", [(a, 1), (c, 2)]),
             body,
         ),
     );
@@ -54,7 +54,7 @@ fn call_fold_vector_literal() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(test),
-            vec![trace_segment!(0, "%0", [(a, 1), (b, 1), (c, 4)])],
+            trace_segment!(0, "%0", [(a, 1), (b, 1), (c, 4)]),
             body,
         ),
     );
@@ -84,7 +84,7 @@ fn call_fold_list_comprehension() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(test),
-            vec![trace_segment!(0, "%0", [(a, 1), (b, 1), (c, 4)])],
+            trace_segment!(0, "%0", [(a, 1), (b, 1), (c, 4)]),
             body,
         ),
     );

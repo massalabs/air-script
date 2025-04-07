@@ -35,7 +35,7 @@ impl Pass for MirToAir<'_> {
 
         let buses = mir.constraint_graph().buses.clone();
 
-        let mut trace_columns = mir.trace_columns.clone();
+        let mut trace_columns = vec![mir.trace_columns.clone()];
 
         let mut bus_bindings_map = HashMap::new();
         if !buses.is_empty() {
@@ -54,14 +54,7 @@ impl Pass for MirToAir<'_> {
             for binding in aux_trace_segment.bindings.iter() {
                 bus_bindings_map.insert(binding.name.unwrap(), binding.offset);
             }
-            if trace_columns.len() == 1 {
-                trace_columns.push(aux_trace_segment);
-            } else {
-                panic!(
-                    "Expected only one trace segment, but found multiple: {:?}",
-                    trace_columns
-                );
-            }
+            trace_columns.push(aux_trace_segment);
         }
 
         air.trace_segment_widths = trace_columns.iter().map(|ts| ts.size as u16).collect();

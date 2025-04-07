@@ -478,6 +478,14 @@ impl Visitor for InliningSecondPass<'_> {
                         .borrow()
                         .clone();
 
+                    if args.len() != 1 {
+                        unreachable!(
+                            "Expected a single argument for the call to an evaluator, got {:?}",
+                            args
+                        );
+                    }
+                    let args = args.first().unwrap(); // Checked above
+
                     let callee_params = self
                         .call_inlining_context
                         .clone()
@@ -490,9 +498,9 @@ impl Visitor for InliningSecondPass<'_> {
                         .parameters
                         .clone();
 
-                    check_evaluator_argument_sizes(&args, callee_params, self.diagnostics)?;
+                    check_evaluator_argument_sizes(args.clone(), callee_params, self.diagnostics)?;
 
-                    let args_unpacked = unpack_evaluator_arguments(&args);
+                    let args_unpacked = unpack_evaluator_arguments(args.clone());
 
                     duplicate_node_or_replace(
                         &mut self.nodes_to_replace,
@@ -512,20 +520,40 @@ impl Visitor for InliningSecondPass<'_> {
 
 /// Helper function to check, for each trace segment, that the total size of arguments is correct
 fn check_evaluator_argument_sizes(
-    args: &[Link<Op>],
-    callee_params: Vec<Vec<Link<Op>>>,
+    args: Link<Op>,
+    callee_params: Vec<Link<Op>>,
     diagnostics: &DiagnosticsHandler,
 ) -> Result<(), CompileError> {
-    for ((trace_segment_id, trace_segments_params), trace_segments_arg) in
-        callee_params.iter().enumerate().zip(args.iter())
-    {
-        let Some(trace_segments_arg_vector) = trace_segments_arg.as_vector() else {
-            unreachable!("expected vector, got {:?}", trace_segments_arg);
-        };
-        let children = trace_segments_arg_vector.children();
-        let mut trace_segments_arg_vector_len = 0;
-        for child in children.borrow().deref() {
-            if let Some(value) = child.as_value() {
+    let Some(trace_segments_arg_vector) = args.as_vector() else {
+        unreachable!("expected vector, got {:?}", args);
+    };
+    let children = trace_segments_arg_vector.children();
+    let mut trace_segments_arg_vector_len = 0;
+    for child in children.borrow().deref() {
+        if let Some(value) = child.as_value() {
+            let Value {
+                value: SpannedMirValue { value, .. },
+                ..
+            } = value.deref();
+
+            let param_size = match value {
+                MirValue::TraceAccessBinding(tab) => tab.size,
+                MirValue::TraceAccess(_) => 1,
+                _ => unreachable!("expected trace access binding, got {:?}", value),
+            };
+            trace_segments_arg_vector_len += param_size;
+        } else if let Some(parameter) = child.as_parameter() {
+            let Parameter { ty, .. } = parameter.deref();
+            let size = match ty {
+                MirType::Felt => 1,
+                MirType::Vector(len) => *len,
+                _ => unreachable!("expected felt or vector, got {:?}", ty),
+            };
+            trace_segments_arg_vector_len += size;
+        } else if let Some(accessor) = child.as_accessor() {
+            let Accessor { indexable, .. } = accessor.deref();
+
+            if let Some(value) = indexable.as_value() {
                 let Value {
                     value: SpannedMirValue { value, .. },
                     ..
@@ -537,7 +565,7 @@ fn check_evaluator_argument_sizes(
                     _ => unreachable!("expected trace access binding, got {:?}", value),
                 };
                 trace_segments_arg_vector_len += param_size;
-            } else if let Some(parameter) = child.as_parameter() {
+            } else if let Some(parameter) = indexable.as_parameter() {
                 let Parameter { ty, .. } = parameter.deref();
                 let size = match ty {
                     MirType::Felt => 1,
@@ -545,147 +573,116 @@ fn check_evaluator_argument_sizes(
                     _ => unreachable!("expected felt or vector, got {:?}", ty),
                 };
                 trace_segments_arg_vector_len += size;
-            } else if let Some(accessor) = child.as_accessor() {
-                let Accessor { indexable, .. } = accessor.deref();
-
-                if let Some(value) = indexable.as_value() {
-                    let Value {
-                        value: SpannedMirValue { value, .. },
-                        ..
-                    } = value.deref();
-
-                    let param_size = match value {
-                        MirValue::TraceAccessBinding(tab) => tab.size,
-                        MirValue::TraceAccess(_) => 1,
-                        _ => unreachable!("expected trace access binding, got {:?}", value),
-                    };
-                    trace_segments_arg_vector_len += param_size;
-                } else if let Some(parameter) = indexable.as_parameter() {
-                    let Parameter { ty, .. } = parameter.deref();
-                    let size = match ty {
-                        MirType::Felt => 1,
-                        MirType::Vector(len) => *len,
-                        _ => unreachable!("expected felt or vector, got {:?}", ty),
-                    };
-                    trace_segments_arg_vector_len += size;
-                } else {
-                    unreachable!("expected value or parameter, got {:?}", child);
-                }
             } else {
                 unreachable!("expected value or parameter, got {:?}", child);
             }
+        } else {
+            unreachable!("expected value or parameter, got {:?}", child);
         }
+    }
 
-        if trace_segments_params.len() != trace_segments_arg_vector_len {
-            diagnostics
-                .diagnostic(Severity::Error)
-                .with_message("argument count mismatch")
-                .with_primary_label(
-                    SourceSpan::UNKNOWN,
-                    format!(
-                        "expected call to have {} arguments in trace segment {}, but got {}",
-                        trace_segments_params.len(),
-                        trace_segment_id,
-                        trace_segments_arg_vector_len
-                    ),
-                )
-                .with_secondary_label(
-                    SourceSpan::UNKNOWN,
-                    format!(
-                        "this functions has {} parameters in trace segment {}",
-                        trace_segments_params.len(),
-                        trace_segment_id
-                    ),
-                )
-                .emit();
-            return Err(CompileError::Failed);
-        }
+    if callee_params.len() != trace_segments_arg_vector_len {
+        diagnostics
+            .diagnostic(Severity::Error)
+            .with_message("argument count mismatch")
+            .with_primary_label(
+                SourceSpan::UNKNOWN,
+                format!(
+                    "expected call to have {} arguments, but got {}",
+                    callee_params.len(),
+                    trace_segments_arg_vector_len
+                ),
+            )
+            .with_secondary_label(
+                SourceSpan::UNKNOWN,
+                format!("this functions has {} parameters", callee_params.len()),
+            )
+            .emit();
+        return Err(CompileError::Failed);
     }
     Ok(())
 }
 
 /// Helper function to unpack the arguments of a call to an evaluator
-fn unpack_evaluator_arguments(args: &[Link<Op>]) -> Vec<Link<Op>> {
+fn unpack_evaluator_arguments(args: Link<Op>) -> Vec<Link<Op>> {
     let mut args_unpacked = Vec::new();
-    for args_for_trace_segment in args.iter() {
-        let Some(trace_segment_vec) = args_for_trace_segment.as_vector() else {
-            unreachable!(
-                "Arguments of a Call node to Evaluator should be a Vectors for each trace segment"
-            );
-        };
-        let children = trace_segment_vec.children();
-        for arg in children.borrow().deref() {
-            if let Some(value) = arg.as_value() {
+    let Some(trace_segment_vec) = args.as_vector() else {
+        unreachable!(
+            "Arguments of a Call node to Evaluator should be a Vectors for each trace segment"
+        );
+    };
+    let children = trace_segment_vec.children();
+    for arg in children.borrow().deref() {
+        if let Some(value) = arg.as_value() {
+            let Value {
+                value: SpannedMirValue { span, value, .. },
+                ..
+            } = value.deref();
+
+            match value {
+                MirValue::TraceAccessBinding(tab) => {
+                    if tab.size > 1 {
+                        for index in 0..tab.size {
+                            let new_arg = Value::create(SpannedMirValue {
+                                value: MirValue::TraceAccessBinding(TraceAccessBinding {
+                                    size: 1,
+                                    segment: tab.segment,
+                                    offset: tab.offset + index,
+                                }),
+                                span: *span,
+                            });
+                            args_unpacked.push(new_arg);
+                        }
+                    } else {
+                        args_unpacked.push(arg.clone());
+                    }
+                }
+                MirValue::TraceAccess(_ta) => {
+                    args_unpacked.push(arg.clone());
+                }
+                _ => unreachable!(
+                    "expected trace access binding or trace access, got {:?}",
+                    value
+                ),
+            };
+        } else if let Some(_parameter) = arg.as_parameter() {
+            args_unpacked.push(arg.clone());
+        } else if let Some(accessor) = arg.as_accessor() {
+            let Accessor { indexable, .. } = accessor.deref();
+
+            if let Some(value) = indexable.as_value() {
                 let Value {
-                    value: SpannedMirValue { span, value, .. },
+                    value: SpannedMirValue { value, .. },
                     ..
                 } = value.deref();
 
-                match value {
-                    MirValue::TraceAccessBinding(tab) => {
-                        if tab.size > 1 {
-                            for index in 0..tab.size {
-                                let new_arg = Value::create(SpannedMirValue {
-                                    value: MirValue::TraceAccessBinding(TraceAccessBinding {
-                                        size: 1,
-                                        segment: tab.segment,
-                                        offset: tab.offset + index,
-                                    }),
-                                    span: *span,
-                                });
-                                args_unpacked.push(new_arg);
-                            }
-                        } else {
-                            args_unpacked.push(arg.clone());
-                        }
-                    }
-                    MirValue::TraceAccess(_ta) => {
-                        args_unpacked.push(arg.clone());
-                    }
-                    _ => unreachable!(
-                        "expected trace access binding or trace access, got {:?}",
-                        value
-                    ),
+                let _param_size = match value {
+                    MirValue::TraceAccessBinding(tab) => tab.size,
+                    MirValue::TraceAccess(_) => 1,
+                    _ => unreachable!("expected trace access binding, got {:?}", value),
                 };
-            } else if let Some(_parameter) = arg.as_parameter() {
-                args_unpacked.push(arg.clone());
-            } else if let Some(accessor) = arg.as_accessor() {
-                let Accessor { indexable, .. } = accessor.deref();
 
-                if let Some(value) = indexable.as_value() {
-                    let Value {
-                        value: SpannedMirValue { value, .. },
-                        ..
-                    } = value.deref();
+                args_unpacked.push(indexable.clone());
+            } else if let Some(parameter) = indexable.as_parameter() {
+                let Parameter { ty, .. } = parameter.deref();
+                let _size = match ty {
+                    MirType::Felt => 1,
+                    MirType::Vector(len) => *len,
+                    _ => unreachable!("expected felt or vector, got {:?}", ty),
+                };
 
-                    let _param_size = match value {
-                        MirValue::TraceAccessBinding(tab) => tab.size,
-                        MirValue::TraceAccess(_) => 1,
-                        _ => unreachable!("expected trace access binding, got {:?}", value),
-                    };
-
-                    args_unpacked.push(indexable.clone());
-                } else if let Some(parameter) = indexable.as_parameter() {
-                    let Parameter { ty, .. } = parameter.deref();
-                    let _size = match ty {
-                        MirType::Felt => 1,
-                        MirType::Vector(len) => *len,
-                        _ => unreachable!("expected felt or vector, got {:?}", ty),
-                    };
-
-                    args_unpacked.push(indexable.clone());
-                } else {
-                    unreachable!(
-                        "expected value or parameter (or accessor on one), got {:?}",
-                        arg
-                    );
-                }
+                args_unpacked.push(indexable.clone());
             } else {
                 unreachable!(
                     "expected value or parameter (or accessor on one), got {:?}",
                     arg
                 );
             }
+        } else {
+            unreachable!(
+                "expected value or parameter (or accessor on one), got {:?}",
+                arg
+            );
         }
     }
     args_unpacked

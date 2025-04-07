@@ -63,7 +63,7 @@ pub struct Inlining<'a> {
     /// The name of the root module
     root: Identifier,
     /// The global trace segment configuration
-    trace: Vec<TraceSegment>,
+    trace: TraceSegment,
     /// The random_values declaration
     random_values: Option<RandomValues>,
     /// The public_inputs declaration
@@ -125,31 +125,29 @@ impl Pass for Inlining<'_> {
         // eliminated entirely)
         //
         // Trace first..
-        for segment in program.trace_columns.iter() {
+        self.bindings.insert(
+            program.trace_columns.name,
+            BindingType::TraceColumn(TraceBinding {
+                span: program.trace_columns.name.span(),
+                segment: program.trace_columns.id,
+                name: Some(program.trace_columns.name),
+                offset: 0,
+                size: program.trace_columns.size,
+                ty: Type::Vector(program.trace_columns.size),
+            }),
+        );
+        for binding in program.trace_columns.bindings.iter().copied() {
             self.bindings.insert(
-                segment.name,
+                binding.name.unwrap(),
                 BindingType::TraceColumn(TraceBinding {
-                    span: segment.name.span(),
-                    segment: segment.id,
-                    name: Some(segment.name),
-                    offset: 0,
-                    size: segment.size,
-                    ty: Type::Vector(segment.size),
+                    span: program.trace_columns.name.span(),
+                    segment: program.trace_columns.id,
+                    name: binding.name,
+                    offset: binding.offset,
+                    size: binding.size,
+                    ty: binding.ty,
                 }),
             );
-            for binding in segment.bindings.iter().copied() {
-                self.bindings.insert(
-                    binding.name.unwrap(),
-                    BindingType::TraceColumn(TraceBinding {
-                        span: segment.name.span(),
-                        segment: segment.id,
-                        name: binding.name,
-                        offset: binding.offset,
-                        size: binding.size,
-                        ty: binding.ty,
-                    }),
-                );
-            }
         }
         // Public inputs..
         for input in program.public_inputs.values() {
@@ -178,7 +176,7 @@ impl<'a> Inlining<'a> {
         Self {
             diagnostics,
             root: Identifier::new(SourceSpan::UNKNOWN, crate::symbols::Main),
-            trace: vec![],
+            trace: Default::default(),
             random_values: None,
             public_inputs: Default::default(),
             bindings: Default::default(),
@@ -1130,31 +1128,29 @@ impl<'a> Inlining<'a> {
                 }
             }
 
-            for segment in self.trace.iter() {
+            eval_bindings.insert(
+                self.trace.name,
+                BindingType::TraceColumn(TraceBinding {
+                    span: self.trace.name.span(),
+                    segment: self.trace.id,
+                    name: Some(self.trace.name),
+                    offset: 0,
+                    size: self.trace.size,
+                    ty: Type::Vector(self.trace.size),
+                }),
+            );
+            for binding in self.trace.bindings.iter().copied() {
                 eval_bindings.insert(
-                    segment.name,
+                    binding.name.unwrap(),
                     BindingType::TraceColumn(TraceBinding {
-                        span: segment.name.span(),
-                        segment: segment.id,
-                        name: Some(segment.name),
-                        offset: 0,
-                        size: segment.size,
-                        ty: Type::Vector(segment.size),
+                        span: self.trace.name.span(),
+                        segment: self.trace.id,
+                        name: binding.name,
+                        offset: binding.offset,
+                        size: binding.size,
+                        ty: binding.ty,
                     }),
                 );
-                for binding in segment.bindings.iter().copied() {
-                    eval_bindings.insert(
-                        binding.name.unwrap(),
-                        BindingType::TraceColumn(TraceBinding {
-                            span: segment.name.span(),
-                            segment: segment.id,
-                            name: binding.name,
-                            offset: binding.offset,
-                            size: binding.size,
-                            ty: binding.ty,
-                        }),
-                    );
-                }
             }
 
             for input in self.public_inputs.values() {
@@ -1173,8 +1169,13 @@ impl<'a> Inlining<'a> {
         eval_bindings.enter();
         self.populate_evaluator_rewrites(
             &mut eval_bindings,
-            call.args.as_slice(),
-            evaluator.params.as_slice(),
+            call.args
+                .first()
+                .expect(
+                    "Semantic analysis should have verified evaluators calls only have one args",
+                )
+                .clone(),
+            evaluator.params,
         );
 
         // While we're inlining the body, use the set of evaluator bindings we built above
@@ -1256,31 +1257,29 @@ impl<'a> Inlining<'a> {
                 }
             }
 
-            for segment in self.trace.iter() {
+            function_bindings.insert(
+                self.trace.name,
+                BindingType::TraceColumn(TraceBinding {
+                    span: self.trace.name.span(),
+                    segment: self.trace.id,
+                    name: Some(self.trace.name),
+                    offset: 0,
+                    size: self.trace.size,
+                    ty: Type::Vector(self.trace.size),
+                }),
+            );
+            for binding in self.trace.bindings.iter().copied() {
                 function_bindings.insert(
-                    segment.name,
+                    binding.name.unwrap(),
                     BindingType::TraceColumn(TraceBinding {
-                        span: segment.name.span(),
-                        segment: segment.id,
-                        name: Some(segment.name),
-                        offset: 0,
-                        size: segment.size,
-                        ty: Type::Vector(segment.size),
+                        span: self.trace.name.span(),
+                        segment: self.trace.id,
+                        name: binding.name,
+                        offset: binding.offset,
+                        size: binding.size,
+                        ty: binding.ty,
                     }),
                 );
-                for binding in segment.bindings.iter().copied() {
-                    function_bindings.insert(
-                        binding.name.unwrap(),
-                        BindingType::TraceColumn(TraceBinding {
-                            span: segment.name.span(),
-                            segment: segment.id,
-                            name: binding.name,
-                            offset: binding.offset,
-                            size: binding.size,
-                            ty: binding.ty,
-                        }),
-                    );
-                }
             }
 
             for input in self.public_inputs.values() {
@@ -1333,185 +1332,179 @@ impl<'a> Inlining<'a> {
     fn populate_evaluator_rewrites(
         &mut self,
         eval_bindings: &mut LexicalScope<Identifier, BindingType>,
-        args: &[Expr],
-        params: &[TraceSegment],
+        arg: Expr,
+        param: TraceSegment,
     ) {
         // Reset the rewrites set
         self.rewrites.clear();
 
         // Each argument corresponds to a function parameter, each of which represents a single trace segment
-        for (arg, segment) in args.iter().zip(params.iter()) {
-            match arg {
-                // A variable was passed as an argument for this segment
+        match arg {
+            // A variable was passed as an argument for this segment
+            //
+            // Arguments by now must have been validated by semantic analysis, and specifically
+            // in this case, the number of columns in the variable and the number expected by the
+            // parameter we're binding must be the same. However, a variable may represent a single
+            // column, a contiguous slice of columns, or a vector of such variables which may be
+            // non-contiguous.
+            Expr::SymbolAccess(ref access) => {
+                // We use a `BindingType` to track the state of the current input binding being processed.
                 //
-                // Arguments by now must have been validated by semantic analysis, and specifically
-                // in this case, the number of columns in the variable and the number expected by the
-                // parameter we're binding must be the same. However, a variable may represent a single
-                // column, a contiguous slice of columns, or a vector of such variables which may be
-                // non-contiguous.
-                Expr::SymbolAccess(ref access) => {
-                    // We use a `BindingType` to track the state of the current input binding being processed.
+                // The initial state is given by the binding type of the access itself, but as we destructure
+                // the binding according to the parameter binding pattern, we may pop off columns, in which
+                // case the binding type here gets updated with the remaining columns
+                let mut binding_ty = Some(self.access_binding_type(access).unwrap());
+                // We visit each binding in the trace segment represented by the parameter pattern,
+                // consuming columns from the input argument until all bindings are matched up.
+                for binding in param.bindings.iter() {
+                    // Trace binding declarations are never anonymous, i.e. always have a name
+                    let binding_name = binding.name.unwrap();
+                    // We can safely assume that there is a binding type available here,
+                    // otherwise the semantic analysis pass missed something
+                    let bt = binding_ty.take().unwrap();
+                    // Split out the needed columns from the input binding
                     //
-                    // The initial state is given by the binding type of the access itself, but as we destructure
-                    // the binding according to the parameter binding pattern, we may pop off columns, in which
-                    // case the binding type here gets updated with the remaining columns
-                    let mut binding_ty = Some(self.access_binding_type(access).unwrap());
-                    // We visit each binding in the trace segment represented by the parameter pattern,
-                    // consuming columns from the input argument until all bindings are matched up.
-                    for binding in segment.bindings.iter() {
-                        // Trace binding declarations are never anonymous, i.e. always have a name
-                        let binding_name = binding.name.unwrap();
-                        // We can safely assume that there is a binding type available here,
-                        // otherwise the semantic analysis pass missed something
-                        let bt = binding_ty.take().unwrap();
-                        // Split out the needed columns from the input binding
-                        //
-                        // We can safely assume we were able to obtain all of the needed columns,
-                        // as the semantic analyzer should have caught mismatches. Note, however,
-                        // that these columns may have been gathered from multiple bindings in the caller
-                        let (matched, rest) = bt.split_columns(binding.size).unwrap();
-                        self.rewrites.insert(binding_name);
-                        eval_bindings.insert(binding_name, matched);
-                        // Update `binding_ty` with whatever remains of the input
-                        binding_ty = rest;
-                    }
+                    // We can safely assume we were able to obtain all of the needed columns,
+                    // as the semantic analyzer should have caught mismatches. Note, however,
+                    // that these columns may have been gathered from multiple bindings in the caller
+                    let (matched, rest) = bt.split_columns(binding.size).unwrap();
+                    self.rewrites.insert(binding_name);
+                    eval_bindings.insert(binding_name, matched);
+                    // Update `binding_ty` with whatever remains of the input
+                    binding_ty = rest;
                 }
-                // An empty vector means there are no bindings for this segment
-                Expr::Const(Span {
-                    item: ConstantExpr::Vector(items),
-                    ..
-                }) if items.is_empty() => {
-                    continue;
-                }
-                // A vector of bindings was passed as an argument for this segment
-                //
-                // This is by far the most complicated scenario to handle when matching up arguments
-                // to parameters, as we can get them in a variety of combinations:
-                //
-                // 1. An exact match in the number and size of bindings in both the input vector and the
-                //    segment represented by the current parameter
-                // 2. The same number of elements in the vector as bindings in the segment, but the elements
-                //    have different sizes, implicitly regrouping columns between caller/callee
-                // 3. More elements in the vector than bindings in the segment, typically because the function
-                //    parameter groups together columns passed individually in the caller
-                // 4. Fewer elements in the vector than bindings in the segment, typically because the function
-                //    parameter destructures an input into multiple bindings
-                Expr::Vector(ref inputs) => {
-                    // The index of the input we're currently extracting columns from
-                    let mut index = 0;
-                    // A `BindingType` representing the current trace binding we're extracting columns from,
-                    // can be either of TraceColumn or Vector type
-                    let mut binding_ty = None;
-                    // We drive the matching process by consuming input columns for each segment binding in turn
-                    'next_binding: for binding in segment.bindings.iter() {
-                        let binding_name = binding.name.unwrap();
-                        let mut needed = binding.size;
+            }
+            // An empty vector means there are no bindings for this segment
+            Expr::Const(Span {
+                item: ConstantExpr::Vector(items),
+                ..
+            }) if items.is_empty() => {}
+            // A vector of bindings was passed as an argument for this segment
+            //
+            // This is by far the most complicated scenario to handle when matching up arguments
+            // to parameters, as we can get them in a variety of combinations:
+            //
+            // 1. An exact match in the number and size of bindings in both the input vector and the
+            //    segment represented by the current parameter
+            // 2. The same number of elements in the vector as bindings in the segment, but the elements
+            //    have different sizes, implicitly regrouping columns between caller/callee
+            // 3. More elements in the vector than bindings in the segment, typically because the function
+            //    parameter groups together columns passed individually in the caller
+            // 4. Fewer elements in the vector than bindings in the segment, typically because the function
+            //    parameter destructures an input into multiple bindings
+            Expr::Vector(ref inputs) => {
+                // The index of the input we're currently extracting columns from
+                let mut index = 0;
+                // A `BindingType` representing the current trace binding we're extracting columns from,
+                // can be either of TraceColumn or Vector type
+                let mut binding_ty = None;
+                // We drive the matching process by consuming input columns for each segment binding in turn
+                'next_binding: for binding in param.bindings.iter() {
+                    let binding_name = binding.name.unwrap();
+                    let mut needed = binding.size;
 
-                        // When there are insufficient columns for the current parameter binding in the current
-                        // input, we must construct a vector of trace bindings to use as the binding type of
-                        // the current parameter binding when we have all of the needed columns. This is because
-                        // the input columns may come from different trace bindings in the caller, so we can't
-                        // use a single trace binding to represent them.
-                        let mut set = vec![];
+                    // When there are insufficient columns for the current parameter binding in the current
+                    // input, we must construct a vector of trace bindings to use as the binding type of
+                    // the current parameter binding when we have all of the needed columns. This is because
+                    // the input columns may come from different trace bindings in the caller, so we can't
+                    // use a single trace binding to represent them.
+                    let mut set = vec![];
 
-                        // We may need to consume multiple input elements to fulfill the needed columns of
-                        // the current parameter binding - we advance this loop whenver we have exhausted
-                        // an input and need to move on to the next one. We may enter this loop with the
-                        // same input index across multiple parameter bindings when the input element is
-                        // larger than the parameter binding, in which case we have split the input and
-                        // stored the remainder in `binding_ty`.
-                        loop {
-                            let input = &inputs[index];
-                            // The input expression must have been a symbol access, as matrices of columns
-                            // aren't a thing, and there is no other expression type which can produce trace
-                            // bindings.
-                            let Expr::SymbolAccess(ref access) = input else {
-                                panic!("unexpected element in trace column vector: {:#?}", input)
-                            };
-                            // Unless we have leftover input, initialize `binding_ty` with the binding type of this input
-                            let bt = binding_ty
-                                .take()
-                                .unwrap_or_else(|| self.access_binding_type(access).unwrap());
-                            match bt.split_columns(needed) {
-                                Ok((matched, rest)) => {
-                                    let eval_binding = match matched {
-                                        BindingType::TraceColumn(matched) => {
-                                            if !set.is_empty() {
-                                                // We've obtained all the remaining columns from the current input element,
-                                                // possibly with leftovers in the input. However, because we've started
-                                                // constructing a vector binding, we must ensure the matched binding is
-                                                // expanded into individual columns
-                                                for offset in 0..matched.size {
-                                                    set.push(BindingType::TraceColumn(
-                                                        TraceBinding {
-                                                            offset: matched.offset + offset,
-                                                            size: 1,
-                                                            ..matched
-                                                        },
-                                                    ));
-                                                }
-                                                BindingType::Vector(set)
-                                            } else {
-                                                // The input element perfectly matched the current binding
-                                                BindingType::TraceColumn(matched)
+                    // We may need to consume multiple input elements to fulfill the needed columns of
+                    // the current parameter binding - we advance this loop whenver we have exhausted
+                    // an input and need to move on to the next one. We may enter this loop with the
+                    // same input index across multiple parameter bindings when the input element is
+                    // larger than the parameter binding, in which case we have split the input and
+                    // stored the remainder in `binding_ty`.
+                    loop {
+                        let input = &inputs[index];
+                        // The input expression must have been a symbol access, as matrices of columns
+                        // aren't a thing, and there is no other expression type which can produce trace
+                        // bindings.
+                        let Expr::SymbolAccess(ref access) = input else {
+                            panic!("unexpected element in trace column vector: {:#?}", input)
+                        };
+                        // Unless we have leftover input, initialize `binding_ty` with the binding type of this input
+                        let bt = binding_ty
+                            .take()
+                            .unwrap_or_else(|| self.access_binding_type(access).unwrap());
+                        match bt.split_columns(needed) {
+                            Ok((matched, rest)) => {
+                                let eval_binding = match matched {
+                                    BindingType::TraceColumn(matched) => {
+                                        if !set.is_empty() {
+                                            // We've obtained all the remaining columns from the current input element,
+                                            // possibly with leftovers in the input. However, because we've started
+                                            // constructing a vector binding, we must ensure the matched binding is
+                                            // expanded into individual columns
+                                            for offset in 0..matched.size {
+                                                set.push(BindingType::TraceColumn(TraceBinding {
+                                                    offset: matched.offset + offset,
+                                                    size: 1,
+                                                    ..matched
+                                                }));
                                             }
+                                            BindingType::Vector(set)
+                                        } else {
+                                            // The input element perfectly matched the current binding
+                                            BindingType::TraceColumn(matched)
                                         }
-                                        BindingType::Vector(mut matched) => {
-                                            if set.is_empty() {
-                                                // The input binding was a vector, and had the same number, or
-                                                // more, of columns expected by the parameter binding, but may contain
-                                                // non-contiguous bindings, so we are unable to use the symbol of
-                                                // the access when rewriting accesses to this parameter
-                                                BindingType::Vector(matched)
-                                            } else {
-                                                // Same as above, but we need to append the matched bindings to
-                                                // the set we've already started building
-                                                set.append(&mut matched);
-                                                BindingType::Vector(set)
-                                            }
+                                    }
+                                    BindingType::Vector(mut matched) => {
+                                        if set.is_empty() {
+                                            // The input binding was a vector, and had the same number, or
+                                            // more, of columns expected by the parameter binding, but may contain
+                                            // non-contiguous bindings, so we are unable to use the symbol of
+                                            // the access when rewriting accesses to this parameter
+                                            BindingType::Vector(matched)
+                                        } else {
+                                            // Same as above, but we need to append the matched bindings to
+                                            // the set we've already started building
+                                            set.append(&mut matched);
+                                            BindingType::Vector(set)
                                         }
-                                        _ => unreachable!(),
-                                    };
-                                    // This binding has been fulfilled, move to the next one
-                                    self.rewrites.insert(binding_name);
-                                    eval_bindings.insert(binding_name, eval_binding);
-                                    binding_ty = rest;
-                                    // If we have no more columns remaining in this input, advance
-                                    // to the next input starting with the next binding
-                                    if binding_ty.is_none() {
-                                        index += 1;
                                     }
-                                    continue 'next_binding;
-                                }
-                                Err(BindingType::TraceColumn(partial)) => {
-                                    // The input binding wasn't big enough for the parameter, so we must
-                                    // start constructing a vector of bindings since the next input is
-                                    // unlikely to be contiguous with the current input
-                                    for offset in 0..partial.size {
-                                        set.push(BindingType::TraceColumn(TraceBinding {
-                                            offset: partial.offset + offset,
-                                            size: 1,
-                                            ..partial
-                                        }));
-                                    }
-                                    needed -= partial.size;
+                                    _ => unreachable!(),
+                                };
+                                // This binding has been fulfilled, move to the next one
+                                self.rewrites.insert(binding_name);
+                                eval_bindings.insert(binding_name, eval_binding);
+                                binding_ty = rest;
+                                // If we have no more columns remaining in this input, advance
+                                // to the next input starting with the next binding
+                                if binding_ty.is_none() {
                                     index += 1;
                                 }
-                                Err(BindingType::Vector(mut partial)) => {
-                                    // Same as above, but we got a vector instead
-                                    set.append(&mut partial);
-                                    needed -= partial.len();
-                                    index += 1;
-                                }
-                                Err(_) => unreachable!(),
+                                continue 'next_binding;
                             }
+                            Err(BindingType::TraceColumn(partial)) => {
+                                // The input binding wasn't big enough for the parameter, so we must
+                                // start constructing a vector of bindings since the next input is
+                                // unlikely to be contiguous with the current input
+                                for offset in 0..partial.size {
+                                    set.push(BindingType::TraceColumn(TraceBinding {
+                                        offset: partial.offset + offset,
+                                        size: 1,
+                                        ..partial
+                                    }));
+                                }
+                                needed -= partial.size;
+                                index += 1;
+                            }
+                            Err(BindingType::Vector(mut partial)) => {
+                                // Same as above, but we got a vector instead
+                                set.append(&mut partial);
+                                needed -= partial.len();
+                                index += 1;
+                            }
+                            Err(_) => unreachable!(),
                         }
                     }
                 }
-                // This should not be possible at this point, but would be an invalid evaluator call,
-                // only trace columns are permitted
-                expr => unreachable!("{:#?}", expr),
             }
+            // This should not be possible at this point, but would be an invalid evaluator call,
+            // only trace columns are permitted
+            expr => unreachable!("{:#?}", expr),
         }
     }
 
@@ -1545,7 +1538,8 @@ impl<'a> Inlining<'a> {
             // relative to that trace binding
             match self.access_binding_type(access).unwrap() {
                 BindingType::TraceColumn(tb) => {
-                    let original_binding = self.trace[tb.segment]
+                    let original_binding = self
+                        .trace
                         .bindings
                         .iter()
                         .find(|b| b.name == tb.name)

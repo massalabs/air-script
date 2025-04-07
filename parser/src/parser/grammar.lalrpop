@@ -94,10 +94,10 @@ Import: Span<Import> = {
 // TRACE COLUMNS
 // ================================================================================================
 
-Trace: Vec<TraceSegment> = {
+Trace: TraceSegment = {
     <l:@L> "trace_columns" "{" <main: MainTraceBindings?> "}" <r:@R> =>?
         match main {
-            Some(main) => Ok(vec![main]),
+            Some(main) => Ok(main),
             None => {
                 diagnostics.diagnostic(Severity::Error)
                     .with_message("declaration of main trace columns is required")
@@ -191,29 +191,22 @@ EvaluatorFunction: EvaluatorFunction = {
         => EvaluatorFunction::new(span!(l, r), name, params, body)
 }
 
-EvaluatorBindings: Vec<TraceSegment> = {
-    <l:@L> <trace: Comma<EvaluatorSegmentBindings>> <r:@R> =>? {
-        let mut segments = Vec::with_capacity(trace.len());
+EvaluatorBindings: TraceSegment = {
+    <l:@L> <trace: EvaluatorSegmentBindings> <r:@R> =>? {
+        let (span, bindings) = trace;
+        let segment_name = Identifier::new(span, Symbol::intern(format!("%{}", *next_var)));
+        *next_var += 1;
+        let trace_segment = TraceSegment::new(span, 0, segment_name, bindings);
 
-        for (segment, (span, bindings)) in trace.into_iter().enumerate() {
-            // We generate a name for these segments to distinguish them from direct references
-            // to the actual main/aux columns. This is useful during the inlining phase
-            let segment_name = Identifier::new(span, Symbol::intern(format!("%{}", *next_var)));
-            *next_var += 1;
-            segments.push(TraceSegment::new(span, segment, segment_name, bindings));
+        if trace_segment.is_empty() {
+            diagnostics.diagnostic(Severity::Error)
+              .with_message("invalid evaluator function definition")
+              .with_primary_label(trace_segment.span(), "the last trace segment cannot be empty")
+              .emit();
+            Err(ParseError::Failed.into())
+        } else {
+            Ok(trace_segment)
         }
-
-        // the last segment of trace columns cannot be empty.
-        if let Some(segment) = segments.last() {
-            if segment.is_empty() {
-                diagnostics.diagnostic(Severity::Error)
-                  .with_message("invalid evaluator function definition")
-                  .with_primary_label(segment.span(), "the last trace segment cannot be empty")
-                  .emit();
-                return Err(ParseError::Failed.into());
-            }
-        }
-        Ok(segments)
     }
 }
 

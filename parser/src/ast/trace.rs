@@ -2,6 +2,8 @@ use std::fmt;
 
 use miden_diagnostics::{SourceSpan, Spanned};
 
+use crate::symbols::__SYMBOLS;
+
 use super::*;
 
 /// The id of a trace segment is its index in the trace_columns declaration
@@ -27,6 +29,18 @@ pub struct TraceSegment {
     /// A vector of `size` elements which tracks for every column whether a
     /// constraint has been applied to that column, and on what boundaries.
     pub boundary_constrained: Vec<Span<ColumnBoundaryFlags>>,
+}
+impl Default for TraceSegment {
+    fn default() -> Self {
+        Self {
+            span: SourceSpan::UNKNOWN,
+            id: 0,
+            name: Identifier::new(SourceSpan::UNKNOWN, __SYMBOLS[0].0),
+            size: 0,
+            bindings: Vec::new(),
+            boundary_constrained: vec![Span::new(SourceSpan::UNKNOWN, ColumnBoundaryFlags::EMPTY)],
+        }
+    }
 }
 impl TraceSegment {
     /// Constructs a new [TraceSegment] given a span, segment id, name, and a vector of (Identifier, size) pairs.

@@ -7,7 +7,7 @@ use miden_diagnostics::{SourceSpan, Spanned};
 pub struct Evaluator {
     // Parameters of the evaluator.
     // each parameter Identifier in the ast corresponds to a Vec<Parameter>
-    pub parameters: Vec<Vec<Link<Op>>>,
+    pub parameters: Vec<Link<Op>>,
     // Operations contained in the Evaluator
     pub body: Link<Vec<Link<Op>>>,
     pub _node: Singleton<Node>,
@@ -17,11 +17,7 @@ pub struct Evaluator {
 }
 
 impl Evaluator {
-    pub fn create(
-        parameters: Vec<Vec<Link<Op>>>,
-        body: Vec<Link<Op>>,
-        span: SourceSpan,
-    ) -> Link<Root> {
+    pub fn create(parameters: Vec<Link<Op>>, body: Vec<Link<Op>>, span: SourceSpan) -> Link<Root> {
         Root::Evaluator(Self {
             parameters,
             body: Link::new(body),

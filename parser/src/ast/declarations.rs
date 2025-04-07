@@ -56,16 +56,11 @@ pub enum Declaration {
     /// There may only be one of these in the entire program, and it must
     /// appear in the root AirScript module, i.e. in a module declared with `def`
     PublicInputs(Span<Vec<PublicInput>>),
-    /// A `random_values` section declaration
-    ///
-    /// There may only be one of these in the entire program, and it must
-    /// appear in the root AirScript module, i.e. in a module declared with `def`
-    RandomValues(RandomValues),
     /// A `trace_bindings` section declaration
     ///
     /// There may only be one of these in the entire program, and it must
     /// appear in the root AirScript module, i.e. in a module declared with `def`
-    Trace(Span<Vec<TraceSegment>>),
+    Trace(Span<TraceSegment>),
     /// A `boundary_constraints` section declaration
     ///
     /// There may only be one of these in the entire program, and it must
@@ -566,7 +561,7 @@ pub struct EvaluatorFunction {
     #[span]
     pub span: SourceSpan,
     pub name: Identifier,
-    pub params: Vec<TraceSegment>,
+    pub params: TraceSegment,
     pub body: Vec<Statement>,
 }
 impl EvaluatorFunction {
@@ -574,7 +569,7 @@ impl EvaluatorFunction {
     pub const fn new(
         span: SourceSpan,
         name: Identifier,
-        params: Vec<TraceSegment>,
+        params: TraceSegment,
         body: Vec<Statement>,
     ) -> Self {
         Self {

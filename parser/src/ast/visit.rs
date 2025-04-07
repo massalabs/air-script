@@ -431,12 +431,7 @@ where
     for input in module.public_inputs.values_mut() {
         visitor.visit_mut_public_input(input)?;
     }
-    if let Some(rv) = module.random_values.as_mut() {
-        visitor.visit_mut_random_values(rv)?;
-    }
-    for segment in module.trace_columns.iter_mut() {
-        visitor.visit_mut_trace_segment(segment)?;
-    }
+    visitor.visit_mut_trace_segment(&mut module.trace_columns)?;
     if let Some(bc) = module.boundary_constraints.as_mut() {
         if !bc.is_empty() {
             visitor.visit_mut_boundary_constraints(bc)?;
@@ -499,9 +494,7 @@ where
     V: ?Sized + VisitMut<T>,
 {
     visitor.visit_mut_identifier(&mut expr.name)?;
-    for segment in expr.params.iter_mut() {
-        visitor.visit_mut_evaluator_trace_segment(segment)?;
-    }
+    visitor.visit_mut_evaluator_trace_segment(&mut expr.params)?;
     visitor.visit_mut_statement_block(&mut expr.body)
 }
 

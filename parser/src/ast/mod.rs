@@ -87,7 +87,7 @@ pub struct Program {
     /// NOTE: It is guaranteed that at least a `main` trace column set
     /// will be present here. If `random_values` has a value, then it is
     /// further guaranteed that an `aux` trace column set will be present.
-    pub trace_columns: Vec<TraceSegment>,
+    pub trace_columns: TraceSegment,
     /// The boundary_constraints block defined in the root module
     ///
     /// It is guaranteed that this is non-empty
@@ -121,7 +121,7 @@ impl Program {
             buses: Default::default(),
             periodic_columns: Default::default(),
             public_inputs: Default::default(),
-            trace_columns: vec![],
+            trace_columns: Default::default(),
             boundary_constraints: vec![],
             integrity_constraints: vec![],
         }
@@ -317,9 +317,7 @@ impl fmt::Display for Program {
         writeln!(f, "def {}\n", self.name)?;
 
         writeln!(f, "trace_columns {{")?;
-        for segment in self.trace_columns.iter() {
-            writeln!(f, "    {}", segment)?;
-        }
+        writeln!(f, "    {}", self.trace_columns)?;
         f.write_str("}}")?;
         f.write_str("\n")?;
 
@@ -376,14 +374,9 @@ impl fmt::Display for Program {
         for (qid, evaluator) in self.evaluators.iter() {
             f.write_str("ev ")?;
             if qid.module == self.name {
-                writeln!(
-                    f,
-                    "{}{}",
-                    &qid.item,
-                    DisplayTuple(evaluator.params.as_slice())
-                )?;
+                writeln!(f, "{}{}", &qid.item, evaluator.params)?;
             } else {
-                writeln!(f, "{}{}", qid, DisplayTuple(evaluator.params.as_slice()))?;
+                writeln!(f, "{}{}", qid, evaluator.params)?;
             }
             f.write_str(" {{")?;
             for statement in evaluator.body.iter() {

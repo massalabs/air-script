@@ -30,9 +30,7 @@ fn public_inputs() {
     }";
 
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(clk, 1)]));
+    expected.trace_columns = trace_segment!(0, "$main", [(clk, 1)]);
     expected.public_inputs.insert(
         ident!(program_hash),
         PublicInput::new(SourceSpan::UNKNOWN, ident!(program_hash), 4),

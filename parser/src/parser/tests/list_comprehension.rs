@@ -32,9 +32,7 @@ fn bc_one_iterable_identifier_lc() {
     }";
 
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(a, 1), (b, 1), (c, 4)]));
+    expected.trace_columns = trace_segment!(0, "$main", [(a, 1), (b, 1), (c, 4)]);
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new(SourceSpan::UNKNOWN, ident!(inputs), 2),
@@ -82,9 +80,7 @@ fn bc_identifier_and_range_lc() {
     expected
         .constants
         .insert(ident!(THREE), constant!(THREE = 3));
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(a, 1), (b, 1), (c, 4)]));
+    expected.trace_columns = trace_segment!(0, "$main", [(a, 1), (b, 1), (c, 4)]);
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new(SourceSpan::UNKNOWN, ident!(inputs), 2),
@@ -127,9 +123,7 @@ fn bc_iterable_slice_lc() {
     }";
 
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(a, 1), (b, 1), (c, 4)]));
+    expected.trace_columns = trace_segment!(0, "$main", [(a, 1), (b, 1), (c, 4)]);
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new(SourceSpan::UNKNOWN, ident!(inputs), 2),
@@ -172,9 +166,7 @@ fn bc_two_iterable_identifier_lc() {
     }";
 
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(a, 1), (b, 1), (c, 4), (d, 4)]));
+    expected.trace_columns = trace_segment!(0, "$main", [(a, 1), (b, 1), (c, 4), (d, 4)]);
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new(SourceSpan::UNKNOWN, ident!(inputs), 2),
@@ -217,9 +209,7 @@ fn bc_multiple_iterables_lc() {
     }";
 
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(a, 1), (b, 3), (c, 4), (d, 4)]));
+    expected.trace_columns = trace_segment!(0, "$main", [(a, 1), (b, 3), (c, 4), (d, 4)]);
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new(SourceSpan::UNKNOWN, ident!(inputs), 2),
@@ -267,9 +257,7 @@ fn ic_one_iterable_identifier_lc() {
     }";
 
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(a, 1), (b, 1), (c, 4)]));
+    expected.trace_columns = trace_segment!(0, "$main", [(a, 1), (b, 1), (c, 4)]);
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new(SourceSpan::UNKNOWN, ident!(inputs), 2),
@@ -313,9 +301,7 @@ fn ic_iterable_identifier_range_lc() {
     }";
 
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(a, 1), (b, 1), (c, 4)]));
+    expected.trace_columns = trace_segment!(0, "$main", [(a, 1), (b, 1), (c, 4)]);
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new(SourceSpan::UNKNOWN, ident!(inputs), 2),
@@ -358,9 +344,7 @@ fn ic_iterable_slice_lc() {
     }";
 
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(a, 1), (b, 1), (c, 4)]));
+    expected.trace_columns = trace_segment!(0, "$main", [(a, 1), (b, 1), (c, 4)]);
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new(SourceSpan::UNKNOWN, ident!(inputs), 2),
@@ -403,9 +387,7 @@ fn ic_two_iterable_identifier_lc() {
     }";
 
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(a, 1), (b, 1), (c, 4), (d, 4)]));
+    expected.trace_columns = trace_segment!(0, "$main", [(a, 1), (b, 1), (c, 4), (d, 4)]);
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new(SourceSpan::UNKNOWN, ident!(inputs), 2),
@@ -448,9 +430,7 @@ fn ic_multiple_iterables_lc() {
     }";
 
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(a, 1), (b, 3), (c, 4), (d, 4)]));
+    expected.trace_columns = trace_segment!(0, "$main", [(a, 1), (b, 3), (c, 4), (d, 4)]);
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new(SourceSpan::UNKNOWN, ident!(inputs), 2),
