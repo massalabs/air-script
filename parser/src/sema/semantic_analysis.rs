@@ -1893,7 +1893,6 @@ impl SemanticAnalysis<'_> {
 fn segment_id_to_name(id: TraceSegmentId) -> Symbol {
     match id {
         0 => symbols::Main,
-        1 => symbols::Aux,
         _ => unimplemented!(),
     }
 }
