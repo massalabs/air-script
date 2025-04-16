@@ -496,7 +496,9 @@ where
     V: ?Sized + VisitMut<T>,
 {
     visitor.visit_mut_identifier(&mut expr.name)?;
-    visitor.visit_mut_evaluator_trace_segment(&mut expr.params)?;
+    for segment in expr.params.iter_mut() {
+        visitor.visit_mut_evaluator_trace_segment(segment)?;
+    }
     visitor.visit_mut_statement_block(&mut expr.body)
 }
 

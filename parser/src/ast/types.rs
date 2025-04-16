@@ -92,7 +92,7 @@ impl fmt::Display for Type {
 pub enum FunctionType {
     /// An evaluator function, which has no results, and has
     /// a complex type signature due to the nature of trace bindings
-    Evaluator(TraceSegment),
+    Evaluator(Vec<TraceSegment>),
     /// A standard function with one or more inputs, and a result
     Function(Vec<Type>, Type),
 }

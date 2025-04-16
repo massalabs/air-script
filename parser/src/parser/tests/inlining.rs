@@ -79,7 +79,11 @@ fn test_inlining_with_evaluator_split_input_binding() {
     let program = pipeline.run(program).unwrap();
 
     let mut expected = Program::new(ident!(root));
-    expected.trace_columns = trace_segment!(0, "$main", [(clk, 1), (a, 1), (b, 2), (c, 1)]);
+    expected.trace_columns.push(trace_segment!(
+        0,
+        "$main",
+        [(clk, 1), (a, 1), (b, 2), (c, 1)]
+    ));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new(SourceSpan::UNKNOWN, ident!(inputs), 0),
@@ -121,7 +125,7 @@ fn test_inlining_with_evaluator_split_input_binding() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(test_constraint),
-            trace_segment!(0, "%0", [(b0, 1), (b1, 1)]),
+            vec![trace_segment!(0, "%0", [(b0, 1), (b1, 1)])],
             body,
         ),
     );
@@ -189,7 +193,11 @@ fn test_inlining_with_vector_literal_binding_regrouped() {
     let program = pipeline.run(program).unwrap();
 
     let mut expected = Program::new(ident!(root));
-    expected.trace_columns = trace_segment!(0, "$main", [(clk, 1), (a, 1), (b, 2), (c, 1)]);
+    expected.trace_columns.push(trace_segment!(
+        0,
+        "$main",
+        [(clk, 1), (a, 1), (b, 2), (c, 1)]
+    ));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new(SourceSpan::UNKNOWN, ident!(inputs), 0),
@@ -216,7 +224,7 @@ fn test_inlining_with_vector_literal_binding_regrouped() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(test_constraint),
-            trace_segment!(0, "%0", [(pair, 2), (b1, 1)]),
+            vec![trace_segment!(0, "%0", [(pair, 2), (b1, 1)])],
             body,
         ),
     );
@@ -274,7 +282,11 @@ fn test_inlining_with_vector_literal_binding_unordered() {
     let program = pipeline.run(program).unwrap();
 
     let mut expected = Program::new(ident!(root));
-    expected.trace_columns = trace_segment!(0, "$main", [(clk, 1), (a, 1), (b, 2), (c, 1)]);
+    expected.trace_columns.push(trace_segment!(
+        0,
+        "$main",
+        [(clk, 1), (a, 1), (b, 2), (c, 1)]
+    ));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new(SourceSpan::UNKNOWN, ident!(inputs), 0),
@@ -301,7 +313,7 @@ fn test_inlining_with_vector_literal_binding_unordered() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(test_constraint),
-            trace_segment!(0, "%0", [(b0, 1), (pair, 2)]),
+            vec![trace_segment!(0, "%0", [(b0, 1), (pair, 2)])],
             body,
         ),
     );
@@ -359,7 +371,11 @@ fn test_inlining_with_vector_literal_binding_different_arity_many_to_few() {
     let program = pipeline.run(program).unwrap();
 
     let mut expected = Program::new(ident!(root));
-    expected.trace_columns = trace_segment!(0, "$main", [(clk, 1), (a, 1), (b, 2), (c, 1)]);
+    expected.trace_columns.push(trace_segment!(
+        0,
+        "$main",
+        [(clk, 1), (a, 1), (b, 2), (c, 1)]
+    ));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new(SourceSpan::UNKNOWN, ident!(inputs), 0),
@@ -386,7 +402,7 @@ fn test_inlining_with_vector_literal_binding_different_arity_many_to_few() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(test_constraint),
-            trace_segment!(0, "%0", [(pair, 3), (foo, 1)]),
+            vec![trace_segment!(0, "%0", [(pair, 3), (foo, 1)])],
             body,
         ),
     );
@@ -444,7 +460,11 @@ fn test_inlining_with_vector_literal_binding_different_arity_few_to_many() {
     let program = pipeline.run(program).unwrap();
 
     let mut expected = Program::new(ident!(root));
-    expected.trace_columns = trace_segment!(0, "$main", [(clk, 1), (a, 1), (b, 2), (c, 1)]);
+    expected.trace_columns.push(trace_segment!(
+        0,
+        "$main",
+        [(clk, 1), (a, 1), (b, 2), (c, 1)]
+    ));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new(SourceSpan::UNKNOWN, ident!(inputs), 0),
@@ -471,7 +491,7 @@ fn test_inlining_with_vector_literal_binding_different_arity_few_to_many() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(test_constraint),
-            trace_segment!(0, "%0", [(x, 1), (y, 1), (z, 1)]),
+            vec![trace_segment!(0, "%0", [(x, 1), (y, 1), (z, 1)])],
             body,
         ),
     );
@@ -538,7 +558,11 @@ fn test_inlining_across_modules_with_nested_evaluators_variant1() {
     let program = pipeline.run(program).unwrap();
 
     let mut expected = Program::new(ident!(root));
-    expected.trace_columns = trace_segment!(0, "$main", [(clk, 1), (a, 1), (b, 2), (c, 1)]);
+    expected.trace_columns.push(trace_segment!(
+        0,
+        "$main",
+        [(clk, 1), (a, 1), (b, 2), (c, 1)]
+    ));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new(SourceSpan::UNKNOWN, ident!(inputs), 0),
@@ -565,7 +589,7 @@ fn test_inlining_across_modules_with_nested_evaluators_variant1() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(test_constraint),
-            trace_segment!(0, "%0", [(tuple, 3), (z, 1)]),
+            vec![trace_segment!(0, "%0", [(tuple, 3), (z, 1)])],
             body,
         ),
     );
@@ -580,7 +604,7 @@ fn test_inlining_across_modules_with_nested_evaluators_variant1() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(helper_constraint),
-            trace_segment!(0, "%0", [(x, 2), (y, 1)]),
+            vec![trace_segment!(0, "%0", [(x, 2), (y, 1)])],
             body,
         ),
     );
@@ -646,7 +670,11 @@ fn test_inlining_across_modules_with_nested_evaluators_variant2() {
     let program = pipeline.run(program).unwrap();
 
     let mut expected = Program::new(ident!(root));
-    expected.trace_columns = trace_segment!(0, "$main", [(clk, 1), (a, 1), (b, 2), (c, 1)]);
+    expected.trace_columns.push(trace_segment!(
+        0,
+        "$main",
+        [(clk, 1), (a, 1), (b, 2), (c, 1)]
+    ));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new(SourceSpan::UNKNOWN, ident!(inputs), 0),
@@ -674,7 +702,7 @@ fn test_inlining_across_modules_with_nested_evaluators_variant2() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(test_constraint),
-            trace_segment!(0, "%0", [(tuple, 3), (z, 1)]),
+            vec![trace_segment!(0, "%0", [(tuple, 3), (z, 1)])],
             body,
         ),
     );
@@ -689,7 +717,7 @@ fn test_inlining_across_modules_with_nested_evaluators_variant2() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(helper_constraint),
-            trace_segment!(0, "%0", [(x, 2), (y, 1)]),
+            vec![trace_segment!(0, "%0", [(x, 2), (y, 1)])],
             body,
         ),
     );
@@ -748,7 +776,11 @@ fn test_inlining_constraint_comprehensions_no_selector() {
     expected
         .constants
         .insert(ident!(root, YS), constant!(YS = [2, 4, 6, 8]));
-    expected.trace_columns = trace_segment!(0, "$main", [(clk, 1), (a, 1), (b, 2), (c, 1)]);
+    expected.trace_columns.push(trace_segment!(
+        0,
+        "$main",
+        [(clk, 1), (a, 1), (b, 2), (c, 1)]
+    ));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new(SourceSpan::UNKNOWN, ident!(inputs), 0),
@@ -822,7 +854,11 @@ fn test_inlining_constraint_comprehensions_with_selector() {
     expected
         .constants
         .insert(ident!(root, YS), constant!(YS = [2, 4, 6, 8]));
-    expected.trace_columns = trace_segment!(0, "$main", [(clk, 1), (a, 1), (b, 2), (c, 1)]);
+    expected.trace_columns.push(trace_segment!(
+        0,
+        "$main",
+        [(clk, 1), (a, 1), (b, 2), (c, 1)]
+    ));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new(SourceSpan::UNKNOWN, ident!(inputs), 0),
@@ -898,7 +934,11 @@ fn test_inlining_constraint_comprehensions_with_constant_selector() {
     expected
         .constants
         .insert(ident!(root, YS), constant!(YS = [0, 4, 0, 8]));
-    expected.trace_columns = trace_segment!(0, "$main", [(clk, 1), (a, 1), (b, 4), (c, 1)]);
+    expected.trace_columns.push(trace_segment!(
+        0,
+        "$main",
+        [(clk, 1), (a, 1), (b, 4), (c, 1)]
+    ));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new(SourceSpan::UNKNOWN, ident!(inputs), 0),
@@ -973,7 +1013,11 @@ fn test_inlining_constraint_comprehensions_in_evaluator() {
     expected
         .constants
         .insert(ident!(root, YS), constant!(YS = [0, 4, 0, 8]));
-    expected.trace_columns = trace_segment!(0, "$main", [(clk, 1), (a, 1), (b, 4), (c, 1)]);
+    expected.trace_columns.push(trace_segment!(
+        0,
+        "$main",
+        [(clk, 1), (a, 1), (b, 4), (c, 1)]
+    ));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new(SourceSpan::UNKNOWN, ident!(inputs), 0),
@@ -1011,7 +1055,7 @@ fn test_inlining_constraint_comprehensions_in_evaluator() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(test_constraint),
-            trace_segment!(0, "%0", [(i, 1), (j, 2)]),
+            vec![trace_segment!(0, "%0", [(i, 1), (j, 2)])],
             body,
         ),
     );
@@ -1061,7 +1105,11 @@ fn test_inlining_constraints_with_folded_comprehensions_in_evaluator() {
     let program = pipeline.run(program).unwrap();
 
     let mut expected = Program::new(ident!(root));
-    expected.trace_columns = trace_segment!(0, "$main", [(clk, 1), (a, 1), (b, 4), (c, 1)]);
+    expected.trace_columns.push(trace_segment!(
+        0,
+        "$main",
+        [(clk, 1), (a, 1), (b, 4), (c, 1)]
+    ));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new(SourceSpan::UNKNOWN, ident!(inputs), 0),
@@ -1109,7 +1157,7 @@ fn test_inlining_constraints_with_folded_comprehensions_in_evaluator() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(test_constraint),
-            trace_segment!(0, "%0", [(x, 1), (ys, 2)]),
+            vec![trace_segment!(0, "%0", [(x, 1), (ys, 2)])],
             body,
         ),
     );
@@ -1165,7 +1213,11 @@ fn test_inlining_with_function_call_as_binary_operand() {
     let program = pipeline.run(program).unwrap();
 
     let mut expected = Program::new(ident!(root));
-    expected.trace_columns = trace_segment!(0, "$main", [(clk, 1), (a, 1), (b, 4), (c, 1)]);
+    expected.trace_columns.push(trace_segment!(
+        0,
+        "$main",
+        [(clk, 1), (a, 1), (b, 4), (c, 1)]
+    ));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new(SourceSpan::UNKNOWN, ident!(inputs), 0),
@@ -1299,7 +1351,7 @@ fn test_repro_issue340() {
     let program = pipeline.run(program).unwrap();
 
     let mut expected = Program::new(ident!(root));
-    expected.trace_columns = trace_segment!(
+    expected.trace_columns.push(trace_segment!(
         0,
         "$main",
         [
@@ -1308,7 +1360,7 @@ fn test_repro_issue340() {
             (immediate, 1),
             (s, 1)
         ]
-    );
+    ));
     expected.public_inputs.insert(
         ident!(stack_inputs),
         PublicInput::new(SourceSpan::UNKNOWN, ident!(stack_inputs), 16),
@@ -1472,7 +1524,11 @@ fn test_repro_issue340() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(imm_reconstruction),
-            trace_segment!(0, "%2", [(instruction_bits, 32), (immediate, 1)]),
+            vec![trace_segment!(
+                0,
+                "%2",
+                [(instruction_bits, 32), (immediate, 1)]
+            )],
             body,
         ),
     );

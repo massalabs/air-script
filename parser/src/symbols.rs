@@ -23,7 +23,7 @@ pub mod predefined {
     /// The symbol `prod`
     pub const Prod: Symbol = Symbol::new(3);
 
-    pub const __SYMBOLS: &[(Symbol, &str)] = &[
+    pub(super) const __SYMBOLS: &[(Symbol, &str)] = &[
         (Main, "$main"),
         (Builtin, "$builtin"),
         (Sum, "sum"),

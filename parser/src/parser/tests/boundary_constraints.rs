@@ -54,7 +54,9 @@ integrity_constraints {
 /// This is used as a common base for most tests in this module
 fn test_module() -> Module {
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected.trace_columns = trace_segment!(0, "$main", [(clk, 1)]);
+    expected
+        .trace_columns
+        .push(trace_segment!(0, "$main", [(clk, 1)]));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new(SourceSpan::UNKNOWN, ident!(inputs), 2),

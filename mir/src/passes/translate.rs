@@ -57,7 +57,7 @@ pub struct MirBuilder<'a> {
     program: &'a ast::Program,
     diagnostics: &'a DiagnosticsHandler,
     mir: Mir,
-    trace_columns: &'a ast::TraceSegment,
+    trace_columns: &'a Vec<ast::TraceSegment>,
     bindings: LexicalScope<&'a ast::Identifier, Link<Op>>,
     root: Link<Root>,
     root_name: Option<&'a ast::QualifiedIdentifier>,
@@ -70,7 +70,7 @@ impl<'a> MirBuilder<'a> {
             program,
             diagnostics,
             mir: Mir::default(),
-            trace_columns: &program.trace_columns,
+            trace_columns: program.trace_columns.as_ref(),
             bindings: LexicalScope::default(),
             root: Link::default(),
             root_name: None,
@@ -134,20 +134,22 @@ impl<'a> MirBuilder<'a> {
         let mut ev = Evaluator::builder().span(ast_eval.span);
         let mut i = 0;
 
-        for binding in &ast_eval.params.bindings {
-            let span = binding.name.map_or(SourceSpan::UNKNOWN, |n| n.span());
-            let params =
-                self.translate_params_ev(span, binding.name.as_ref(), &binding.ty, &mut i)?;
+        for trace_segment in &ast_eval.params {
+            let mut all_params_flatten_for_trace_segment = Vec::new();
 
-            for param in params {
-                all_params_flatten.push(param.clone());
+            for binding in &trace_segment.bindings {
+                let span = binding.name.map_or(SourceSpan::UNKNOWN, |n| n.span());
+                let params =
+                    self.translate_params_ev(span, binding.name.as_ref(), &binding.ty, &mut i)?;
+
+                for param in params {
+                    all_params_flatten_for_trace_segment.push(param.clone());
+                    all_params_flatten.push(param.clone());
+                }
             }
-        }
 
-        for param in all_params_flatten.clone() {
-            ev = ev.parameters(param.clone());
+            ev = ev.parameters(all_params_flatten_for_trace_segment.clone());
         }
-
         let ev = ev.build();
 
         set_all_ref_nodes(all_params_flatten.clone(), ev.as_owner());
@@ -172,31 +174,35 @@ impl<'a> MirBuilder<'a> {
         self.bindings.enter();
         self.root_name = Some(ident);
 
-        let mut i = 0;
-        for binding in ast_eval.params.bindings.iter() {
-            let name = binding.name.as_ref();
-            match &binding.ty {
-                ast::Type::Vector(size) => {
-                    let mut params_vec = Vec::new();
-                    let mut span = SourceSpan::UNKNOWN;
-                    for _ in 0..*size {
-                        let param = params[i].clone();
-                        i += 1;
-                        params_vec.push(param.clone());
-                        if let Some(s) = span.merge(param.span()) {
-                            span = s;
+        for (trace_segment, all_params_flatten_for_trace_segment) in
+            ast_eval.params.iter().zip(params.iter())
+        {
+            let mut i = 0;
+            for binding in trace_segment.bindings.iter() {
+                let name = binding.name.as_ref();
+                match &binding.ty {
+                    ast::Type::Vector(size) => {
+                        let mut params_vec = Vec::new();
+                        let mut span = SourceSpan::UNKNOWN;
+                        for _ in 0..*size {
+                            let param = all_params_flatten_for_trace_segment[i].clone();
+                            i += 1;
+                            params_vec.push(param.clone());
+                            if let Some(s) = span.merge(param.span()) {
+                                span = s;
+                            }
                         }
+                        let vector_node = Vector::create(params_vec, span);
+                        self.bindings.insert(name.unwrap(), vector_node.clone());
                     }
-                    let vector_node = Vector::create(params_vec, span);
-                    self.bindings.insert(name.unwrap(), vector_node.clone());
-                }
-                ast::Type::Felt => {
-                    let param = params[i].clone();
-                    i += 1;
-                    self.bindings.insert(name.unwrap(), param.clone());
-                }
-                _ => unreachable!(),
-            };
+                    ast::Type::Felt => {
+                        let param = all_params_flatten_for_trace_segment[i].clone();
+                        i += 1;
+                        self.bindings.insert(name.unwrap(), param.clone());
+                    }
+                    _ => unreachable!(),
+                };
+            }
         }
 
         self.translate_body(ident, original_root.clone(), &ast_eval.body)?;
@@ -858,6 +864,30 @@ impl<'a> MirBuilder<'a> {
                     let arg_node = self.translate_expr(arg)?;
                     arg_nodes.push(arg_node);
                 }
+                // safe to unwrap because we know it is an Evaluator due to get_evaluator
+                let callee_ref = callee.as_evaluator().unwrap();
+                if callee_ref.parameters.len() != arg_nodes.len() {
+                    self.diagnostics
+                        .diagnostic(Severity::Error)
+                        .with_message("argument count mismatch")
+                        .with_primary_label(
+                            call.span(),
+                            format!(
+                                "expected call to have {} trace segments, but got {}",
+                                callee_ref.parameters.len(),
+                                arg_nodes.len()
+                            ),
+                        )
+                        .with_secondary_label(
+                            call.callee.span(),
+                            format!(
+                                "this function has {} trace segments",
+                                callee_ref.parameters.len()
+                            ),
+                        )
+                        .emit();
+                    return Err(CompileError::Failed);
+                }
             } else {
                 panic!("Unknown function or evaluator: {:?}", resolved_callee);
             }
@@ -1165,25 +1195,26 @@ impl<'a> MirBuilder<'a> {
     // Check assumptions, probably this assumed that the inlining pass did some work
     fn trace_access_binding(&self, access: &ast::SymbolAccess) -> Option<TraceAccessBinding> {
         let id = access.name.as_ref();
-        if let Some(binding) = self
-            .trace_columns
-            .bindings
-            .iter()
-            .find(|tb| tb.name.as_ref() == Some(id))
-        {
-            return match &access.access_type {
-                AccessType::Default => Some(TraceAccessBinding {
-                    segment: binding.segment,
-                    offset: binding.offset,
-                    size: binding.size,
-                }),
-                AccessType::Slice(range_expr) => Some(TraceAccessBinding {
-                    segment: binding.segment,
-                    offset: binding.offset + range_expr.to_slice_range().start,
-                    size: range_expr.to_slice_range().count(),
-                }),
-                _ => None,
-            };
+        for segment in self.trace_columns.iter() {
+            if let Some(binding) = segment
+                .bindings
+                .iter()
+                .find(|tb| tb.name.as_ref() == Some(id))
+            {
+                return match &access.access_type {
+                    AccessType::Default => Some(TraceAccessBinding {
+                        segment: binding.segment,
+                        offset: binding.offset,
+                        size: binding.size,
+                    }),
+                    AccessType::Slice(range_expr) => Some(TraceAccessBinding {
+                        segment: binding.segment,
+                        offset: binding.offset + range_expr.to_slice_range().start,
+                        size: range_expr.to_slice_range().count(),
+                    }),
+                    _ => None,
+                };
+            }
         }
         None
     }
@@ -1191,47 +1222,43 @@ impl<'a> MirBuilder<'a> {
     // Check assumptions, probably this assumed that the inlining pass did some work
     fn trace_access(&self, access: &ast::SymbolAccess) -> Option<TraceAccess> {
         let id = access.name.as_ref();
-
-        if self.trace_columns.name == id {
-            if let AccessType::Index(column) = access.access_type {
-                return Some(TraceAccess::new(
-                    self.trace_columns.id,
-                    column,
-                    access.offset,
-                ));
-            } else {
-                // This should have been caught earlier during compilation
-                unreachable!(
-                    "unexpected trace access type encountered during lowering: {:#?}",
-                    &access
-                );
+        for (i, segment) in self.trace_columns.iter().enumerate() {
+            if segment.name == id {
+                if let AccessType::Index(column) = access.access_type {
+                    return Some(TraceAccess::new(i, column, access.offset));
+                } else {
+                    // This should have been caught earlier during compilation
+                    unreachable!(
+                        "unexpected trace access type encountered during lowering: {:#?}",
+                        &access
+                    );
+                }
             }
-        }
 
-        if let Some(binding) = self
-            .trace_columns
-            .bindings
-            .iter()
-            .find(|tb| tb.name.as_ref() == Some(id))
-        {
-            return match access.access_type {
-                AccessType::Default if binding.size == 1 => Some(TraceAccess::new(
-                    binding.segment,
-                    binding.offset,
-                    access.offset,
-                )),
-                AccessType::Index(extra_offset) if binding.size > 1 => Some(TraceAccess::new(
-                    binding.segment,
-                    binding.offset + extra_offset,
-                    access.offset,
-                )),
-                // This should have been caught earlier during compilation
-                /*_ => unreachable!(
-                    "unexpected trace access type encountered during lowering: {:#?}",
-                    access
-                ),*/
-                _ => None,
-            };
+            if let Some(binding) = segment
+                .bindings
+                .iter()
+                .find(|tb| tb.name.as_ref() == Some(id))
+            {
+                return match access.access_type {
+                    AccessType::Default if binding.size == 1 => Some(TraceAccess::new(
+                        binding.segment,
+                        binding.offset,
+                        access.offset,
+                    )),
+                    AccessType::Index(extra_offset) if binding.size > 1 => Some(TraceAccess::new(
+                        binding.segment,
+                        binding.offset + extra_offset,
+                        access.offset,
+                    )),
+                    // This should have been caught earlier during compilation
+                    /*_ => unreachable!(
+                        "unexpected trace access type encountered during lowering: {:#?}",
+                        access
+                    ),*/
+                    _ => None,
+                };
+            }
         }
         None
     }

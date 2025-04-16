@@ -707,7 +707,9 @@ fn full_air_file() {
     // trace_columns {
     //     main: [clk, fmp, ctx]
     // }
-    expected.trace_columns = trace_segment!(0, "$main", [(clk, 1), (fmp, 1), (ctx, 1)]);
+    expected
+        .trace_columns
+        .push(trace_segment!(0, "$main", [(clk, 1), (fmp, 1), (ctx, 1)]));
     // integrity_constraints {
     //     enf clk' = clk + 1
     // }

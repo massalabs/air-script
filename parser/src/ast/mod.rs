@@ -83,7 +83,7 @@ pub struct Program {
     /// not use [QualifiedIdentifier] as a key into this collection.
     pub public_inputs: BTreeMap<Identifier, PublicInput>,
     /// The set of trace columns of the main trace defined in the root module
-    pub trace_columns: TraceSegment,
+    pub trace_columns: Vec<TraceSegment>,
     /// The boundary_constraints block defined in the root module
     ///
     /// It is guaranteed that this is non-empty
@@ -117,7 +117,7 @@ impl Program {
             buses: Default::default(),
             periodic_columns: Default::default(),
             public_inputs: Default::default(),
-            trace_columns: Default::default(),
+            trace_columns: vec![],
             boundary_constraints: vec![],
             integrity_constraints: vec![],
         }
@@ -313,7 +313,9 @@ impl fmt::Display for Program {
         writeln!(f, "def {}\n", self.name)?;
 
         writeln!(f, "trace_columns {{")?;
-        writeln!(f, "    {}", self.trace_columns)?;
+        for segment in self.trace_columns.iter() {
+            writeln!(f, "    {}", segment)?;
+        }
         f.write_str("}}")?;
         f.write_str("\n")?;
 
@@ -370,9 +372,14 @@ impl fmt::Display for Program {
         for (qid, evaluator) in self.evaluators.iter() {
             f.write_str("ev ")?;
             if qid.module == self.name {
-                writeln!(f, "{}{}", &qid.item, evaluator.params)?;
+                writeln!(
+                    f,
+                    "{}{}",
+                    &qid.item,
+                    DisplayTuple(evaluator.params.as_slice())
+                )?;
             } else {
-                writeln!(f, "{}{}", qid, evaluator.params)?;
+                writeln!(f, "{}{}", qid, DisplayTuple(evaluator.params.as_slice()))?;
             }
             f.write_str(" {{")?;
             for statement in evaluator.body.iter() {

@@ -57,7 +57,8 @@ pub struct Module {
     pub functions: BTreeMap<Identifier, Function>,
     pub periodic_columns: BTreeMap<Identifier, PeriodicColumn>,
     pub public_inputs: BTreeMap<Identifier, PublicInput>,
-    pub trace_columns: TraceSegment,
+    pub random_values: Option<RandomValues>,
+    pub trace_columns: Vec<TraceSegment>,
     pub buses: BTreeMap<Identifier, Bus>,
     pub boundary_constraints: Option<Span<Vec<Statement>>>,
     pub integrity_constraints: Option<Span<Vec<Statement>>>,
@@ -84,7 +85,8 @@ impl Module {
             buses: Default::default(),
             periodic_columns: Default::default(),
             public_inputs: Default::default(),
-            trace_columns: Default::default(),
+            random_values: None,
+            trace_columns: vec![],
             boundary_constraints: None,
             integrity_constraints: None,
         }
@@ -140,6 +142,9 @@ impl Module {
                         module.declare_public_input(diagnostics, &mut names, input)?;
                     }
                 }
+                Declaration::RandomValues(rv) => {
+                    module.declare_random_values(diagnostics, &mut names, rv)?;
+                }
                 Declaration::Trace(segments) => {
                     module.declare_trace_segments(diagnostics, &mut names, segments)?;
                 }
@@ -166,7 +171,7 @@ impl Module {
                 return Err(SemanticAnalysisError::Invalid);
             }
 
-            if module.trace_columns.name != "$main" {
+            if !module.trace_columns.iter().any(|ts| ts.name == "$main") {
                 diagnostics.diagnostic(Severity::Error)
                     .with_message("missing main trace declaration")
                     .with_note("Root modules must contain a trace_columns section with at least a `main` trace declared")
@@ -180,6 +185,22 @@ impl Module {
 
             if module.public_inputs.is_empty() {
                 return Err(SemanticAnalysisError::MissingPublicInputs);
+            }
+
+            if module.random_values.is_some()
+                && !module.trace_columns.iter().any(|ts| ts.name == "$aux")
+            {
+                diagnostics
+                    .diagnostic(Severity::Error)
+                    .with_message(
+                        "declaring random_values requires an aux trace_columns declaration",
+                    )
+                    .with_primary_label(
+                        module.random_values.as_ref().unwrap().span(),
+                        "this declaration is invalid",
+                    )
+                    .emit();
+                return Err(SemanticAnalysisError::Invalid);
             }
         }
 
@@ -469,40 +490,82 @@ impl Module {
         }
     }
 
+    fn declare_random_values(
+        &mut self,
+        diagnostics: &DiagnosticsHandler,
+        names: &mut HashSet<NamespacedIdentifier>,
+        rv: RandomValues,
+    ) -> Result<(), SemanticAnalysisError> {
+        let span = rv.span();
+        if self.is_library() {
+            invalid_section_in_library(diagnostics, "random_values", span);
+            return Err(SemanticAnalysisError::RootSectionInLibrary(span));
+        }
+
+        for binding in rv.bindings.iter() {
+            if let Some(prev) = names.replace(NamespacedIdentifier::Binding(binding.name)) {
+                conflicting_declaration(
+                    diagnostics,
+                    "random values binding",
+                    prev.span(),
+                    binding.name.span(),
+                );
+                return Err(SemanticAnalysisError::NameConflict(binding.name.span()));
+            }
+        }
+
+        if let Some(prev) = self.random_values.replace(rv) {
+            diagnostics
+                .diagnostic(Severity::Error)
+                .with_message("multiple random_values declarations")
+                .with_primary_label(span, "this declaration is invalid")
+                .with_secondary_label(prev.span(), "because this declaration already exists")
+                .with_note("Only a single random_values declaration is allowed at a time")
+                .emit();
+            self.random_values.replace(prev);
+            Err(SemanticAnalysisError::NameConflict(span))
+        } else {
+            Ok(())
+        }
+    }
+
     fn declare_trace_segments(
         &mut self,
         diagnostics: &DiagnosticsHandler,
         names: &mut HashSet<NamespacedIdentifier>,
-        segments: Span<TraceSegment>,
+        mut segments: Span<Vec<TraceSegment>>,
     ) -> Result<(), SemanticAnalysisError> {
         let span = segments.span();
         if self.is_library() {
             invalid_section_in_library(diagnostics, "trace_columns", span);
             return Err(SemanticAnalysisError::RootSectionInLibrary(span));
         }
-        if let Some(prev) = names.replace(NamespacedIdentifier::Binding(segments.name)) {
-            conflicting_declaration(
-                diagnostics,
-                "trace segment",
-                prev.span(),
-                segments.name.span(),
-            );
-            return Err(SemanticAnalysisError::NameConflict(segments.name.span()));
-        }
-        for binding in segments.bindings.iter() {
-            let binding_name = binding.name.expect("expected binding name");
-            if let Some(prev) = names.replace(NamespacedIdentifier::Binding(binding_name)) {
+
+        for segment in segments.iter() {
+            if let Some(prev) = names.replace(NamespacedIdentifier::Binding(segment.name)) {
                 conflicting_declaration(
                     diagnostics,
-                    "trace binding",
+                    "trace segment",
                     prev.span(),
-                    binding_name.span(),
+                    segment.name.span(),
                 );
-                return Err(SemanticAnalysisError::NameConflict(binding_name.span()));
+                return Err(SemanticAnalysisError::NameConflict(segment.name.span()));
+            }
+            for binding in segment.bindings.iter() {
+                let binding_name = binding.name.expect("expected binding name");
+                if let Some(prev) = names.replace(NamespacedIdentifier::Binding(binding_name)) {
+                    conflicting_declaration(
+                        diagnostics,
+                        "trace binding",
+                        prev.span(),
+                        binding_name.span(),
+                    );
+                    return Err(SemanticAnalysisError::NameConflict(binding_name.span()));
+                }
             }
         }
 
-        self.trace_columns = segments.item;
+        self.trace_columns.append(&mut segments.item);
 
         Ok(())
     }
@@ -605,6 +668,7 @@ impl PartialEq for Module {
             && self.functions == other.functions
             && self.periodic_columns == other.periodic_columns
             && self.public_inputs == other.public_inputs
+            && self.random_values == other.random_values
             && self.trace_columns == other.trace_columns
             && self.boundary_constraints == other.boundary_constraints
             && self.integrity_constraints == other.integrity_constraints

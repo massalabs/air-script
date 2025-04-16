@@ -25,7 +25,7 @@ pub struct Mir {
     /// The trace columns referenced by this program.
     ///
     /// These are taken straight from the [air_parser::ast::Program] without modification.
-    pub trace_columns: TraceSegment,
+    pub trace_columns: Vec<TraceSegment>,
     /// The periodic columns referenced by this program.
     ///
     /// These are taken straight from the [air_parser::ast::Program] without modification.
@@ -57,7 +57,7 @@ impl Mir {
     pub fn new(name: Identifier) -> Self {
         Self {
             name,
-            trace_columns: Default::default(),
+            trace_columns: vec![],
             periodic_columns: Default::default(),
             public_inputs: Default::default(),
             num_random_values: 0,

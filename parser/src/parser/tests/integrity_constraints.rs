@@ -29,7 +29,9 @@ fn integrity_constraints() {
     }";
 
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected.trace_columns = trace_segment!(0, "$main", [(clk, 1)]);
+    expected
+        .trace_columns
+        .push(trace_segment!(0, "$main", [(clk, 1)]));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new(SourceSpan::UNKNOWN, ident!(inputs), 2),
@@ -80,7 +82,9 @@ fn integrity_constraints_with_buses() {
     }";
 
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected.trace_columns = trace_segment!(0, "$main", [(clk, 1)]);
+    expected
+        .trace_columns
+        .push(trace_segment!(0, "$main", [(clk, 1)]));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new(SourceSpan::UNKNOWN, ident!(inputs), 2),
@@ -185,7 +189,9 @@ fn multiple_integrity_constraints() {
     }";
 
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected.trace_columns = trace_segment!(0, "$main", [(clk, 1)]);
+    expected
+        .trace_columns
+        .push(trace_segment!(0, "$main", [(clk, 1)]));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new(SourceSpan::UNKNOWN, ident!(inputs), 2),
@@ -233,7 +239,9 @@ fn integrity_constraint_with_periodic_col() {
     }";
 
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected.trace_columns = trace_segment!(0, "$main", [(b, 1)]);
+    expected
+        .trace_columns
+        .push(trace_segment!(0, "$main", [(b, 1)]));
     expected.periodic_columns.insert(
         ident!(k0),
         PeriodicColumn::new(SourceSpan::UNKNOWN, ident!(k0), vec![1, 0]),
@@ -282,7 +290,9 @@ fn integrity_constraint_with_constants() {
     }";
 
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected.trace_columns = trace_segment!(0, "$main", [(clk, 1)]);
+    expected
+        .trace_columns
+        .push(trace_segment!(0, "$main", [(clk, 1)]));
     expected.constants.insert(ident!(A), constant!(A = 0));
     expected.constants.insert(ident!(B), constant!(B = [0, 1]));
     expected
@@ -334,7 +344,9 @@ fn integrity_constraint_with_variables() {
     }";
 
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected.trace_columns = trace_segment!(0, "$main", [(clk, 1)]);
+    expected
+        .trace_columns
+        .push(trace_segment!(0, "$main", [(clk, 1)]));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new(SourceSpan::UNKNOWN, ident!(inputs), 2),
@@ -378,7 +390,9 @@ fn integrity_constraint_with_indexed_trace_access() {
     }";
 
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected.trace_columns = trace_segment!(0, "$main", [(a, 1), (b, 1)]);
+    expected
+        .trace_columns
+        .push(trace_segment!(0, "$main", [(a, 1), (b, 1)]));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new(SourceSpan::UNKNOWN, ident!(inputs), 2),
@@ -422,7 +436,9 @@ fn ic_comprehension_one_iterable_identifier() {
     }";
 
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected.trace_columns = trace_segment!(0, "$main", [(a, 1), (b, 1), (c, 4)]);
+    expected
+        .trace_columns
+        .push(trace_segment!(0, "$main", [(a, 1), (b, 1), (c, 4)]));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new(SourceSpan::UNKNOWN, ident!(inputs), 2),
@@ -465,7 +481,9 @@ fn ic_comprehension_one_iterable_range() {
     }";
 
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected.trace_columns = trace_segment!(0, "$main", [(a, 1), (b, 1), (c, 4)]);
+    expected
+        .trace_columns
+        .push(trace_segment!(0, "$main", [(a, 1), (b, 1), (c, 4)]));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new(SourceSpan::UNKNOWN, ident!(inputs), 2),
@@ -508,7 +526,9 @@ fn ic_comprehension_with_selectors() {
     }";
 
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected.trace_columns = trace_segment!(0, "$main", [(s, 2), (a, 1), (b, 1), (c, 4)]);
+    expected
+        .trace_columns
+        .push(trace_segment!(0, "$main", [(s, 2), (a, 1), (b, 1), (c, 4)]));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new(SourceSpan::UNKNOWN, ident!(inputs), 2),
@@ -555,13 +575,15 @@ fn ic_comprehension_with_evaluator_call() {
     }";
 
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected.trace_columns = trace_segment!(0, "$main", [(a, 1), (b, 1), (c, 4), (d, 4)]);
+    expected
+        .trace_columns
+        .push(trace_segment!(0, "$main", [(a, 1), (b, 1), (c, 4), (d, 4)]));
     expected.evaluators.insert(
         ident!(is_binary),
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(is_binary),
-            trace_segment!(0, "%0", [(x, 1)]),
+            vec![trace_segment!(0, "%0", [(x, 1)])],
             vec![enforce!(eq!(exp!(access!(x), int!(2)), access!(x)))],
         ),
     );
@@ -611,13 +633,17 @@ fn ic_comprehension_with_evaluator_and_selectors() {
     }";
 
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected.trace_columns = trace_segment!(0, "$main", [(s, 2), (a, 1), (b, 1), (c, 4), (d, 4)]);
+    expected.trace_columns.push(trace_segment!(
+        0,
+        "$main",
+        [(s, 2), (a, 1), (b, 1), (c, 4), (d, 4)]
+    ));
     expected.evaluators.insert(
         ident!(is_binary),
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(is_binary),
-            trace_segment!(0, "%0", [(x, 1)]),
+            vec![trace_segment!(0, "%0", [(x, 1)])],
             vec![enforce!(eq!(exp!(access!(x), int!(2)), access!(x)))],
         ),
     );
@@ -670,13 +696,17 @@ fn ic_match_constraint() {
     }";
 
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected.trace_columns = trace_segment!(0, "$main", [(s, 2), (a, 1), (b, 1), (c, 4), (d, 4)]);
+    expected.trace_columns.push(trace_segment!(
+        0,
+        "$main",
+        [(s, 2), (a, 1), (b, 1), (c, 4), (d, 4)]
+    ));
     expected.evaluators.insert(
         ident!(is_binary),
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(is_binary),
-            trace_segment!(0, "%0", [(x, 1)]),
+            vec![trace_segment!(0, "%0", [(x, 1)])],
             vec![enforce!(eq!(exp!(access!(x), int!(2)), access!(x)))],
         ),
     );
