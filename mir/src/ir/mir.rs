@@ -35,6 +35,8 @@ pub struct Mir {
     /// These are taken straight from the [air_parser::ast::Program] without modification.
     pub public_inputs: BTreeMap<Identifier, PublicInput>,
     /// The total number of elements in the random values array
+    ///
+    /// This will be set when expanding Bus constraints.
     pub num_random_values: u16,
     /// The constraints of the program, represented as MIR Nodes
     graph: Graph,

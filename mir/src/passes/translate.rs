@@ -686,7 +686,7 @@ impl<'a> MirBuilder<'a> {
                     Err(CompileError::Failed)
                 }
             }
-            // This must be one of public inputs, random values, or trace columns
+            // This must be one of public inputs or trace columns
             ast::ResolvableIdentifier::Global(ident) | ast::ResolvableIdentifier::Local(ident) => {
                 self.translate_symbol_access_global_or_local(&ident, access)
             }
@@ -1128,10 +1128,7 @@ impl<'a> MirBuilder<'a> {
 
             // It should never be possible to reach this point - semantic analysis
             // would have caught that this identifier is undefined.
-            unreachable!(
-                "expected reference to random values array or trace segment: {:#?}",
-                access
-            );
+            unreachable!("expected reference to trace segment: {:#?}", access);
         }
 
         //    // If we reach here, this must be a let-bound variable
