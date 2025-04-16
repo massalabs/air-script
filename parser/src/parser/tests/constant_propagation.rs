@@ -65,11 +65,7 @@ fn test_constant_propagation() {
     let program = pass.run(program).unwrap();
 
     let mut expected = Program::new(ident!(root));
-    expected.trace_columns.push(trace_segment!(
-        0,
-        "$main",
-        [(clk, 1), (a, 1), (b, 2), (c, 1)]
-    ));
+    expected.trace_columns = trace_segment!(0, "$main", [(clk, 1), (a, 1), (b, 2), (c, 1)]);
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new(SourceSpan::UNKNOWN, ident!(inputs), 0),
@@ -113,7 +109,7 @@ fn test_constant_propagation() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(test_constraint),
-            vec![trace_segment!(0, "%0", [(b0, 1), (b1, 1)])],
+            trace_segment!(0, "%0", [(b0, 1), (b1, 1)]),
             body,
         ),
     );

@@ -22,7 +22,7 @@ fn ev_fn_main_cols() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(advance_clock),
-            vec![trace_segment!(0, "%0", [(clk, 1)])],
+            trace_segment!(0, "%0", [(clk, 1)]),
             vec![enforce!(eq!(access!(clk, 1), add!(access!(clk), int!(1))))],
         ),
     );
@@ -51,9 +51,7 @@ fn ev_fn_call_simple() {
     }";
 
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(clk, 1)]));
+    expected.trace_columns = trace_segment!(0, "$main", [(clk, 1)]);
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new(SourceSpan::UNKNOWN, ident!(inputs), 2),
@@ -92,9 +90,7 @@ fn ev_fn_call() {
     }";
 
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(a, 2), (b, 4), (c, 6)]));
+    expected.trace_columns = trace_segment!(0, "$main", [(a, 2), (b, 4), (c, 6)]);
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new(SourceSpan::UNKNOWN, ident!(inputs), 2),
@@ -131,7 +127,7 @@ fn ev_fn_call_inside_ev_fn() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(ev_func),
-            vec![trace_segment!(0, "%0", [(clk, 1)])],
+            trace_segment!(0, "%0", [(clk, 1)]),
             body,
         ),
     );
@@ -161,9 +157,7 @@ fn ev_fn_call_with_more_than_two_args() {
     }";
 
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(a, 1), (b, 1), (c, 1)]));
+    expected.trace_columns = trace_segment!(0, "$main", [(a, 1), (b, 1), (c, 1)]);
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new(SourceSpan::UNKNOWN, ident!(inputs), 2),
@@ -195,7 +189,7 @@ fn ev_fn_def_with_empty_final_arg() {
     ev ev_func([clk], []) {
         enf clk' = clk + 1
     }";
-    ParseTest::new().expect_module_diagnostic(source, "the last trace segment cannot be empty");
+    ParseTest::new().expect_module_diagnostic(source, "expected one of: '\")\"'");
 }
 
 #[test]

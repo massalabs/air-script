@@ -150,37 +150,35 @@ impl VisitMut<SemanticAnalysisError> for SemanticAnalysis<'_> {
         //
         // As above, we are guaranteed that these names have no conflicts, but we assert that anyway
         if module.is_root() {
-            for segment in self.program.trace_columns.iter() {
+            assert_eq!(
+                self.locals.insert(
+                    NamespacedIdentifier::Binding(self.program.trace_columns.name),
+                    BindingType::TraceColumn(TraceBinding {
+                        span: self.program.trace_columns.span(),
+                        segment: self.program.trace_columns.id,
+                        name: Some(self.program.trace_columns.name),
+                        offset: 0,
+                        size: self.program.trace_columns.size,
+                        ty: Type::Vector(self.program.trace_columns.size),
+                    })
+                ),
+                None
+            );
+            for binding in self.program.trace_columns.bindings.iter().copied() {
                 assert_eq!(
                     self.locals.insert(
-                        NamespacedIdentifier::Binding(segment.name),
+                        NamespacedIdentifier::Binding(binding.name.unwrap()),
                         BindingType::TraceColumn(TraceBinding {
-                            span: segment.span(),
-                            segment: segment.id,
-                            name: Some(segment.name),
-                            offset: 0,
-                            size: segment.size,
-                            ty: Type::Vector(segment.size),
+                            span: self.program.trace_columns.name.span(),
+                            segment: self.program.trace_columns.id,
+                            name: binding.name,
+                            offset: binding.offset,
+                            size: binding.size,
+                            ty: binding.ty,
                         })
                     ),
                     None
                 );
-                for binding in segment.bindings.iter().copied() {
-                    assert_eq!(
-                        self.locals.insert(
-                            NamespacedIdentifier::Binding(binding.name.unwrap()),
-                            BindingType::TraceColumn(TraceBinding {
-                                span: segment.name.span(),
-                                segment: segment.id,
-                                name: binding.name,
-                                offset: binding.offset,
-                                size: binding.size,
-                                ty: binding.ty,
-                            })
-                        ),
-                        None
-                    );
-                }
             }
             for input in self.program.public_inputs.values() {
                 assert_eq!(
@@ -338,22 +336,20 @@ impl VisitMut<SemanticAnalysisError> for SemanticAnalysis<'_> {
         let referenced = mem::take(&mut self.referenced);
 
         // Add the set of parameters to the current scope, check for conflicts
-        for trace_segment in function.params.iter_mut() {
-            for trace_binding in trace_segment.bindings.iter() {
-                let name = trace_binding.name.unwrap();
-                let namespaced_name = NamespacedIdentifier::Binding(name);
-                self.locals.insert(
-                    namespaced_name,
-                    BindingType::TraceParam(TraceBinding {
-                        span: trace_binding.span,
-                        name: Some(name),
-                        segment: trace_segment.id,
-                        offset: trace_binding.offset,
-                        size: trace_binding.size,
-                        ty: trace_binding.ty,
-                    }),
-                );
-            }
+        for trace_binding in function.params.bindings.iter() {
+            let name = trace_binding.name.unwrap();
+            let namespaced_name = NamespacedIdentifier::Binding(name);
+            self.locals.insert(
+                namespaced_name,
+                BindingType::TraceParam(TraceBinding {
+                    span: trace_binding.span,
+                    name: Some(name),
+                    segment: function.params.id,
+                    offset: trace_binding.offset,
+                    size: trace_binding.size,
+                    ty: trace_binding.ty,
+                }),
+            );
         }
 
         // Visit all of the statements in the body
@@ -708,9 +704,21 @@ impl VisitMut<SemanticAnalysisError> for SemanticAnalysis<'_> {
         // * Must match the type signature of the callee
         if let Ok(ty) = callee_binding_ty {
             if let BindingType::Function(FunctionType::Evaluator(ref params)) = ty.item {
-                for (arg, param) in expr.args.iter().zip(params.iter()) {
-                    self.validate_evaluator_argument(expr.span(), arg, param)?;
+                // Check that we have only one argument (for the main trace)
+                if expr.args.len() != 1 {
+                    self.has_type_errors = true;
+                    self.diagnostics
+                        .diagnostic(Severity::Error)
+                        .with_message("invalid evaluator function call")
+                        .with_primary_label(
+                            expr.span(),
+                            format!("expected a single argument, found {}", expr.args.len()),
+                        )
+                        .emit();
+                    return ControlFlow::Break(SemanticAnalysisError::Invalid);
                 }
+                self.validate_evaluator_argument(expr.span(), expr.args.first().unwrap(), params)?;
+                // Unwrap checked above
             }
         }
 

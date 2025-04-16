@@ -26,7 +26,7 @@ fn variables_with_and_operators() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(test),
-            vec![trace_segment!(0, "%0", [(clk, 1)])],
+            trace_segment!(0, "%0", [(clk, 1)]),
             body,
         ),
     );
@@ -54,7 +54,7 @@ fn variables_with_or_operators() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(test),
-            vec![trace_segment!(0, "%0", [(clk, 1)])],
+            trace_segment!(0, "%0", [(clk, 1)]),
             body,
         ),
     );

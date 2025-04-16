@@ -28,9 +28,7 @@ fn single_selector() {
         enf clk' = clk when n1;
     }"#;
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(clk, 1), (n1, 1)]));
+    expected.trace_columns = trace_segment!(0, "$main", [(clk, 1), (n1, 1)]);
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new(SourceSpan::UNKNOWN, ident!(inputs), 2),
@@ -72,11 +70,7 @@ fn chained_selectors() {
         enf clk' = clk when (n1 & !n2) | !n3;
     }"#;
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected.trace_columns.push(trace_segment!(
-        0,
-        "$main",
-        [(clk, 1), (n1, 1), (n2, 1), (n3, 1)]
-    ));
+    expected.trace_columns = trace_segment!(0, "$main", [(clk, 1), (n1, 1), (n2, 1), (n3, 1)]);
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new(SourceSpan::UNKNOWN, ident!(inputs), 2),
