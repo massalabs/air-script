@@ -20,6 +20,19 @@ pub enum Root {
     None(SourceSpan),
 }
 
+impl Root {
+    pub fn is_parent(&self) -> bool {
+        match self {
+            Root::None(_) => false,
+            _ => true,
+        }
+    }
+
+    pub fn is_child(&self) -> bool {
+        false
+    }
+}
+
 impl Default for Root {
     fn default() -> Self {
         Root::None(SourceSpan::default())
@@ -136,5 +149,13 @@ impl Link<Root> {
             Root::Evaluator(e) => Some(e),
             _ => None,
         })
+    }
+
+    pub fn is_parent(&self) -> bool {
+        self.borrow().is_parent()
+    }
+
+    pub fn is_child(&self) -> bool {
+        self.borrow().is_child()
     }
 }

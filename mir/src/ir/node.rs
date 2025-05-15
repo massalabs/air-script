@@ -311,4 +311,21 @@ impl Link<Node> {
             None => self.as_op().and_then(|op| op.as_owner()),
         }
     }
+
+    pub fn is_parent(&self) -> bool {
+        if let Some(owner) = self.as_owner() {
+            owner.is_parent()
+        } else {
+            false
+        }
+    }
+    pub fn is_child(&self) -> bool {
+        if let Some(op) = self.as_op() {
+            op.is_child()
+        } else if let Some(root) = self.as_root() {
+            root.is_child()
+        } else {
+            false
+        }
+    }
 }

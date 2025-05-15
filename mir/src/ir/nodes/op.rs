@@ -34,6 +34,24 @@ pub enum Op {
     None(SourceSpan),
 }
 
+impl Op {
+    pub fn is_parent(&self) -> bool {
+        match self {
+            Op::Value(_) => false,
+            Op::Parameter(_) => false,
+            Op::None(_) => false,
+            _ => true,
+        }
+    }
+
+    pub fn is_child(&self) -> bool {
+        match self {
+            Op::None(_) => false,
+            _ => true,
+        }
+    }
+}
+
 impl Default for Op {
     fn default() -> Self {
         Op::None(Default::default())
@@ -825,6 +843,13 @@ impl Link<Op> {
             Op::Value(inner) => Some(inner),
             _ => None,
         })
+    }
+
+    pub fn is_parent(&self) -> bool {
+        self.borrow().is_parent()
+    }
+    pub fn is_child(&self) -> bool {
+        self.borrow().is_child()
     }
 }
 

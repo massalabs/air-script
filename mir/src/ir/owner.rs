@@ -276,6 +276,23 @@ impl Link<Owner> {
             None => self.as_op().map(|op| op.as_node()).unwrap_or_default(),
         }
     }
+
+    pub fn is_parent(&self) -> bool {
+        if self.is_stale() {
+            return false;
+        }
+        return true;
+    }
+
+    pub fn is_child(&self) -> bool {
+        if let Some(root) = self.as_root() {
+            root.is_child()
+        } else if let Some(op) = self.as_op() {
+            op.is_child()
+        } else {
+            false
+        }
+    }
 }
 
 impl BackLink<Owner> {
