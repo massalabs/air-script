@@ -518,7 +518,7 @@ impl VisitMut<SemanticAnalysisError> for ConstantPropagation<'_> {
                     }) => rows.len(),
                     Expr::Const(_) => panic!("expected iterable constant, got scalar"),
                     Expr::Range(range) => range.to_slice_range().len(),
-                    _ => unreachable!(),
+                    _ => unreachable!("unexpected iterable type: {:#?}", lc.iterables[0]),
                 };
 
                 // Drive the comprehension step-by-step
@@ -548,7 +548,7 @@ impl VisitMut<SemanticAnalysisError> for ConstantPropagation<'_> {
                                 let value = ConstantExpr::Scalar((range.start + step) as u64);
                                 self.local.insert(binding, Span::new(span, value));
                             }
-                            _ => unreachable!(),
+                            _ => unreachable!("unexpected iterable type: {:#?}", iterable),
                         }
                     }
 
