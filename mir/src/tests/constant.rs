@@ -1,4 +1,7 @@
+use crate::tests::Compiler;
+
 use super::{compile, expect_diagnostic};
+use pretty_assertions::assert_eq;
 
 #[test]
 fn boundary_constraint_with_constants() {
@@ -20,8 +23,29 @@ fn boundary_constraint_with_constants() {
     integrity_constraints {
         enf clk' = clk - 1;
     }";
-
-    assert!(compile(source).is_ok());
+    let compiler = Compiler::default();
+    let ast = compiler.compile(source).unwrap_or_else(|e| {
+        panic!("Compilation failed with error: {:#?}", e);
+    });
+    let expected_source = "
+    def test
+    trace_columns {
+        main: [clk],
+    }
+    public_inputs {
+        stack_inputs: [16],
+    }
+    boundary_constraints {
+        enf clk.first = 123;
+        enf clk.last = 3;
+    }
+    integrity_constraints {
+        enf clk' = clk - 1;
+    }";
+    let expected_ast = compiler.compile(expected_source).unwrap_or_else(|e| {
+        panic!("Compilation failed with error: {:#?}", e);
+    });
+    assert_eq!(ast, expected_ast);
 }
 
 #[test]

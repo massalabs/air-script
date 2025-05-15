@@ -122,25 +122,24 @@ impl Compiler {
         air_parser::parse(&self.diagnostics, self.codemap.clone(), source)
             .map_err(CompileError::Parse)
             .and_then(|ast| {
-                let mut pipeline =
-                    air_parser::transforms::ConstantPropagation::new(&self.diagnostics)
-                        .chain(crate::passes::AstToMir::new(&self.diagnostics))
-                        .chain(crate::passes::Inlining::new(&self.diagnostics))
-                        .chain(crate::passes::Unrolling::new(&self.diagnostics))
-                        .chain(crate::passes::BusOpExpand::new(&self.diagnostics));
+                let mut pipeline = crate::passes::AstToMir::new(&self.diagnostics)
+                    .chain(crate::passes::ConstantPropagation::new(&self.diagnostics))
+                    .chain(crate::passes::Inlining::new(&self.diagnostics))
+                    .chain(crate::passes::Unrolling::new(&self.diagnostics))
+                    .chain(crate::passes::BusOpExpand::new(&self.diagnostics));
                 pipeline.run(ast)
             })
     }
+
     pub fn translate(&self, source: &str) -> Result<Mir, CompileError> {
         air_parser::parse(&self.diagnostics, self.codemap.clone(), source)
             .map_err(CompileError::Parse)
             .and_then(|ast| {
-                let mut pipeline =
-                    air_parser::transforms::ConstantPropagation::new(&self.diagnostics)
-                        .chain(crate::passes::AstToMir::new(&self.diagnostics));
+                let mut pipeline = crate::passes::AstToMir::new(&self.diagnostics);
                 pipeline.run(ast)
             })
     }
+
     #[allow(dead_code)]
     pub fn parse(&self, source: &str) -> Result<air_parser::ast::Program, CompileError> {
         air_parser::parse(&self.diagnostics, self.codemap.clone(), source)

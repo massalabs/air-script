@@ -1,11 +1,14 @@
+use air_parser::{ast::Identifier, LexicalScope};
 use air_pass::Pass;
 use miden_diagnostics::DiagnosticsHandler;
 
 use super::visitor::Visitor;
 use crate::{
-    ir::{Link, Mir, Node},
+    ir::{Link, Mir, Node, Op, Parent, Root},
     CompileError,
 };
+
+use std::ops::Deref;
 
 /// TODO MIR:
 /// If needed, implement constant propagation / folding pass on MIR
@@ -17,6 +20,7 @@ pub struct ConstantPropagation<'a> {
     #[allow(unused)]
     diagnostics: &'a DiagnosticsHandler,
     work_stack: Vec<Link<Node>>,
+    bindings: LexicalScope<Identifier, Link<Op>>,
 }
 
 impl Pass for ConstantPropagation<'_> {
@@ -35,7 +39,33 @@ impl<'a> ConstantPropagation<'a> {
     pub fn new(diagnostics: &'a DiagnosticsHandler) -> Self {
         Self {
             diagnostics,
-            work_stack: vec![],
+            work_stack: Default::default(),
+            bindings: Default::default(),
+        }
+    }
+
+    pub fn has_constant(&self, node: &Link<Node>) -> bool {
+        if let Some(root) = node.as_root() {
+            match root.borrow().deref() {
+                Root::None(_) => false,
+                _ => root
+                    .children()
+                    .borrow()
+                    .iter()
+                    .any(|child| self.has_constant(&child.as_node())),
+            }
+        } else if let Some(op) = node.as_op() {
+            match op.borrow().deref() {
+                Op::Value(_) => true,
+                t if t.is_parent() => t
+                    .children()
+                    .borrow()
+                    .iter()
+                    .any(|child| self.has_constant(&child.as_node())),
+                _ => unimplemented!(),
+            }
+        } else {
+            return false;
         }
     }
 }

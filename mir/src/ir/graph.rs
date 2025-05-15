@@ -16,11 +16,31 @@ pub struct Graph {
     pub boundary_constraints_roots: ir::Link<Vec<ir::Link<ir::Op>>>,
     pub integrity_constraints_roots: ir::Link<Vec<ir::Link<ir::Op>>>,
     pub buses: BTreeMap<QualifiedIdentifier, ir::Link<ir::Bus>>,
+    pub constants: BTreeMap<QualifiedIdentifier, ir::Link<ir::Op>>,
 }
 
 impl Graph {
     pub fn create() -> ir::Link<Self> {
         Graph::default().into()
+    }
+
+    /// Inserts a constant into the graph, returning an error if the constant already exists
+    /// (declaration conflict).
+    pub fn insert_constant(
+        &mut self,
+        ident: QualifiedIdentifier,
+        constant: ir::Link<ir::Op>,
+    ) -> Result<(), CompileError> {
+        match self.constants.insert(ident, constant) {
+            None => Ok(()),
+            Some(link) => {
+                if let ir::Op::None(_) = *link.borrow() {
+                    Ok(())
+                } else {
+                    Err(CompileError::Failed)
+                }
+            }
+        }
     }
 
     /// Inserts a function into the graph, returning an error if the root is not a [ir::Function],
