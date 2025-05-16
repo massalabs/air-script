@@ -853,15 +853,27 @@ impl Link<Op> {
     }
 }
 
-impl From<i64> for Link<Op> {
-    fn from(value: i64) -> Self {
+impl From<u64> for Link<Op> {
+    fn from(value: u64) -> Self {
         Op::Value(Value {
             value: SpannedMirValue {
-                value: MirValue::Constant(ConstantValue::Felt(value as u64)),
+                value: MirValue::Constant(ConstantValue::Felt(value)),
                 ..Default::default()
             },
             ..Default::default()
         })
         .into()
+    }
+}
+
+impl From<i64> for Link<Op> {
+    fn from(value: i64) -> Self {
+        Self::from(value as u64)
+    }
+}
+
+impl From<i32> for Link<Op> {
+    fn from(value: i32) -> Self {
+        Self::from(value as u64)
     }
 }
