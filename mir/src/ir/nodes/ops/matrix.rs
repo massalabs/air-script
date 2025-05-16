@@ -27,6 +27,9 @@ impl Matrix {
         })
         .into()
     }
+    pub fn get_element(&self, index: usize) -> Option<Link<Op>> {
+        self.elements.borrow().get(index).cloned()
+    }
 }
 
 impl Parent for Matrix {
