@@ -685,7 +685,13 @@ impl<'a> MirBuilder<'a> {
                         .build();
                     Ok(node)
                 } else if let Some(constant) = self.program.constants.get(&qual_ident) {
-                    let node = self.translate_const(&constant.value, constant.span)?;
+                    let indexable = self.translate_const(&constant.value, constant.span)?;
+                    let node = Accessor::builder()
+                        .access_type(access.access_type.clone())
+                        .indexable(indexable)
+                        .offset(access.offset)
+                        .span(access.span())
+                        .build();
                     Ok(node)
                 } else {
                     // This is a qualified reference that should have been eliminated
