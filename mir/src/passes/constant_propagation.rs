@@ -116,7 +116,9 @@ impl Visitor for ConstantPropagation<'_> {
         let orig = duplicate_node(op.clone(), &mut Default::default());
         if let Some(add) = orig.as_add() {
             if let (Some(lhs), Some(rhs)) = (as_constant(&add.lhs), as_constant(&add.rhs)) {
-                op.update(&(lhs + rhs).into());
+                let new: Link<Op> = (lhs + rhs).into();
+                new.as_value_mut().unwrap().value.span = add.span;
+                op.update(&new);
             };
         }
         debug(&op.as_node());
@@ -131,7 +133,9 @@ impl Visitor for ConstantPropagation<'_> {
         let orig = duplicate_node(op.clone(), &mut Default::default());
         if let Some(sub) = orig.as_sub() {
             if let (Some(lhs), Some(rhs)) = (as_constant(&sub.lhs), as_constant(&sub.rhs)) {
-                op.update(&(lhs - rhs).into());
+                let new: Link<Op> = (lhs - rhs).into();
+                new.as_value_mut().unwrap().value.span = sub.span;
+                op.update(&new);
             };
         }
         debug(&op.as_node());
@@ -146,7 +150,9 @@ impl Visitor for ConstantPropagation<'_> {
         let orig = duplicate_node(op.clone(), &mut Default::default());
         if let Some(mul) = orig.as_mul() {
             if let (Some(lhs), Some(rhs)) = (as_constant(&mul.lhs), as_constant(&mul.rhs)) {
-                op.update(&(lhs * rhs).into());
+                let new: Link<Op> = (lhs * rhs).into();
+                new.as_value_mut().unwrap().value.span = mul.span;
+                op.update(&new);
             };
         }
         debug(&op.as_node());
@@ -159,10 +165,12 @@ impl Visitor for ConstantPropagation<'_> {
             return Ok(());
         }
         let orig = duplicate_node(op.clone(), &mut Default::default());
-        if let Some(mul) = orig.as_exp() {
-            if let (Some(lhs), Some(rhs)) = (as_constant(&mul.lhs), as_constant(&mul.rhs)) {
+        if let Some(exp) = orig.as_exp() {
+            if let (Some(lhs), Some(rhs)) = (as_constant(&exp.lhs), as_constant(&exp.rhs)) {
                 assert!(rhs < 2_u64.pow(32));
-                op.update(&(lhs.pow(rhs as u32)).into());
+                let new: Link<Op> = (lhs.pow(rhs as u32)).into();
+                new.as_value_mut().unwrap().value.span = exp.span;
+                op.update(&new);
             };
         }
         debug(&op.as_node());
@@ -207,7 +215,9 @@ impl Visitor for ConstantPropagation<'_> {
             ) {
                 (AccessType::Default, _) => {
                     if let Some(value) = as_constant(&indexable) {
-                        op.update(&value.into());
+                        let new: Link<Op> = value.into();
+                        new.as_value_mut().unwrap().value.span = accessor.span;
+                        op.update(&new);
                     }
                 }
                 (AccessType::Slice(_), _) => {
@@ -218,15 +228,25 @@ impl Visitor for ConstantPropagation<'_> {
                         .get_element(index)
                         .unwrap_or_else(|| panic!("Index out of bounds: {} >= {}", index, v.size));
                     if let Some(value) = as_constant(&value) {
-                        op.update(&value.into());
+                        let new: Link<Op> = value.into();
+                        new.as_value_mut().unwrap().value.span = accessor.span;
+                        op.update(&new);
                     }
                 }
                 (AccessType::Index(index), Op::Matrix(m)) => {
                     let value = m
                         .get_element(index)
                         .unwrap_or_else(|| panic!("Index out of bounds: {} >= {}", index, m.size));
+                    if !is_constant(&value.as_node()) {
+                        // This is not a constant, so we don't need to replace it
+                        return Ok(());
+                    }
+                    // TODO: Fix this, currently doesnt work it extracts a constant
+                    // instead of a constant vector
                     if let Some(value) = as_constant(&value) {
-                        op.update(&value.into());
+                        let new: Link<Op> = value.into();
+                        new.as_value_mut().unwrap().value.span = accessor.span;
+                        op.update(&new);
                     }
                 }
                 (AccessType::Matrix(row_idx, col_idx), Op::Matrix(m)) => {
@@ -240,7 +260,9 @@ impl Visitor for ConstantPropagation<'_> {
                         panic!("Index out of bounds: {} >= {}", col_idx, m.size)
                     });
                     if let Some(value) = as_constant(&value) {
-                        op.update(&value.into());
+                        let new: Link<Op> = value.into();
+                        new.as_value_mut().unwrap().value.span = accessor.span;
+                        op.update(&new);
                     }
                 }
                 _ => {
