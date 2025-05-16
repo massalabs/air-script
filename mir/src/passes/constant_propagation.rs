@@ -1,15 +1,12 @@
-use air_parser::{
-    ast::{AccessType, Identifier},
-    LexicalScope,
-};
+use air_parser::ast::AccessType;
 use air_pass::Pass;
 use miden_diagnostics::DiagnosticsHandler;
 
 use super::{duplicate_node, visitor::Visitor};
 use crate::{
     ir::{
-        extract_all_roots, Add, Call, ConstantValue, Exp, Fold, For, Graph, If, Link, Matrix, Mir,
-        MirValue, Mul, Node, Op, Owner, Parent, Root, SpannedMirValue, Sub, Value, Vector,
+        extract_all_roots, ConstantValue, Graph, Link, Mir, MirValue, Node, Op, Parent, Root,
+        SpannedMirValue, Value,
     },
     CompileError,
 };

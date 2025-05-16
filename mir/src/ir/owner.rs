@@ -281,7 +281,7 @@ impl Link<Owner> {
         if self.is_stale() {
             return false;
         }
-        return true;
+        true
     }
 
     pub fn is_child(&self) -> bool {

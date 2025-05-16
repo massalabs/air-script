@@ -36,19 +36,11 @@ pub enum Op {
 
 impl Op {
     pub fn is_parent(&self) -> bool {
-        match self {
-            Op::Value(_) => false,
-            Op::Parameter(_) => false,
-            Op::None(_) => false,
-            _ => true,
-        }
+        !matches!(self, Op::Value(_) | Op::Parameter(_) | Op::None(_))
     }
 
     pub fn is_child(&self) -> bool {
-        match self {
-            Op::None(_) => false,
-            _ => true,
-        }
+        !matches!(self, Op::None(_))
     }
 }
 

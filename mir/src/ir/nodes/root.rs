@@ -22,10 +22,7 @@ pub enum Root {
 
 impl Root {
     pub fn is_parent(&self) -> bool {
-        match self {
-            Root::None(_) => false,
-            _ => true,
-        }
+        !matches!(self, Root::None(_))
     }
 
     pub fn is_child(&self) -> bool {

@@ -48,6 +48,7 @@ impl Pass for AstToMir<'_> {
     fn run<'a>(&mut self, program: Self::Input<'a>) -> Result<Self::Output<'a>, Self::Error> {
         let mut builder = MirBuilder::new(&program, self.diagnostics);
         if let Err(e) = builder.translate_program() {
+            self.diagnostics.emit(e);
             panic!("failed to translate AST to MIR");
         }
         Ok(builder.mir)
