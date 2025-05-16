@@ -1,7 +1,6 @@
-use crate::tests::Compiler;
+use crate::{ir::compare_mir, tests::Compiler};
 
 use super::{compile, expect_diagnostic};
-use pretty_assertions::assert_eq;
 
 #[test]
 fn boundary_constraint_with_constants() {
@@ -24,7 +23,7 @@ fn boundary_constraint_with_constants() {
         enf clk' = clk - 1;
     }";
     let compiler = Compiler::default();
-    let ast = compiler.compile(source).unwrap_or_else(|e| {
+    let mut ast = compiler.compile(source).unwrap_or_else(|e| {
         panic!("Compilation failed with error: {:#?}", e);
     });
     let expected_source = "
@@ -42,10 +41,10 @@ fn boundary_constraint_with_constants() {
     integrity_constraints {
         enf clk' = clk - 1;
     }";
-    let expected_ast = compiler.compile(expected_source).unwrap_or_else(|e| {
+    let mut expected_ast = compiler.compile(expected_source).unwrap_or_else(|e| {
         panic!("Compilation failed with error: {:#?}", e);
     });
-    assert_eq!(ast, expected_ast);
+    compare_mir(&mut ast, &mut expected_ast);
 }
 
 #[test]
