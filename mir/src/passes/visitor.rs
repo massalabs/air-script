@@ -38,11 +38,20 @@ pub trait Visitor {
         }
         Ok(())
     }
+    /// Runs at the start of every visit_node call
+    fn pre_visit(&mut self, _graph: &mut Graph, _node: Link<Node>) -> Result<(), CompileError> {
+        Ok(())
+    }
+    /// Runs at the end of every visit_node call
+    fn post_visit(&mut self, _graph: &mut Graph, _node: Link<Node>) -> Result<(), CompileError> {
+        Ok(())
+    }
     /// Dispatch to the relevant `visit_*` method based on the variant of the node
     fn visit_node(&mut self, graph: &mut Graph, node: Link<Node>) -> Result<(), CompileError> {
         if node.is_stale() {
             return Ok(());
         }
+        self.pre_visit(graph, node.clone())?;
         match node.borrow().deref() {
             Node::Function(f) => self.visit_function(graph, f.clone().into()),
             Node::Evaluator(e) => self.visit_evaluator(graph, e.clone().into()),
@@ -63,7 +72,9 @@ pub trait Visitor {
             Node::Parameter(p) => self.visit_parameter(graph, p.clone().into()),
             Node::Value(v) => self.visit_value(graph, v.clone().into()),
             Node::None(_) => Ok(()),
-        }
+        }?;
+        self.post_visit(graph, node.clone())?;
+        Ok(())
     }
     /// Visit a Function node
     fn visit_function(
