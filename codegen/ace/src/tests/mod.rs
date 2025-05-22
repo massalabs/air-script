@@ -20,8 +20,8 @@ pub fn generate_circuit(source: &str) -> (Air, Circuit, Node) {
     let air = air_parser::parse(&diagnostics, code_map, source)
         .map_err(air_ir::CompileError::Parse)
         .and_then(|ast| {
-            let mut pipeline = air_parser::transforms::ConstantPropagation::new(&diagnostics)
-                .chain(mir::passes::AstToMir::new(&diagnostics))
+            let mut pipeline = mir::passes::AstToMir::new(&diagnostics)
+                .chain(mir::passes::ConstantPropagation::new(&diagnostics))
                 .chain(mir::passes::Inlining::new(&diagnostics))
                 .chain(mir::passes::Unrolling::new(&diagnostics))
                 .chain(mir::passes::BusOpExpand::new(&diagnostics))

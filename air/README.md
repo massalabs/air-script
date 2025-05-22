@@ -15,14 +15,14 @@ Example usage:
 let ast = parse(source.as_str()).expect("Parsing failed");
 
 // Create the compilation pipeline needed to translate the AST to AIR
-let pipeline_with_mir = air_parser::transforms::ConstantPropagation::new(&diagnostics)
-  .chain(mir::passes::AstToMir::new(&diagnostics))
+let mut pipeline_with_mir = mir::passes::AstToMir::new(&diagnostics)
+  .chain(mir::passes::ConstantPropagation::new(&diagnostics))
   .chain(mir::passes::Inlining::new(&diagnostics))
   .chain(mir::passes::Unrolling::new(&diagnostics))
   .chain(mir::passes::BusOpExpand::new(&diagnostics))
   .chain(air_ir::passes::MirToAir::new(&diagnostics));
 
-let pipeline_without_mir = air_parser::transforms::ConstantPropagation::new(&diagnostics)
+let mut pipeline_without_mir = air_parser::transforms::ConstantPropagation::new(&diagnostics)
   .chain(air_parser::transforms::Inlining::new(&diagnostics))
   .chain(air_ir::passes::AstToAir::new(&diagnostics));
   

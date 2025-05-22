@@ -95,13 +95,12 @@ impl Compiler {
             Pipeline::WithMIR => air_parser::parse(&self.diagnostics, self.codemap.clone(), source)
                 .map_err(CompileError::Parse)
                 .and_then(|ast| {
-                    let mut pipeline =
-                        air_parser::transforms::ConstantPropagation::new(&self.diagnostics)
-                            .chain(mir::passes::AstToMir::new(&self.diagnostics))
-                            .chain(mir::passes::Inlining::new(&self.diagnostics))
-                            .chain(mir::passes::Unrolling::new(&self.diagnostics))
-                            .chain(mir::passes::BusOpExpand::new(&self.diagnostics))
-                            .chain(crate::passes::MirToAir::new(&self.diagnostics));
+                    let mut pipeline = mir::passes::AstToMir::new(&self.diagnostics)
+                        .chain(mir::passes::ConstantPropagation::new(&self.diagnostics))
+                        .chain(mir::passes::Inlining::new(&self.diagnostics))
+                        .chain(mir::passes::Unrolling::new(&self.diagnostics))
+                        .chain(mir::passes::BusOpExpand::new(&self.diagnostics))
+                        .chain(crate::passes::MirToAir::new(&self.diagnostics));
                     pipeline.run(ast)
                 }),
             Pipeline::WithoutMIR => {

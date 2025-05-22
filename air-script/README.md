@@ -30,9 +30,12 @@ let diagnostics = DiagnosticsHandler::new(Default::default(), codemap.clone(), e
 let ast = parse(&diagnostics, codemap, source.as_str()).expect("parsing failed");
 // Lower to IR
 let air = {
-   let mut pipeline = transforms::ConstantPropagation::new(&diagnostics)
-      .chain(transforms::Inlining::new(&diagnostics))
-      .chain(passes::AstToAir::new(&diagnostics));
+   let mut pipeline = mir::passes::AstToMir::new(&diagnostics)
+     .chain(mir::passes::ConstantPropagation::new(&diagnostics))
+     .chain(mir::passes::Inlining::new(&diagnostics))
+     .chain(mir::passes::Unrolling::new(&diagnostics))
+     .chain(mir::passes::BusOpExpand::new(&diagnostics))
+     .chain(air_ir::passes::MirToAir::new(&diagnostics));
    pipeline.run(ast).expect("lowering failed")
 };
 

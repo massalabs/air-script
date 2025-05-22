@@ -70,13 +70,12 @@ impl Transpile {
                 air_parser::parse_file(&diagnostics, codemap, input_path)
                     .map_err(CompileError::Parse)
                     .and_then(|ast| {
-                        let mut pipeline =
-                            air_parser::transforms::ConstantPropagation::new(&diagnostics)
-                                .chain(mir::passes::AstToMir::new(&diagnostics))
-                                .chain(mir::passes::Inlining::new(&diagnostics))
-                                .chain(mir::passes::Unrolling::new(&diagnostics))
-                                .chain(mir::passes::BusOpExpand::new(&diagnostics))
-                                .chain(air_ir::passes::MirToAir::new(&diagnostics));
+                        let mut pipeline = mir::passes::AstToMir::new(&diagnostics)
+                            .chain(mir::passes::ConstantPropagation::new(&diagnostics))
+                            .chain(mir::passes::Inlining::new(&diagnostics))
+                            .chain(mir::passes::Unrolling::new(&diagnostics))
+                            .chain(mir::passes::BusOpExpand::new(&diagnostics))
+                            .chain(air_ir::passes::MirToAir::new(&diagnostics));
                         pipeline.run(ast)
                     })
             }

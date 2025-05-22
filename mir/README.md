@@ -17,8 +17,9 @@ Example usage:
 let ast = parse(source.as_str()).expect("Parsing failed");
 
 // Create the compilation pipeline needed to translate the AST to MIR
-let pipeline = air_parser::transforms::ConstantPropagation::new(&diagnostics)
-  .chain(mir::passes::AstToMir::new(&diagnostics))
+let pipeline = 
+  mir::passes::AstToMir::new(&diagnostics)
+  .chain(mir::passes::ConstantPropagation::new(&diagnostics))
 
 // process the AST to get a Result containing the MIR or a CompileError
 let mir = pipeline.run(ast)
