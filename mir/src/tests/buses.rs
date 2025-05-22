@@ -3,10 +3,11 @@ use crate::{
         assert_bus_eq, Add, Builder, Bus, Fold, FoldOperator, Link, Mir, MirValue, Op,
         PublicInputTableAccess, Vector,
     },
-    tests::translate,
+    tests::{propagate_constants, translate},
 };
 use air_parser::{ast, Symbol};
 use miden_diagnostics::{SourceSpan, Spanned};
+use pretty_assertions::assert_eq;
 
 use super::{compile, expect_diagnostic};
 
@@ -106,7 +107,7 @@ fn buses_args_expr_in_integrity_expr() {
         p.remove(x) when 0;
     }";
     assert!(compile(source).is_ok());
-    let mut result_mir = translate(source).unwrap();
+    let mut result_mir = propagate_constants(source).unwrap();
     let bus = Bus::create(
         ast::Identifier::new(SourceSpan::default(), Symbol::new(0)),
         ast::BusType::Multiset,
@@ -142,7 +143,13 @@ fn buses_args_expr_in_integrity_expr() {
     let _ = expected_mir
         .constraint_graph_mut()
         .insert_bus(*bus_ident, bus.clone());
-    assert_bus_eq(&mut expected_mir, &mut result_mir);
+    dbg!(&expected_mir.constraint_graph().buses);
+    dbg!(&result_mir.constraint_graph().buses);
+    assert_eq!(
+        result_mir.constraint_graph().buses,
+        expected_mir.constraint_graph().buses,
+    );
+    assert_bus_eq(&mut result_mir, &mut expected_mir);
 }
 
 #[test]

@@ -52,6 +52,18 @@ pub fn translate(source: &str) -> Result<Mir, ()> {
     }
 }
 
+pub fn propagate_constants(source: &str) -> Result<Mir, ()> {
+    let compiler = Compiler::default();
+    match compiler.propagate_constants(source) {
+        Ok(mir) => Ok(mir),
+        Err(err) => {
+            compiler.diagnostics.emit(err);
+            compiler.emitter.print_captured_to_stderr();
+            Err(())
+        }
+    }
+}
+
 #[allow(dead_code)]
 pub fn parse(source: &str) -> Result<air_parser::ast::Program, ()> {
     let compiler = Compiler::default();
@@ -136,6 +148,16 @@ impl Compiler {
             .map_err(CompileError::Parse)
             .and_then(|ast| {
                 let mut pipeline = crate::passes::AstToMir::new(&self.diagnostics);
+                pipeline.run(ast)
+            })
+    }
+
+    pub fn propagate_constants(&self, source: &str) -> Result<Mir, CompileError> {
+        air_parser::parse(&self.diagnostics, self.codemap.clone(), source)
+            .map_err(CompileError::Parse)
+            .and_then(|ast| {
+                let mut pipeline = crate::passes::AstToMir::new(&self.diagnostics)
+                    .chain(crate::passes::ConstantPropagation::new(&self.diagnostics));
                 pipeline.run(ast)
             })
     }
