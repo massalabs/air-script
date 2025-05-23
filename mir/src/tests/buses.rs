@@ -1,9 +1,9 @@
 use crate::{
     ir::{
         assert_bus_eq, Add, Builder, Bus, Fold, FoldOperator, Link, Mir, MirValue, Op,
-        PublicInputTableAccess, Vector,
+        PublicInputTableAccess, SpannedMirValue, Value, Vector,
     },
-    tests::{propagate_constants, translate},
+    tests::propagate_constants,
 };
 use air_parser::{ast, Symbol};
 use miden_diagnostics::{SourceSpan, Spanned};
@@ -139,6 +139,10 @@ fn buses_args_expr_in_integrity_expr() {
     let bus_ident = result_mir.constraint_graph().buses.keys().next().unwrap();
     let bus_name = ast::Identifier::new(bus_ident.span(), bus_ident.name());
     bus.borrow_mut().set_name_unchecked(bus_name);
+    let _ = bus.borrow_mut().set_first(Value::create(SpannedMirValue {
+        value: MirValue::Null,
+        ..Default::default()
+    }));
     let mut expected_mir = Mir::new(result_mir.name);
     let _ = expected_mir
         .constraint_graph_mut()
