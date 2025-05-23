@@ -137,3 +137,18 @@ impl Link<Root> {
         self.borrow().is_child()
     }
 }
+
+impl From<Link<Node>> for Link<Root> {
+    fn from(node: Link<Node>) -> Self {
+        node.as_root()
+            .unwrap_or_else(|| panic!("{:?} is not an op", node))
+    }
+}
+
+impl From<Link<Owner>> for Link<Root> {
+    fn from(owner: Link<Owner>) -> Self {
+        owner
+            .as_root()
+            .unwrap_or_else(|| panic!("{:?} is not an op", owner))
+    }
+}

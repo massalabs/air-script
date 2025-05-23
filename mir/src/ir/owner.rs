@@ -322,3 +322,23 @@ impl BackLink<Owner> {
             .unwrap_or(0)
     }
 }
+
+impl From<Link<Node>> for Link<Owner> {
+    fn from(op: Link<Node>) -> Self {
+        op.as_owner()
+            .unwrap_or_else(|| panic!("{:?} is not an owner", op))
+    }
+}
+
+impl From<Link<Root>> for Link<Owner> {
+    fn from(op: Link<Root>) -> Self {
+        op.as_owner()
+    }
+}
+
+impl From<Link<Op>> for Link<Owner> {
+    fn from(op: Link<Op>) -> Self {
+        op.as_owner()
+            .unwrap_or_else(|| panic!("{:?} is not an owner", op))
+    }
+}

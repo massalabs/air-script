@@ -329,3 +329,21 @@ impl Link<Node> {
         }
     }
 }
+
+impl From<Link<Owner>> for Link<Node> {
+    fn from(op: Link<Owner>) -> Self {
+        op.as_node()
+    }
+}
+
+impl From<Link<Root>> for Link<Node> {
+    fn from(op: Link<Root>) -> Self {
+        op.as_node()
+    }
+}
+
+impl From<Link<Op>> for Link<Node> {
+    fn from(op: Link<Op>) -> Self {
+        op.as_node()
+    }
+}

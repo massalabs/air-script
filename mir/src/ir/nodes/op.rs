@@ -723,3 +723,18 @@ impl From<i32> for Link<Op> {
         Self::from(value as u64)
     }
 }
+
+impl From<Link<Node>> for Link<Op> {
+    fn from(node: Link<Node>) -> Self {
+        node.as_op()
+            .unwrap_or_else(|| panic!("{:?} is not an op", node))
+    }
+}
+
+impl From<Link<Owner>> for Link<Op> {
+    fn from(owner: Link<Owner>) -> Self {
+        owner
+            .as_op()
+            .unwrap_or_else(|| panic!("{:?} is not an op", owner))
+    }
+}
