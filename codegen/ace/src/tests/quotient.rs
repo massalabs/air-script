@@ -64,15 +64,15 @@ pub fn eval_quotient(air: &Air, ace_vars: &AceVars, log_trace_len: u32) -> QuadF
             Operation::Value(v) => match v {
                 Value::Constant(c) => QuadFelt::from(Felt::new(c)),
                 Value::TraceAccess(access) => {
-                    ace_vars.segments[access.row_offset][access.segment][access.column]
-                }
+                                ace_vars.segments[access.row_offset][access.segment][access.column]
+                            }
                 Value::PeriodicColumn(access) => periodic[&access.name],
                 Value::PublicInput(access) => {
-                    let idx = public[&access.name];
-                    ace_vars.public[idx][access.index]
-                }
+                                let idx = public[&access.name];
+                                ace_vars.public[idx][access.index]
+                            }
                 Value::PublicInputTable(_) => unimplemented!(),
-                Value::RandomValue(idx) => ace_vars.rand[idx],
+                Value::Null => todo!(), // REMOVE AUX/RAND FROM BACKEND PR TODO: IN CODEGEN, EVALUATE THIS VALUE BEFORE ITERATING ON ALL NODES 
             },
             Operation::Add(l, r) => evals[usize::from(l)] + evals[usize::from(r)],
             Operation::Sub(l, r) => evals[usize::from(l)] - evals[usize::from(r)],
