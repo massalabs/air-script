@@ -22,13 +22,17 @@ pub struct Call {
 
 impl Call {
     pub fn create(function: Link<Root>, arguments: Vec<Link<Op>>, span: SourceSpan) -> Link<Op> {
-        Op::Call(Self {
+        let res = Link::new(Op::Call(Self {
             function,
             arguments: Link::new(arguments),
             span,
             ..Default::default()
-        })
-        .into()
+        }));
+        let node = Node::Call(BackLink::from(res.clone()));
+        res.as_call_mut().unwrap()._node = Singleton::from(node);
+        let owner = Owner::Call(BackLink::from(res.clone()));
+        res.as_call_mut().unwrap()._owner = Singleton::from(owner);
+        res
     }
 }
 

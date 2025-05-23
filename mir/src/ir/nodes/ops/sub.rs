@@ -17,13 +17,17 @@ pub struct Sub {
 
 impl Sub {
     pub fn create(lhs: Link<Op>, rhs: Link<Op>, span: SourceSpan) -> Link<Op> {
-        Op::Sub(Self {
+        let res = Link::new(Op::Sub(Self {
             lhs,
             rhs,
             span,
             ..Default::default()
-        })
-        .into()
+        }));
+        let node = Node::Sub(BackLink::from(res.clone()));
+        res.as_sub_mut().unwrap()._node = Singleton::from(node);
+        let owner = Owner::Sub(BackLink::from(res.clone()));
+        res.as_sub_mut().unwrap()._owner = Singleton::from(owner);
+        res
     }
 }
 

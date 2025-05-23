@@ -66,27 +66,17 @@ impl Link<Root> {
     /// Get the current [Root]'s [Node] variant
     /// creating a new [Node] if it doesn't exist, re-using it as a singleton otherwise
     pub fn as_node(&self) -> Link<Node> {
-        let back: BackLink<Root> = self.clone().into();
         match self.borrow_mut().deref_mut() {
             Root::Function(Function {
                 _node: Singleton(Some(link)),
                 ..
             }) => link.clone(),
-            Root::Function(ref mut f) => {
-                let node: Link<Node> = Node::Function(back).into();
-                f._node = Singleton::from(node.clone());
-                node
-            }
             Root::Evaluator(Evaluator {
                 _node: Singleton(Some(link)),
                 ..
             }) => link.clone(),
-            Root::Evaluator(ref mut e) => {
-                let node: Link<Node> = Node::Evaluator(back).into();
-                e._node = Singleton::from(node.clone());
-                node
-            }
             Root::None(span) => Node::None(*span).into(),
+            _ => unreachable!("Singleton node not found for Op: {}", self.debug()),
         }
     }
     /// Get the current [Root]'s [Owner] variant
@@ -98,21 +88,12 @@ impl Link<Root> {
                 _owner: Singleton(Some(link)),
                 ..
             }) => link.clone(),
-            Root::Function(ref mut f) => {
-                let owner: Link<Owner> = Owner::Function(back).into();
-                f._owner = Singleton::from(owner.clone());
-                owner
-            }
             Root::Evaluator(Evaluator {
                 _owner: Singleton(Some(link)),
                 ..
             }) => link.clone(),
-            Root::Evaluator(ref mut e) => {
-                let owner: Link<Owner> = Owner::Evaluator(back).into();
-                e._owner = Singleton::from(owner.clone());
-                owner
-            }
             Root::None(span) => Owner::None(*span).into(),
+            _ => unreachable!("Singleton owner not found for Op: {}", self.debug()),
         }
     }
     /// Try getting the current [Root]'s inner [Function].

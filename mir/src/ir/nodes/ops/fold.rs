@@ -36,14 +36,18 @@ impl Fold {
         initial_value: Link<Op>,
         span: SourceSpan,
     ) -> Link<Op> {
-        Op::Fold(Self {
+        let res = Link::new(Op::Fold(Self {
             iterator,
             operator,
             initial_value,
             span,
             ..Default::default()
-        })
-        .into()
+        }));
+        let node = Node::Fold(BackLink::from(res.clone()));
+        res.as_fold_mut().unwrap()._node = Singleton::from(node);
+        let owner = Owner::Fold(BackLink::from(res.clone()));
+        res.as_fold_mut().unwrap()._owner = Singleton::from(owner);
+        res
     }
 }
 

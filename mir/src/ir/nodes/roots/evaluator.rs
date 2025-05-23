@@ -1,4 +1,4 @@
-use crate::ir::{Builder, Link, Node, Op, Owner, Parent, Root, Singleton};
+use crate::ir::{BackLink, Builder, Link, Node, Op, Owner, Parent, Root, Singleton};
 use miden_diagnostics::{SourceSpan, Spanned};
 
 /// A MIR Root to represent a Evaluator definition
@@ -22,13 +22,17 @@ impl Evaluator {
         body: Vec<Link<Op>>,
         span: SourceSpan,
     ) -> Link<Root> {
-        Root::Evaluator(Self {
+        let res = Link::new(Root::Evaluator(Self {
             parameters,
             body: Link::new(body),
             span,
             ..Default::default()
-        })
-        .into()
+        }));
+        let node = Node::Evaluator(BackLink::from(res.clone()));
+        res.as_evaluator_mut().unwrap()._node = Singleton::from(node);
+        let owner = Owner::Evaluator(BackLink::from(res.clone()));
+        res.as_evaluator_mut().unwrap()._owner = Singleton::from(owner);
+        res
     }
 }
 

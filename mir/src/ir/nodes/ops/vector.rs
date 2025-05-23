@@ -18,13 +18,17 @@ pub struct Vector {
 impl Vector {
     pub fn create(elements: Vec<Link<Op>>, span: SourceSpan) -> Link<Op> {
         let size = elements.len();
-        Op::Vector(Self {
+        let res = Link::new(Op::Vector(Self {
             size,
             elements: Link::new(elements),
             span,
             ..Default::default()
-        })
-        .into()
+        }));
+        let node = Node::Vector(BackLink::from(res.clone()));
+        res.as_vector_mut().unwrap()._node = Singleton::from(node);
+        let owner = Owner::Vector(BackLink::from(res.clone()));
+        res.as_vector_mut().unwrap()._owner = Singleton::from(owner);
+        res
     }
     pub fn get_element(&self, index: usize) -> Option<Link<Op>> {
         self.elements.borrow().get(index).cloned()

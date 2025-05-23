@@ -19,13 +19,17 @@ pub struct Exp {
 
 impl Exp {
     pub fn create(lhs: Link<Op>, rhs: Link<Op>, span: SourceSpan) -> Link<Op> {
-        Op::Exp(Self {
+        let res = Link::new(Op::Exp(Self {
             lhs,
             rhs,
             span,
             ..Default::default()
-        })
-        .into()
+        }));
+        let node = Node::Exp(BackLink::from(res.clone()));
+        res.as_exp_mut().unwrap()._node = Singleton::from(node);
+        let owner = Owner::Exp(BackLink::from(res.clone()));
+        res.as_exp_mut().unwrap()._owner = Singleton::from(owner);
+        res
     }
 }
 

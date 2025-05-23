@@ -28,14 +28,18 @@ impl If {
         else_branch: Link<Op>,
         span: SourceSpan,
     ) -> Link<Op> {
-        Op::If(Self {
+        let res = Link::new(Op::If(Self {
             condition,
             then_branch,
             else_branch,
             span,
             ..Default::default()
-        })
-        .into()
+        }));
+        let node = Node::If(BackLink::from(res.clone()));
+        res.as_if_mut().unwrap()._node = Singleton::from(node);
+        let owner = Owner::If(BackLink::from(res.clone()));
+        res.as_if_mut().unwrap()._owner = Singleton::from(owner);
+        res
     }
 }
 

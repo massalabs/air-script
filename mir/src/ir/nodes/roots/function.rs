@@ -1,4 +1,4 @@
-use crate::ir::{Builder, Link, Node, Op, Owner, Parent, Root, Singleton};
+use crate::ir::{BackLink, Builder, Link, Node, Op, Owner, Parent, Root, Singleton};
 use miden_diagnostics::{SourceSpan, Spanned};
 
 /// A MIR Root to represent a Function definition
@@ -24,14 +24,18 @@ impl Function {
         body: Vec<Link<Op>>,
         span: SourceSpan,
     ) -> Link<Root> {
-        Root::Function(Self {
+        let res = Link::new(Root::Function(Self {
             parameters,
             return_type,
             body: Link::new(body),
             span,
             ..Default::default()
-        })
-        .into()
+        }));
+        let node = Node::Function(BackLink::from(res.clone()));
+        res.as_function_mut().unwrap()._node = Singleton::from(node);
+        let owner = Owner::Function(BackLink::from(res.clone()));
+        res.as_function_mut().unwrap()._owner = Singleton::from(owner);
+        res
     }
 }
 

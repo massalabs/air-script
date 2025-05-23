@@ -27,14 +27,18 @@ impl Accessor {
         offset: usize,
         span: SourceSpan,
     ) -> Link<Op> {
-        Op::Accessor(Self {
+        let res = Link::new(Op::Accessor(Self {
             access_type,
             indexable,
             offset,
             span,
             ..Default::default()
-        })
-        .into()
+        }));
+        let node = Node::Accessor(BackLink::from(res.clone()));
+        res.as_accessor_mut().unwrap()._node = Singleton::from(node);
+        let owner = Owner::Accessor(BackLink::from(res.clone()));
+        res.as_accessor_mut().unwrap()._owner = Singleton::from(owner);
+        res
     }
 }
 

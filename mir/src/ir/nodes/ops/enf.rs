@@ -16,12 +16,16 @@ pub struct Enf {
 
 impl Enf {
     pub fn create(expr: Link<Op>, span: SourceSpan) -> Link<Op> {
-        Op::Enf(Self {
+        let res = Link::new(Op::Enf(Self {
             expr,
             span,
             ..Default::default()
-        })
-        .into()
+        }));
+        let node = Node::Enf(BackLink::from(res.clone()));
+        res.as_enf_mut().unwrap()._node = Singleton::from(node);
+        let owner = Owner::Enf(BackLink::from(res.clone()));
+        res.as_enf_mut().unwrap()._owner = Singleton::from(owner);
+        res
     }
 }
 

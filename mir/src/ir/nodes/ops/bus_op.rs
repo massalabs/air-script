@@ -48,14 +48,18 @@ impl BusOp {
         args: Vec<Link<Op>>,
         span: SourceSpan,
     ) -> Link<Op> {
-        Op::BusOp(Self {
+        let res = Link::new(Op::BusOp(Self {
             bus,
             kind,
             args,
             span,
             ..Default::default()
-        })
-        .into()
+        }));
+        let node = Node::BusOp(BackLink::from(res.clone()));
+        res.as_bus_op_mut().unwrap()._node = Singleton::from(node);
+        let owner = Owner::BusOp(BackLink::from(res.clone()));
+        res.as_bus_op_mut().unwrap()._owner = Singleton::from(owner);
+        res
     }
 }
 

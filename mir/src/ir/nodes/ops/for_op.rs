@@ -30,14 +30,18 @@ impl For {
         selector: Link<Op>,
         span: SourceSpan,
     ) -> Link<Op> {
-        Op::For(Self {
+        let res = Link::new(Op::For(Self {
             iterators,
             expr,
             selector,
             span,
             ..Default::default()
-        })
-        .into()
+        }));
+        let node = Node::For(BackLink::from(res.clone()));
+        res.as_for_mut().unwrap()._node = Singleton::from(node);
+        let owner = Owner::For(BackLink::from(res.clone()));
+        res.as_for_mut().unwrap()._owner = Singleton::from(owner);
+        res
     }
 }
 

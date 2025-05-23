@@ -17,13 +17,17 @@ pub struct Mul {
 
 impl Mul {
     pub fn create(lhs: Link<Op>, rhs: Link<Op>, span: SourceSpan) -> Link<Op> {
-        Op::Mul(Self {
+        let res = Link::new(Op::Mul(Self {
             lhs,
             rhs,
             span,
             ..Default::default()
-        })
-        .into()
+        }));
+        let node = Node::Mul(BackLink::from(res.clone()));
+        res.as_mul_mut().unwrap()._node = Singleton::from(node);
+        let owner = Owner::Mul(BackLink::from(res.clone()));
+        res.as_mul_mut().unwrap()._owner = Singleton::from(owner);
+        res
     }
 }
 

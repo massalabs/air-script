@@ -17,13 +17,17 @@ pub struct Add {
 
 impl Add {
     pub fn create(lhs: Link<Op>, rhs: Link<Op>, span: SourceSpan) -> Link<Op> {
-        Op::Add(Self {
+        let res = Link::new(Op::Add(Self {
             lhs,
             rhs,
             span,
             ..Default::default()
-        })
-        .into()
+        }));
+        let node = Node::Add(BackLink::from(res.clone()));
+        res.as_add_mut().unwrap()._node = Singleton::from(node);
+        let owner = Owner::Add(BackLink::from(res.clone()));
+        res.as_add_mut().unwrap()._owner = Singleton::from(owner);
+        res
     }
 }
 

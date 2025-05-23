@@ -31,13 +31,17 @@ impl Hash for Boundary {
 
 impl Boundary {
     pub fn create(expr: Link<Op>, kind: BoundaryKind, span: SourceSpan) -> Link<Op> {
-        Op::Boundary(Self {
+        let res = Link::new(Op::Boundary(Self {
             expr,
             kind,
             span,
             ..Default::default()
-        })
-        .into()
+        }));
+        let node = Node::Boundary(BackLink::from(res.clone()));
+        res.as_boundary_mut().unwrap()._node = Singleton::from(node);
+        let owner = Owner::Boundary(BackLink::from(res.clone()));
+        res.as_boundary_mut().unwrap()._owner = Singleton::from(owner);
+        res
     }
 }
 

@@ -22,15 +22,17 @@ pub struct Parameter {
 
 impl Parameter {
     pub fn create(position: usize, ty: MirType, span: SourceSpan) -> Link<Op> {
-        Op::Parameter(Self {
+        let res = Link::new(Op::Parameter(Self {
             parents: Vec::default(),
             ref_node: BackLink::none(),
             position,
             ty,
             _node: Singleton::none(),
             span,
-        })
-        .into()
+        }));
+        let node = Node::Parameter(BackLink::from(res.clone()));
+        res.as_parameter_mut().unwrap()._node = Singleton::from(node);
+        res
     }
 
     pub fn set_ref_node(&mut self, ref_node: Link<Owner>) {

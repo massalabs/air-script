@@ -1,8 +1,23 @@
 extern crate proc_macro;
 use std::collections::HashMap;
 
-use quote::{format_ident, quote};
+use quote::{format_ident, quote, ToTokens};
 use syn::DeriveInput;
+
+fn pascal_to_snake_case(name: String) -> String {
+    let mut result = String::new();
+    for (i, c) in name.chars().enumerate() {
+        if c.is_uppercase() {
+            if i != 0 {
+                result.push('_');
+            }
+            result.push(c.to_ascii_lowercase());
+        } else {
+            result.push(c);
+        }
+    }
+    result
+}
 
 pub enum EnumWrapper {
     Op,
@@ -68,7 +83,9 @@ fn get_enum_wrapper(input: &DeriveInput) -> EnumWrapper {
     }
 }
 
-fn extract_fields(data: &syn::DeriveInput) -> (Vec<(&syn::Ident, &syn::Type)>, Vec<&syn::Ident>) {
+type TypedIdent<'a> = (&'a syn::Ident, &'a syn::Type);
+
+fn extract_fields(data: &syn::DeriveInput) -> (Vec<TypedIdent>, Vec<TypedIdent>) {
     let mut hidden_fields = vec![];
     let fields = match &data.data {
         syn::Data::Struct(data) => match &data.fields {
@@ -79,7 +96,7 @@ fn extract_fields(data: &syn::DeriveInput) -> (Vec<(&syn::Ident, &syn::Type)>, V
                     let ident = field.ident.as_ref().unwrap();
                     match &ident.to_string()[..1] {
                         "_" => {
-                            hidden_fields.push(ident);
+                            hidden_fields.push((ident, &field.ty));
                             None
                         }
                         _ => Some((ident, &field.ty)),
@@ -503,7 +520,7 @@ fn make_builder_impls<'a>(
     states: &[Vec<bool>],
     transition_table: &[Vec<usize>],
     enum_wrapper: &EnumWrapper,
-    hidden_fields: &[&syn::Ident],
+    hidden_fields: &[TypedIdent],
 ) -> proc_macro2::TokenStream {
     let state_names = states
         .iter()
@@ -570,33 +587,55 @@ fn make_build_method(
     name: &syn::Ident,
     builders: &[&proc_macro2::TokenStream],
     enum_wrapper: &EnumWrapper,
-    hidden_fields: &[&syn::Ident],
+    hidden_fields: &[TypedIdent],
 ) -> proc_macro2::TokenStream {
     let fields = builders.iter().map(|builder| quote! { #builder }).chain(
         hidden_fields
             .iter()
-            .map(|field| quote! { #field: Default::default() }),
+            .map(|(field, _)| quote! { #field: Default::default() }),
     );
 
-    match enum_wrapper {
-        EnumWrapper::Op => quote! {
-            pub fn build(&self) -> crate::ir::Link<Op> {
-                Op::#name(
-                    #name {
-                        #(#fields),*
-                    }
-                ).into()
+    let wrapper = match enum_wrapper {
+        EnumWrapper::Op => quote! { Op },
+        EnumWrapper::Root => quote! { Root },
+    };
+    let set_singletons = hidden_fields
+        .iter()
+        .filter(|(_, ty)| ty.to_token_stream().to_string().starts_with("Singleton"))
+        .map(|(field, ty)| {
+            // Extract <T> from ::path::to::Singleton<T>
+            let singleton_ty = format_ident!(
+                "{}",
+                ty.to_token_stream()
+                    .to_string()
+                    .split("< ")
+                    .nth(1)
+                    .unwrap()
+                    .split(" >")
+                    .next()
+                    .unwrap()
+            );
+
+            // res.as_function_mut().unwrap()._node = Singleton::new(res.clone().into());
+
+            let as_mut = format_ident!("as_{}_mut", pascal_to_snake_case(name.to_string()));
+            // let node = Node::Value(BackLink::from(res.clone()));
+            // res.as_value_mut().unwrap()._node = Singleton::from(node);
+            quote! {
+                let #field = #singleton_ty::#name(crate::ir::BackLink::from(res.clone()));
+                res.#as_mut().unwrap().#field = Singleton::from(#field);
             }
-        },
-        EnumWrapper::Root => quote! {
-            pub fn build(&self) -> crate::ir::Link<Root> {
-                Root::#name(
-                    #name {
-                        #(#fields),*
-                    }
-                ).into()
-            }
-        },
+        });
+    quote! {
+        pub fn build(&self) -> crate::ir::Link<#wrapper> {
+            let res = Link::new(#wrapper::#name(
+                #name {
+                    #(#fields),*
+                }
+            ));
+            #(#set_singletons)*
+            res
+        }
     }
 }
 
@@ -623,7 +662,7 @@ mod tests {
                 cs: Vec<Link<Op>>,
                 d: Link<Op>,
                 count: i32,
-                _singleton: Singleton,
+                _singleton: Singleton<Node>,
                 _hidden: i32,
             }
         };
@@ -916,7 +955,7 @@ mod tests {
                     self
                 }
                 pub fn build(&self) -> crate::ir::Link<Op> {
-                    Op::Foo(
+                    let res = Link::new(Op::Foo(
                         Foo {
                             parent: self.parent.clone(),
                             a: self.a.clone().unwrap(),
@@ -927,7 +966,10 @@ mod tests {
                             _singleton: Default::default(),
                             _hidden: Default::default()
                         }
-                    ).into()
+                    ));
+                    let _singleton = Node::Foo(crate::ir::BackLink::from(res.clone()));
+                    res.as_foo_mut().unwrap()._singleton = Singleton::from(_singleton);
+                    res
                 }
             }
         };

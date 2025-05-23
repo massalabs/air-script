@@ -16,11 +16,13 @@ pub struct Value {
 
 impl Value {
     pub fn create(value: SpannedMirValue) -> Link<Op> {
-        Op::Value(Self {
+        let res = Link::new(Op::Value(Self {
             value,
             ..Default::default()
-        })
-        .into()
+        }));
+        let node = Node::Value(BackLink::from(res.clone()));
+        res.as_value_mut().unwrap()._node = Singleton::from(node);
+        res
     }
 }
 
