@@ -6,7 +6,7 @@ use super::{duplicate_node, visitor::Visitor};
 use crate::{
     ir::{
         extract_all_roots, Accessor, ConstantValue, Graph, Link, Mir, MirValue, Node, Op,
-        Parameter, Parent, SpannedMirValue, Value,
+        Parameter, Parent, Root, SpannedMirValue, Value,
     },
     CompileError,
 };
@@ -47,20 +47,6 @@ impl<'a> ConstantPropagation<'a> {
             indent: 0,
         }
     }
-    fn replace_constant_children(
-        &mut self,
-        graph: &mut Graph,
-        node: Link<Node>,
-    ) -> Result<(), CompileError> {
-        self.debug(1, format!("{:?} ", node).as_str(), &node);
-        let children = node.children();
-        for child in children.borrow().iter() {
-            if has_constant(&child.as_node()) {
-                self.visit_node(graph, child.as_node())?;
-            }
-        }
-        Ok(())
-    }
     fn debug(&mut self, indent: isize, prefix: &str, node: &Link<Node>) {
         if indent < 0 {
             if self.indent < 0 {
@@ -87,13 +73,17 @@ impl Visitor for ConstantPropagation<'_> {
     fn work_stack(&mut self) -> &mut Vec<Link<Node>> {
         &mut self.work_stack
     }
-    fn pre_visit(&mut self, graph: &mut Graph, node: Link<Node>) -> Result<(), CompileError> {
-        self.replace_constant_children(graph, node.clone())
+
+    fn pre_visit(&mut self, _graph: &mut Graph, node: Link<Node>) -> Result<(), CompileError> {
+        self.debug(1, format!("{:?} ", node).as_str(), &node);
+        Ok(())
     }
+
     fn post_visit(&mut self, _graph: &mut Graph, node: Link<Node>) -> Result<(), CompileError> {
         self.debug(-1, "  -> ", &node);
         Ok(())
     }
+
     fn root_nodes_to_visit(
         &self,
         graph: &crate::ir::Graph,
@@ -104,6 +94,32 @@ impl Visitor for ConstantPropagation<'_> {
             .cloned()
             .collect()
     }
+
+    fn visit_function(
+        &mut self,
+        _graph: &mut Graph,
+        _function: Link<Root>,
+    ) -> Result<(), CompileError> {
+        Ok(())
+    }
+    fn visit_evaluator(
+        &mut self,
+        _graph: &mut Graph,
+        _evaluator: Link<Root>,
+    ) -> Result<(), CompileError> {
+        Ok(())
+    }
+    fn visit_enf(&mut self, _graph: &mut Graph, _enf: Link<Op>) -> Result<(), CompileError> {
+        Ok(())
+    }
+    fn visit_boundary(
+        &mut self,
+        _graph: &mut Graph,
+        _boundary: Link<Op>,
+    ) -> Result<(), CompileError> {
+        Ok(())
+    }
+
     fn visit_add(&mut self, _graph: &mut Graph, op: Link<Op>) -> Result<(), CompileError> {
         if !is_constant(&op.as_node()) {
             // This is not a constant, so we don't need to replace it
@@ -114,11 +130,12 @@ impl Visitor for ConstantPropagation<'_> {
             if let (Some(lhs), Some(rhs)) = (as_constant(&add.lhs), as_constant(&add.rhs)) {
                 let new: Link<Op> = (lhs + rhs).into();
                 new.as_value_mut().unwrap().value.span = add.span;
-                op.update(&new);
+                op.set(&new);
             };
         }
         Ok(())
     }
+
     fn visit_sub(&mut self, _graph: &mut Graph, op: Link<Op>) -> Result<(), CompileError> {
         if !is_constant(&op.as_node()) {
             // This is not a constant, so we don't need to replace it
@@ -129,11 +146,12 @@ impl Visitor for ConstantPropagation<'_> {
             if let (Some(lhs), Some(rhs)) = (as_constant(&sub.lhs), as_constant(&sub.rhs)) {
                 let new: Link<Op> = (lhs - rhs).into();
                 new.as_value_mut().unwrap().value.span = sub.span;
-                op.update(&new);
+                op.set(&new);
             };
         }
         Ok(())
     }
+
     fn visit_mul(&mut self, _graph: &mut Graph, op: Link<Op>) -> Result<(), CompileError> {
         if !is_constant(&op.as_node()) {
             // This is not a constant, so we don't need to replace it
@@ -144,11 +162,12 @@ impl Visitor for ConstantPropagation<'_> {
             if let (Some(lhs), Some(rhs)) = (as_constant(&mul.lhs), as_constant(&mul.rhs)) {
                 let new: Link<Op> = (lhs * rhs).into();
                 new.as_value_mut().unwrap().value.span = mul.span;
-                op.update(&new);
+                op.set(&new);
             };
         }
         Ok(())
     }
+
     fn visit_exp(&mut self, _graph: &mut Graph, op: Link<Op>) -> Result<(), CompileError> {
         if !is_constant(&op.as_node()) {
             // This is not a constant, so we don't need to replace it
@@ -160,11 +179,40 @@ impl Visitor for ConstantPropagation<'_> {
                 assert!(rhs < 2_u64.pow(32));
                 let new: Link<Op> = (lhs.pow(rhs as u32)).into();
                 new.as_value_mut().unwrap().value.span = exp.span;
-                op.update(&new);
+                op.set(&new);
             };
         }
         Ok(())
     }
+
+    fn visit_if(&mut self, _graph: &mut Graph, _if_node: Link<Op>) -> Result<(), CompileError> {
+        if !is_constant(&_if_node.as_node()) {
+            // This is not a constant, so we don't need to replace it
+            return Ok(());
+        }
+        Ok(())
+    }
+
+    fn visit_for(&mut self, _graph: &mut Graph, _for_node: Link<Op>) -> Result<(), CompileError> {
+        Ok(())
+    }
+
+    fn visit_call(&mut self, _graph: &mut Graph, _call: Link<Op>) -> Result<(), CompileError> {
+        Ok(())
+    }
+
+    fn visit_fold(&mut self, _graph: &mut Graph, _fold: Link<Op>) -> Result<(), CompileError> {
+        Ok(())
+    }
+
+    fn visit_vector(&mut self, _graph: &mut Graph, _vector: Link<Op>) -> Result<(), CompileError> {
+        Ok(())
+    }
+
+    fn visit_matrix(&mut self, _graph: &mut Graph, _matrix: Link<Op>) -> Result<(), CompileError> {
+        Ok(())
+    }
+
     fn visit_accessor(&mut self, graph: &mut Graph, op: Link<Op>) -> Result<(), CompileError> {
         if !is_constant(&op.as_node()) {
             // This is not a constant, so we don't need to replace it
@@ -181,7 +229,7 @@ impl Visitor for ConstantPropagation<'_> {
                     if let Some(value) = as_constant(&indexable) {
                         let new: Link<Op> = value.into();
                         new.as_value_mut().unwrap().value.span = accessor.span;
-                        op.update(&new);
+                        op.set(&new);
                     }
                 }
                 (AccessType::Slice(_), _) => {
@@ -194,7 +242,7 @@ impl Visitor for ConstantPropagation<'_> {
                     if let Some(value) = as_constant(&value) {
                         let new: Link<Op> = value.into();
                         new.as_value_mut().unwrap().value.span = accessor.span;
-                        op.update(&new);
+                        op.set(&new);
                     }
                 }
                 (AccessType::Matrix(row_idx, col_idx), Op::Matrix(m)) => {
@@ -210,7 +258,7 @@ impl Visitor for ConstantPropagation<'_> {
                     if let Some(value) = as_constant(&value) {
                         let new: Link<Op> = value.into();
                         new.as_value_mut().unwrap().value.span = accessor.span;
-                        op.update(&new);
+                        op.set(&new);
                     }
                 }
                 (AccessType::Index(index), Op::Matrix(m)) => {
@@ -223,8 +271,8 @@ impl Visitor for ConstantPropagation<'_> {
                     }
                     let new_accessor =
                         Accessor::create(value.clone(), AccessType::Default, 0, accessor.span);
-                    op.update(&new_accessor);
-                    self.visit_node(graph, new_accessor.as_node())?;
+                    op.set(&new_accessor);
+                    self.scan_node(graph, op.as_node())?;
                 }
                 _ => {
                     unimplemented!(
@@ -235,6 +283,22 @@ impl Visitor for ConstantPropagation<'_> {
                 }
             };
         }
+        Ok(())
+    }
+
+    fn visit_bus_op(&mut self, _graph: &mut Graph, _bus_op: Link<Op>) -> Result<(), CompileError> {
+        Ok(())
+    }
+
+    fn visit_parameter(
+        &mut self,
+        _graph: &mut Graph,
+        _parameter: Link<Op>,
+    ) -> Result<(), CompileError> {
+        Ok(())
+    }
+
+    fn visit_value(&mut self, _graph: &mut Graph, _value: Link<Op>) -> Result<(), CompileError> {
         Ok(())
     }
 }
