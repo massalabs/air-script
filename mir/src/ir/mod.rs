@@ -22,6 +22,7 @@ pub use utils::*;
 pub trait Parent {
     type Child;
     /// Get a view of the children of the current node.
+    #[track_caller]
     fn children(&self) -> Link<Vec<Link<Self::Child>>>;
 }
 

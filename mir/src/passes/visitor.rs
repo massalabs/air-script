@@ -29,6 +29,7 @@ pub trait Visitor {
         Ok(())
     }
     /// Scan a node and its children recursively
+    #[track_caller]
     fn scan_node(&mut self, _graph: &Graph, node: Link<Node>) -> Result<(), CompileError> {
         self.work_stack().push(node.clone());
         if let Some(_owner) = node.clone().as_owner() {
@@ -47,6 +48,7 @@ pub trait Visitor {
         Ok(())
     }
     /// Dispatch to the relevant `visit_*` method based on the variant of the node
+    #[track_caller]
     fn visit_node(&mut self, graph: &mut Graph, node: Link<Node>) -> Result<(), CompileError> {
         if node.is_stale() {
             return Ok(());

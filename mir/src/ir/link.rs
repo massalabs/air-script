@@ -19,14 +19,29 @@ impl<T> Link<T> {
         }
     }
     /// Returns a `std::cell::Ref` to the inner value.
+    #[track_caller]
     pub fn borrow(&self) -> std::cell::Ref<T> {
+        #[cfg(feature = "debug_link")]
+        eprintln!(
+            "Borrow    @ {} at {}",
+            self.get_ptr(),
+            std::panic::Location::caller()
+        );
         self.link.borrow()
     }
     /// Returns a `std::cell::RefMut` to the inner value.
+    #[track_caller]
     pub fn borrow_mut(&self) -> std::cell::RefMut<T> {
+        #[cfg(feature = "debug_link")]
+        eprintln!(
+            "BorrowMut @ {} at {}",
+            self.get_ptr(),
+            std::panic::Location::caller()
+        );
         self.link.borrow_mut()
     }
     /// Updates the inner value with the value of another `Link` of the same type.
+    #[track_caller]
     pub fn update(&self, other: &Self)
     where
         T: Clone,

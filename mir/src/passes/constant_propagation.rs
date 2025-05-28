@@ -47,6 +47,8 @@ impl<'a> ConstantPropagation<'a> {
             indent: 0,
         }
     }
+
+    #[allow(unused)]
     fn debug(&mut self, indent: isize, prefix: &str, node: &Link<Node>) {
         if indent < 0 {
             if self.indent < 0 {
@@ -74,12 +76,14 @@ impl Visitor for ConstantPropagation<'_> {
         &mut self.work_stack
     }
 
-    fn pre_visit(&mut self, _graph: &mut Graph, node: Link<Node>) -> Result<(), CompileError> {
-        self.debug(1, format!("{:?} ", node).as_str(), &node);
+    fn pre_visit(&mut self, _graph: &mut Graph, _node: Link<Node>) -> Result<(), CompileError> {
+        #[cfg(feature = "debug_const_prop")]
+        self.debug(1, format!("{:?} ", _node).as_str(), &_node);
         Ok(())
     }
 
     fn post_visit(&mut self, _graph: &mut Graph, node: Link<Node>) -> Result<(), CompileError> {
+        #[cfg(feature = "debug_const_prop")]
         self.debug(-1, "  -> ", &node);
         Ok(())
     }

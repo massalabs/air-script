@@ -169,7 +169,10 @@ impl Link<Op> {
     /// Update the current [Op] with the other [Op].
     /// Also updates all instances of [Node] and [Owner] wrappers,
     /// setting them to the new variant.
+    #[track_caller]
     pub fn set(&self, other: &Link<Op>) {
+        #[cfg(feature = "debug_link")]
+        eprintln!("Updating Op: {} -> {}", self.debug(), other.debug());
         let other_node = other.as_node();
         let self_node = self.as_node();
         other_node.update(&self_node);
