@@ -198,43 +198,6 @@ impl Child for Node {
 }
 
 impl Link<Node> {
-    /// Update the current [Node] to the right variant of the new inner [Op] or [Root]
-    /// Note: Only meant to be used internally
-    pub fn update_variant(&self) {
-        let to_update;
-        if let Some(op_inner_val) = self.as_op() {
-            to_update = match op_inner_val.clone().borrow().deref() {
-                Op::Enf(_) => Node::Enf(BackLink::from(op_inner_val)),
-                Op::Boundary(_) => Node::Boundary(BackLink::from(op_inner_val)),
-                Op::Add(_) => Node::Add(BackLink::from(op_inner_val)),
-                Op::Sub(_) => Node::Sub(BackLink::from(op_inner_val)),
-                Op::Mul(_) => Node::Mul(BackLink::from(op_inner_val)),
-                Op::Exp(_) => Node::Exp(BackLink::from(op_inner_val)),
-                Op::If(_) => Node::If(BackLink::from(op_inner_val)),
-                Op::For(_) => Node::For(BackLink::from(op_inner_val)),
-                Op::Call(_) => Node::Call(BackLink::from(op_inner_val)),
-                Op::Fold(_) => Node::Fold(BackLink::from(op_inner_val)),
-                Op::Vector(_) => Node::Vector(BackLink::from(op_inner_val)),
-                Op::Matrix(_) => Node::Matrix(BackLink::from(op_inner_val)),
-                Op::Accessor(_) => Node::Accessor(BackLink::from(op_inner_val)),
-                Op::BusOp(_) => Node::BusOp(BackLink::from(op_inner_val)),
-                Op::Parameter(_) => Node::Parameter(BackLink::from(op_inner_val)),
-                Op::Value(_) => Node::Value(BackLink::from(op_inner_val)),
-                Op::None(span) => Node::None(*span),
-            };
-        } else if let Some(root_inner_val) = self.as_root() {
-            to_update = match root_inner_val.clone().borrow().deref() {
-                Root::Function(_) => Node::Function(BackLink::from(root_inner_val)),
-                Root::Evaluator(_) => Node::Evaluator(BackLink::from(root_inner_val)),
-                Root::None(span) => Node::None(*span),
-            };
-        } else {
-            unreachable!();
-        }
-
-        *self.borrow_mut() = to_update;
-    }
-
     /// Check if the [Node]'s inner [Op] or [Root] still exists
     pub fn is_stale(&self) -> bool {
         match self.as_root() {
