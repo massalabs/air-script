@@ -11,7 +11,7 @@ use crate::{
     CompileError,
 };
 
-use std::ops::Deref;
+use std::{collections::BTreeMap, ops::Deref};
 
 /// TODO MIR:
 /// If needed, implement constant propagation / folding pass on MIR
@@ -24,6 +24,7 @@ pub struct ConstantPropagation<'a> {
     diagnostics: &'a DiagnosticsHandler,
     work_stack: Vec<Link<Node>>,
     indent: isize,
+    swap_map_ops: BTreeMap<usize, Link<Op>>,
 }
 
 impl Pass for ConstantPropagation<'_> {
@@ -45,6 +46,7 @@ impl<'a> ConstantPropagation<'a> {
             diagnostics,
             work_stack: Default::default(),
             indent: 0,
+            swap_map_ops: BTreeMap::new(),
         }
     }
 
@@ -69,6 +71,10 @@ impl<'a> ConstantPropagation<'a> {
             self.indent += indent;
         }
     }
+
+    fn swap_op(&mut self, old: &Link<Op>, new: Link<Op>) {
+        self.swap_map_ops.insert(old.get_ptr(), new);
+    }
 }
 
 impl Visitor for ConstantPropagation<'_> {
@@ -83,8 +89,17 @@ impl Visitor for ConstantPropagation<'_> {
     }
 
     fn post_visit(&mut self, _graph: &mut Graph, node: Link<Node>) -> Result<(), CompileError> {
-        #[cfg(feature = "debug_const_prop")]
-        self.debug(-1, "  -> ", &node);
+        if let Some(op) = node.as_op() {
+            if let Some(new_op) = self.swap_map_ops.remove(&op.get_ptr()) {
+                // If we have a new op to swap, do it
+                op.set(&new_op);
+                #[cfg(feature = "debug_const_prop")]
+                self.debug(1, "  -> Swapped with: ", &new_op.as_node());
+            } else {
+                #[cfg(feature = "debug_const_prop")]
+                self.debug(1, "  -> No swap", &node);
+            }
+        }
         Ok(())
     }
 
@@ -134,7 +149,7 @@ impl Visitor for ConstantPropagation<'_> {
             if let (Some(lhs), Some(rhs)) = (as_constant(&add.lhs), as_constant(&add.rhs)) {
                 let new: Link<Op> = (lhs + rhs).into();
                 new.as_value_mut().unwrap().value.span = add.span;
-                op.set(&new);
+                self.swap_op(&op, new);
             };
         }
         Ok(())
@@ -150,7 +165,7 @@ impl Visitor for ConstantPropagation<'_> {
             if let (Some(lhs), Some(rhs)) = (as_constant(&sub.lhs), as_constant(&sub.rhs)) {
                 let new: Link<Op> = (lhs - rhs).into();
                 new.as_value_mut().unwrap().value.span = sub.span;
-                op.set(&new);
+                self.swap_op(&op, new);
             };
         }
         Ok(())
@@ -166,7 +181,7 @@ impl Visitor for ConstantPropagation<'_> {
             if let (Some(lhs), Some(rhs)) = (as_constant(&mul.lhs), as_constant(&mul.rhs)) {
                 let new: Link<Op> = (lhs * rhs).into();
                 new.as_value_mut().unwrap().value.span = mul.span;
-                op.set(&new);
+                self.swap_op(&op, new);
             };
         }
         Ok(())
@@ -183,7 +198,7 @@ impl Visitor for ConstantPropagation<'_> {
                 assert!(rhs < 2_u64.pow(32));
                 let new: Link<Op> = (lhs.pow(rhs as u32)).into();
                 new.as_value_mut().unwrap().value.span = exp.span;
-                op.set(&new);
+                self.swap_op(&op, new);
             };
         }
         Ok(())
@@ -233,7 +248,7 @@ impl Visitor for ConstantPropagation<'_> {
                     if let Some(value) = as_constant(&indexable) {
                         let new: Link<Op> = value.into();
                         new.as_value_mut().unwrap().value.span = accessor.span;
-                        op.set(&new);
+                        self.swap_op(&op, new);
                     }
                 }
                 (AccessType::Slice(_), _) => {
@@ -246,7 +261,7 @@ impl Visitor for ConstantPropagation<'_> {
                     if let Some(value) = as_constant(&value) {
                         let new: Link<Op> = value.into();
                         new.as_value_mut().unwrap().value.span = accessor.span;
-                        op.set(&new);
+                        self.swap_op(&op, new);
                     }
                 }
                 (AccessType::Matrix(row_idx, col_idx), Op::Matrix(m)) => {
@@ -262,7 +277,7 @@ impl Visitor for ConstantPropagation<'_> {
                     if let Some(value) = as_constant(&value) {
                         let new: Link<Op> = value.into();
                         new.as_value_mut().unwrap().value.span = accessor.span;
-                        op.set(&new);
+                        self.swap_op(&op, new);
                     }
                 }
                 (AccessType::Index(index), Op::Matrix(m)) => {
@@ -275,7 +290,7 @@ impl Visitor for ConstantPropagation<'_> {
                     }
                     let new_accessor =
                         Accessor::create(value.clone(), AccessType::Default, 0, accessor.span);
-                    op.set(&new_accessor);
+                    self.swap_op(&op, new_accessor);
                     self.scan_node(graph, op.as_node())?;
                 }
                 _ => {
