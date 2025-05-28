@@ -26,30 +26,6 @@ impl Value {
     }
 }
 
-impl From<u64> for Value {
-    fn from(value: u64) -> Self {
-        Self {
-            value: SpannedMirValue {
-                value: MirValue::Constant(ConstantValue::Felt(value)),
-                span: Default::default(),
-            },
-            ..Default::default()
-        }
-    }
-}
-
-impl From<i64> for Value {
-    fn from(value: i64) -> Self {
-        Self::from(value as u64)
-    }
-}
-
-impl From<i32> for Value {
-    fn from(value: i32) -> Self {
-        Self::from(value as u64)
-    }
-}
-
 impl Child for Value {
     type Parent = Owner;
     fn get_parents(&self) -> Vec<BackLink<Self::Parent>> {
