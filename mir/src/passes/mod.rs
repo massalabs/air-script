@@ -3,12 +3,14 @@ mod constant_propagation;
 mod inlining;
 mod translate;
 mod unrolling;
+mod unrolling2;
 mod visitor;
 pub use bus_op_expand::BusOpExpand;
 pub use constant_propagation::ConstantPropagation;
 pub use inlining::Inlining;
 pub use translate::AstToMir;
 pub use unrolling::Unrolling;
+pub use unrolling2::Unrolling2;
 pub use visitor::Visitor;
 // Note: ConstantPropagation and ValueNumbering are not implemented yet in the MIR
 //mod constant_propagation;
