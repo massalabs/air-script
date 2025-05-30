@@ -66,8 +66,10 @@ fn list_comprehension_nested_nobind() {
     let Ok(explicit) = compile(source_explicit) else {
         panic!("Failed to compile the explicit version\n{source_explicit}");
     };
+    dbg!(&explicit);
     let Ok(nested) = compile(source_nested) else {
         panic!("Failed to compile the nested version\n{source_nested}");
     };
+    dbg!(&nested);
     assert_eq!(explicit, nested);
 }

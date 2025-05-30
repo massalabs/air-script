@@ -211,7 +211,6 @@ fn fn_as_lc_iterables() {
     integrity_constraints {
         enf c' = sum([operation(x, y) for (x, y) in (a, b)]);
     }";
-
     assert!(compile(source).is_ok());
 }
 

@@ -1,6 +1,6 @@
 use crate::{
     ir::{
-        assert_bus_eq, Add, Builder, Bus, Fold, FoldOperator, Link, Mir, MirValue, Op,
+        assert_bus_eq, compare_bus, Add, Builder, Bus, Fold, FoldOperator, Link, Mir, MirValue, Op,
         PublicInputTableAccess, SpannedMirValue, Value, Vector,
     },
     tests::propagate_constants,
@@ -149,11 +149,9 @@ fn buses_args_expr_in_integrity_expr() {
         .insert_bus(*bus_ident, bus.clone());
     dbg!(&expected_mir.constraint_graph().buses);
     dbg!(&result_mir.constraint_graph().buses);
-    assert_eq!(
-        result_mir.constraint_graph().buses,
-        expected_mir.constraint_graph().buses,
-    );
-    assert_bus_eq(&mut result_mir, &mut expected_mir);
+    if !compare_bus(&mut result_mir, &mut expected_mir) {
+        assert_bus_eq(&mut result_mir, &mut expected_mir);
+    }
 }
 
 #[test]

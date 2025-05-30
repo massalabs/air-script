@@ -23,6 +23,7 @@ pretty_assertions = "1.4"
 [features]
 debug_link = []
 debug_const_prop = []
+debug_unrolling = []
 
 [package.metadata.rust-analyzer.cargo]
-features = ["debug_link", "debug_const_prop"]
+features = ["debug_link", "debug_const_prop", "debug_unrolling"]

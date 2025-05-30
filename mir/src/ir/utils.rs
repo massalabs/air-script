@@ -283,24 +283,24 @@ pub fn compare_mir(lhs: &mut Mir, rhs: &mut Mir) -> bool {
     extract_and_compare_mir(lhs, rhs, extract_all_roots)
 }
 
-pub fn compare_boundary(lhs: &mut Mir, rhs: &mut Mir) {
-    extract_and_compare_mir(lhs, rhs, extract_boundary_roots);
+pub fn compare_boundary(lhs: &mut Mir, rhs: &mut Mir) -> bool {
+    extract_and_compare_mir(lhs, rhs, extract_boundary_roots)
 }
 
-pub fn compare_integrity(lhs: &mut Mir, rhs: &mut Mir) {
-    extract_and_compare_mir(lhs, rhs, extract_integrity_roots);
+pub fn compare_integrity(lhs: &mut Mir, rhs: &mut Mir) -> bool {
+    extract_and_compare_mir(lhs, rhs, extract_integrity_roots)
 }
 
-pub fn compare_bus(lhs: &mut Mir, rhs: &mut Mir) {
-    extract_and_compare_mir(lhs, rhs, extract_bus_roots);
+pub fn compare_bus(lhs: &mut Mir, rhs: &mut Mir) -> bool {
+    extract_and_compare_mir(lhs, rhs, extract_bus_roots)
 }
 
-pub fn compare_function(lhs: &mut Mir, rhs: &mut Mir) {
-    extract_and_compare_mir(lhs, rhs, extract_function_roots);
+pub fn compare_function(lhs: &mut Mir, rhs: &mut Mir) -> bool {
+    extract_and_compare_mir(lhs, rhs, extract_function_roots)
 }
 
-pub fn compare_evaluator(lhs: &mut Mir, rhs: &mut Mir) {
-    extract_and_compare_mir(lhs, rhs, extract_evaluator_roots);
+pub fn compare_evaluator(lhs: &mut Mir, rhs: &mut Mir) -> bool {
+    extract_and_compare_mir(lhs, rhs, extract_evaluator_roots)
 }
 
 fn extract_and_assert_mir_eq(
@@ -312,7 +312,32 @@ fn extract_and_assert_mir_eq(
     strip_spans(rhs);
     let lhs = extract(lhs.constraint_graph());
     let rhs = extract(rhs.constraint_graph());
-    assert_eq!(lhs, rhs);
+    let lhs_ops = lhs.iter().filter_map(|n| n.as_op()).collect::<Vec<_>>();
+    let lhs_roots = lhs.iter().filter_map(|n| n.as_root()).collect::<Vec<_>>();
+    let rhs_ops = rhs.iter().filter_map(|n| n.as_op()).collect::<Vec<_>>();
+    let rhs_roots = rhs.iter().filter_map(|n| n.as_root()).collect::<Vec<_>>();
+    assert_eq!(
+        lhs_ops, rhs_ops,
+        "MIR operations are not equal:\nLHS: {:#?}\nRHS: {:#?}",
+        lhs_ops, rhs_ops
+    );
+    assert_eq!(
+        lhs_roots, rhs_roots,
+        "MIR roots are not equal:\nLHS: {:#?}\nRHS: {:#?}",
+        lhs_roots, rhs_roots
+    );
+    for (l, r) in lhs_ops.iter().zip(rhs_ops.iter()) {
+        if l == r {
+            continue;
+        }
+        assert_eq!(l, r);
+    }
+    for (l, r) in lhs_roots.iter().zip(rhs_roots.iter()) {
+        if l == r {
+            continue;
+        }
+        assert_eq!(l, r);
+    }
 }
 
 pub fn assert_mir_eq(lhs: &mut Mir, rhs: &mut Mir) {

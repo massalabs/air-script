@@ -23,7 +23,6 @@ pub struct ConstantPropagation<'a> {
     #[allow(unused)]
     diagnostics: &'a DiagnosticsHandler,
     work_stack: Vec<Link<Node>>,
-    indent: isize,
     swap_map_ops: BTreeMap<usize, Link<Op>>,
 }
 
@@ -34,6 +33,11 @@ impl Pass for ConstantPropagation<'_> {
 
     fn run<'a>(&mut self, mut ir: Self::Input<'a>) -> Result<Self::Output<'a>, Self::Error> {
         Visitor::run(self, ir.constraint_graph_mut())?;
+        #[cfg(feature = "debug_const_prop")]
+        eprintln!(
+            "Constant Propagation: Final graph:\n{:#?}",
+            ir.constraint_graph()
+        );
         ir.constraint_graph_mut().constants.clear();
         Ok(ir)
     }
@@ -45,21 +49,12 @@ impl<'a> ConstantPropagation<'a> {
         Self {
             diagnostics,
             work_stack: Default::default(),
-            indent: 0,
             swap_map_ops: BTreeMap::new(),
         }
     }
 
     #[allow(unused)]
-    fn debug(&mut self, indent: isize, prefix: &str, node: &Link<Node>) {
-        if indent < 0 {
-            if self.indent < 0 {
-                self.indent = 0;
-            } else {
-                self.indent += indent;
-            }
-        }
-        let prefix = " ".repeat((self.indent * 4) as usize) + prefix;
+    fn debug(&mut self, prefix: &str, node: &Link<Node>) {
         eprintln!(
             "{}is_constant: {}, has_constant: {}, node: {}",
             prefix,
@@ -67,9 +62,6 @@ impl<'a> ConstantPropagation<'a> {
             has_constant(node),
             node.debug(),
         );
-        if indent > 0 {
-            self.indent += indent;
-        }
     }
 
     fn swap_op(&mut self, old: &Link<Op>, new: Link<Op>) {
@@ -82,25 +74,30 @@ impl Visitor for ConstantPropagation<'_> {
         &mut self.work_stack
     }
 
-    fn pre_visit(&mut self, _graph: &mut Graph, _node: Link<Node>) -> Result<(), CompileError> {
-        #[cfg(feature = "debug_const_prop")]
-        self.debug(1, format!("{:?} ", _node).as_str(), &_node);
-        Ok(())
-    }
-
     fn post_visit(&mut self, _graph: &mut Graph, node: Link<Node>) -> Result<(), CompileError> {
         if let Some(op) = node.as_op() {
             if let Some(new_op) = self.swap_map_ops.remove(&op.get_ptr()) {
                 // If we have a new op to swap, do it
                 op.set(&new_op);
                 #[cfg(feature = "debug_const_prop")]
-                self.debug(1, "  -> Swapped with: ", &new_op.as_node());
+                self.debug("  -> Swapped with: ", &new_op.as_node());
             } else {
                 #[cfg(feature = "debug_const_prop")]
-                self.debug(1, "  -> No swap", &node);
+                self.debug("  -> No swap", &node);
             }
         }
         Ok(())
+    }
+
+    #[allow(unused)]
+    fn debug(&mut self, prefix: &str, node: &Link<Node>) {
+        eprintln!(
+            "{}is_constant: {}, has_constant: {}, node: {}",
+            prefix,
+            is_constant(node),
+            has_constant(node),
+            node.debug(),
+        );
     }
 
     fn root_nodes_to_visit(
@@ -121,6 +118,7 @@ impl Visitor for ConstantPropagation<'_> {
     ) -> Result<(), CompileError> {
         Ok(())
     }
+
     fn visit_evaluator(
         &mut self,
         _graph: &mut Graph,
@@ -128,9 +126,11 @@ impl Visitor for ConstantPropagation<'_> {
     ) -> Result<(), CompileError> {
         Ok(())
     }
+
     fn visit_enf(&mut self, _graph: &mut Graph, _enf: Link<Op>) -> Result<(), CompileError> {
         Ok(())
     }
+
     fn visit_boundary(
         &mut self,
         _graph: &mut Graph,

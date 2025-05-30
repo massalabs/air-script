@@ -28,6 +28,11 @@ pub trait Visitor {
         }
         Ok(())
     }
+    #[allow(unused)]
+    fn debug(&mut self, prefix: &str, node: &Link<Node>) {
+        eprintln!("{}node: {}", prefix, node.debug(),);
+    }
+
     /// Scan a node and its children recursively
     #[track_caller]
     fn scan_node(&mut self, _graph: &Graph, node: Link<Node>) -> Result<(), CompileError> {
@@ -53,6 +58,9 @@ pub trait Visitor {
         if node.is_stale() {
             return Ok(());
         }
+        #[cfg(feature = "debug_const_prop")]
+        self.debug(format!("{:?}:", _node).as_str(), &_node);
+        let original_ptr = node.get_ptr();
         self.pre_visit(graph, node.clone())?;
         match node.borrow().deref() {
             Node::Function(f) => self.visit_function(graph, f.clone().into()),
