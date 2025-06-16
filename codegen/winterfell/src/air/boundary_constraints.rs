@@ -129,7 +129,7 @@ fn add_aux_trace_assertions(func_body: &mut codegen::Function, ir: &Air) {
 
                     func_body.line(assertion);
                 }
-                air_ir::BusBoundary::Null => {}
+                air_ir::BusBoundary::Null | air_ir::BusBoundary::Unconstrained => {}
             }
         }
     }

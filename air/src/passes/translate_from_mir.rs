@@ -576,6 +576,10 @@ fn bus_boundary(mir_bus_boundary_node: &Link<Op>) -> Result<BusBoundary, Compile
             MirValue::Null => Ok(crate::ir::BusBoundary::Null),
             _ => Err(CompileError::Failed),
         },
+        Op::None(_) => {
+            // This is an unconstrained bus boundary
+            Ok(crate::ir::BusBoundary::Unconstrained)
+        }
         _ => unreachable!("Unexpected Mir Op in bus boundary: {:#?}", mir_node_ref),
     }
 }
