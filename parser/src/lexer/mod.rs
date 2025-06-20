@@ -154,6 +154,8 @@ pub enum Token {
     Case,
     When,
     Felt,
+    Int,
+    Bool,
     With,
 
     // PUNCTUATION
@@ -196,6 +198,8 @@ impl Token {
             "ev" => Self::Ev,
             "fn" => Self::Fn,
             "felt" => Self::Felt,
+            "int" => Self::Int,
+            "bool" => Self::Bool,
             "buses" => Self::Buses,
             "multiset" => Self::Multiset,
             "logup" => Self::Logup,

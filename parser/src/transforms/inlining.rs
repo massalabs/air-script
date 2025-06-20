@@ -961,7 +961,7 @@ impl<'a> Inlining<'a> {
                 Expr::Range(range) => {
                     let span = range.span();
                     let range = range.to_slice_range();
-                    let binding_ty = BindingType::Constant(Type::Felt);
+                    let binding_ty = BindingType::Constant(Type::Scalar);
                     self.bindings.insert(binding, binding_ty);
                     Expr::Const(Span::new(
                         span,
@@ -1516,11 +1516,11 @@ impl<'a> Inlining<'a> {
                         .find(|b| b.name == tb.name)
                         .unwrap();
                     let (access_type, ty) = if original_binding.size == 1 {
-                        (AccessType::Default, Type::Felt)
+                        (AccessType::Default, Type::Scalar)
                     } else if tb.size == 1 {
                         (
                             AccessType::Index(tb.offset - original_binding.offset),
-                            Type::Felt,
+                            Type::Scalar,
                         )
                     } else {
                         let start = tb.offset - original_binding.offset;
@@ -1568,31 +1568,47 @@ fn eval_expr_binding_type(
     match expr {
         Expr::Const(constant) => Ok(BindingType::Local(constant.ty())),
         Expr::Range(range) => Ok(BindingType::Local(Type::Vector(
+            ScalarType::Int,
             range.to_slice_range().len(),
         ))),
         Expr::Vector(ref elems) => match elems[0].ty() {
-            None | Some(Type::Felt) => {
+            None | Some(Type::Scalar(_)) => {
                 let mut binding_tys = Vec::with_capacity(elems.len());
                 for elem in elems.iter() {
                     binding_tys.push(eval_expr_binding_type(elem, bindings, imported)?);
                 }
                 Ok(BindingType::Vector(binding_tys))
             }
-            Some(Type::Vector(cols)) => {
+            Some(Type::Vector(sty, cols)) => {
                 let rows = elems.len();
-                Ok(BindingType::Local(Type::Matrix(rows, cols)))
+                Ok(BindingType::Local(Type::Matrix(sty, rows, cols)))
             }
             Some(_) => unreachable!(),
         },
         Expr::Matrix(expr) => {
             let rows = expr.len();
             let columns = expr[0].len();
+            let ty = match expr[0].first() {
+                Some(ScalarExpr::Const(Span {
+                    item: ConstantExpr::Scalar(sty, _),
+                    ..
+                })) => Type::Scalar(*sty),
+                Some(ScalarExpr::Const(Span {
+                    item: ConstantExpr::Vector(_),
+                    ..
+                })) => Type::Vector(columns),
+                Some(ScalarExpr::Const(Span {
+                    item: ConstantExpr::Matrix(_),
+                    ..
+                })) => Type::Matrix(rows, columns),
+                _ => unreachable!(),
+            };
             Ok(BindingType::Local(Type::Matrix(rows, columns)))
         }
         Expr::SymbolAccess(ref access) => eval_access_binding_type(access, bindings, imported),
         Expr::Call(Call { ty: None, .. }) => Err(InvalidAccessError::InvalidBinding),
         Expr::Call(Call { ty: Some(ty), .. }) => Ok(BindingType::Local(*ty)),
-        Expr::Binary(_) => Ok(BindingType::Local(Type::Felt)),
+        Expr::Binary(_) => Ok(BindingType::Local(Type::Scalar)),
         Expr::ListComprehension(ref lc) => {
             // The types of all iterables must be the same, so the type of
             // the comprehension is given by the type of the iterables. We

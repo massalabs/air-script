@@ -22,8 +22,8 @@ fn fn_def_with_scalars() {
         Function::new(
             SourceSpan::UNKNOWN,
             function_ident!(fn_with_scalars),
-            vec![(ident!(a), Type::Felt), (ident!(b), Type::Felt)],
-            Type::Felt,
+            vec![(ident!(a), Type::Scalar), (ident!(b), Type::Scalar)],
+            Type::Scalar,
             vec![return_!(expr!(add!(access!(a), access!(b))))],
         ),
     );
@@ -88,8 +88,8 @@ fn fn_use_scalars_and_vectors() {
         Function::new(
             SourceSpan::UNKNOWN,
             function_ident!(fn_with_scalars_and_vectors),
-            vec![(ident!(a), Type::Felt), (ident!(b), Type::Vector(12))],
-            Type::Felt,
+            vec![(ident!(a), Type::Scalar), (ident!(b), Type::Vector(12))],
+            Type::Scalar,
             vec![return_!(expr!(call!(sum(expr!(
                 lc!(((x, expr!(access!(b)))) => add!(access!(a), access!(x)))
             )))))],
@@ -159,7 +159,7 @@ fn fn_call_in_fn() {
             SourceSpan::UNKNOWN,
             function_ident!(fold_vec),
             vec![(ident!(a), Type::Vector(12))],
-            Type::Felt,
+            Type::Scalar,
             vec![return_!(expr!(call!(sum(expr!(
                 lc!(((x, expr!(access!(a)))) => access!(x))
             )))))],
@@ -171,8 +171,8 @@ fn fn_call_in_fn() {
         Function::new(
             SourceSpan::UNKNOWN,
             function_ident!(fold_scalar_and_vec),
-            vec![(ident!(a), Type::Felt), (ident!(b), Type::Vector(12))],
-            Type::Felt,
+            vec![(ident!(a), Type::Scalar), (ident!(b), Type::Vector(12))],
+            Type::Scalar,
             vec![return_!(expr!(add!(
                 access!(a),
                 call!(fold_vec(expr!(access!(b))))
@@ -246,7 +246,7 @@ fn fn_call_in_ev() {
             SourceSpan::UNKNOWN,
             function_ident!(fold_vec),
             vec![(ident!(a), Type::Vector(12))],
-            Type::Felt,
+            Type::Scalar,
             vec![return_!(expr!(call!(sum(expr!(
                 lc!(((x, expr!(access!(a)))) => access!(x))
             )))))],
@@ -258,8 +258,8 @@ fn fn_call_in_ev() {
         Function::new(
             SourceSpan::UNKNOWN,
             function_ident!(fold_scalar_and_vec),
-            vec![(ident!(a), Type::Felt), (ident!(b), Type::Vector(12))],
-            Type::Felt,
+            vec![(ident!(a), Type::Scalar), (ident!(b), Type::Vector(12))],
+            Type::Scalar,
             vec![return_!(expr!(add!(
                 access!(a),
                 call!(fold_vec(expr!(access!(b))))
@@ -338,8 +338,8 @@ fn fn_as_lc_iterables() {
         Function::new(
             SourceSpan::UNKNOWN,
             function_ident!(operation),
-            vec![(ident!(a), Type::Felt), (ident!(b), Type::Felt)],
-            Type::Felt,
+            vec![(ident!(a), Type::Scalar), (ident!(b), Type::Scalar)],
+            Type::Scalar,
             vec![
                 let_!(x = expr!(add!(exp!(access!(a), access!(b)), int!(1))) =>
                 return_!(expr!(exp!(access!(b), access!(x))))),
@@ -412,7 +412,7 @@ fn fn_call_in_binary_ops() {
             SourceSpan::UNKNOWN,
             function_ident!(operation),
             vec![(ident!(a), Type::Vector(12)), (ident!(b), Type::Vector(12))],
-            Type::Felt,
+            Type::Scalar,
             vec![return_!(expr!(call!(sum(expr!(
                 lc!(((x, expr!(access!(a))), (y, expr!(access!(b)))) => add!(
                     access!(x),

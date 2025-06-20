@@ -68,9 +68,9 @@ fn modules_integration_test() {
             ident!(bar_constraint),
             vec![trace_segment!(0, "%0", [(clk, 1)])],
             vec![enforce_all!(lc!((("%1", range!(0..1))) => eq!(
-                access!(clk, 1, Type::Felt),
-                add!(access!(clk, Type::Felt), access!(bar, k0, Type::Felt))
-            ), when access!(bar, k0, Type::Felt)))],
+                access!(clk, 1, Type::Scalar),
+                add!(access!(clk, Type::Scalar), access!(bar, k0, Type::Scalar))
+            ), when access!(bar, k0, Type::Scalar)))],
         ),
     );
     // ev foo_constraint([clk]) {
@@ -82,7 +82,7 @@ fn modules_integration_test() {
             SourceSpan::UNKNOWN,
             ident!(foo_constraint),
             vec![trace_segment!(0, "%0", [(clk, 1)])],
-            vec![enforce_all!(lc!((("%1", range!(0..1))) => eq!(access!(clk, 1, Type::Felt), add!(access!(clk, Type::Felt), int!(1))), when access!(foo, k0, Type::Felt)))],
+            vec![enforce_all!(lc!((("%1", range!(0..1))) => eq!(access!(clk, 1, Type::Scalar), add!(access!(clk, Type::Scalar), int!(1))), when access!(foo, k0, Type::Scalar)))],
         ),
     );
     expected.public_inputs.insert(
@@ -93,16 +93,16 @@ fn modules_integration_test() {
         .integrity_constraints
         .push(enforce!(call!(foo::foo_constraint(vector!(access!(
             clk,
-            Type::Felt
+            Type::Scalar
         ))))));
     expected
         .integrity_constraints
         .push(enforce!(call!(bar::bar_constraint(vector!(access!(
             clk,
-            Type::Felt
+            Type::Scalar
         ))))));
     expected.boundary_constraints.push(enforce!(eq!(
-        bounded_access!(clk, Boundary::First, Type::Felt),
+        bounded_access!(clk, Boundary::First, Type::Scalar),
         int!(0)
     )));
 

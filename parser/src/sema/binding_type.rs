@@ -1,4 +1,6 @@
-use crate::ast::{AccessType, BusType, FunctionType, InvalidAccessError, TraceBinding, Type};
+use crate::ast::{
+    AccessType, BusType, FunctionType, InvalidAccessError, ScalarType, TraceBinding, Type,
+};
 use std::fmt;
 
 /// This type provides type and contextual information about a binding,
@@ -40,9 +42,9 @@ impl BindingType {
             Self::Vector(elems) => Some(Type::Vector(elems.len())),
             Self::Alias(aliased) => aliased.ty(),
             Self::Local(ty) | Self::Constant(ty) | Self::PublicInput(ty) => Some(*ty),
-            Self::PeriodicColumn(_) => Some(Type::Felt),
+            Self::PeriodicColumn(_) => Some(Type::Scalar),
             Self::Function(ty) => ty.result(),
-            Self::Bus(_) => Some(Type::Felt),
+            Self::Bus(_) => Some(Type::Scalar),
         }
     }
 
@@ -138,7 +140,7 @@ impl BindingType {
             Self::TraceColumn(ref tb) => {
                 let first = Self::TraceColumn(TraceBinding {
                     size: 1,
-                    ty: Type::Felt,
+                    ty: Type::Scalar(ScalarType::Felt),
                     ..*tb
                 });
                 let remaining = tb.size - 1;
@@ -147,7 +149,7 @@ impl BindingType {
                 } else {
                     let rest = Self::TraceColumn(TraceBinding {
                         size: remaining,
-                        ty: Type::Vector(remaining),
+                        ty: Type::Vector(ScalarType::Felt, remaining),
                         offset: tb.offset + 1,
                         ..*tb
                     });

@@ -328,7 +328,7 @@ impl AirBuilder<'_> {
                 Ok(MemoizedBinding::Vector(values))
             }
             ast::Expr::Vector(ref values) => match values[0].ty().unwrap() {
-                ast::Type::Felt => {
+                ast::Type::Scalar => {
                     let mut nodes = vec![];
                     for value in values.iter().cloned() {
                         let value = value.try_into().unwrap();

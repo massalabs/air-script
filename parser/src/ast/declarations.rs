@@ -159,37 +159,37 @@ impl PartialEq for Constant {
 /// * Matrix: \[\[1, 2, 3\], \[4, 5, 6\]\]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ConstantExpr {
-    Scalar(u64),
-    Vector(Vec<u64>),
-    Matrix(Vec<Vec<u64>>),
+    Scalar(ScalarType, u64),
+    Vector(ScalarType, Vec<u64>),
+    Matrix(ScalarType, Vec<Vec<u64>>),
 }
 impl ConstantExpr {
     /// Gets the type of this expression
     pub fn ty(&self) -> Type {
         match self {
-            Self::Scalar(_) => Type::Felt,
-            Self::Vector(elems) => Type::Vector(elems.len()),
-            Self::Matrix(rows) => {
+            Self::Scalar(ty, _) => Type::Scalar(*ty),
+            Self::Vector(ty, elems) => Type::Vector(*ty, elems.len()),
+            Self::Matrix(ty, rows) => {
                 let num_rows = rows.len();
                 let num_cols = rows.first().unwrap().len();
-                Type::Matrix(num_rows, num_cols)
+                Type::Matrix(*ty, num_rows, num_cols)
             }
         }
     }
 
     /// Returns true if this expression is of aggregate type
     pub fn is_aggregate(&self) -> bool {
-        matches!(self, Self::Vector(_) | Self::Matrix(_))
+        matches!(self, Self::Vector(_, _) | Self::Matrix(_, _))
     }
 }
 impl fmt::Display for ConstantExpr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::Scalar(value) => write!(f, "{}", value),
-            Self::Vector(ref values) => {
+            Self::Scalar(_, value) => write!(f, "{}", value),
+            Self::Vector(_, values) => {
                 write!(f, "{}", DisplayList(values.as_slice()))
             }
-            Self::Matrix(ref values) => write!(
+            Self::Matrix(_, values) => write!(
                 f,
                 "{}",
                 DisplayBracketed(DisplayCsv::new(

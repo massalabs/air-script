@@ -713,14 +713,14 @@ fn full_air_file() {
     //     enf clk' = clk + 1
     // }
     expected.integrity_constraints.push(enforce!(eq!(
-        access!(clk, 1, Type::Felt),
-        add!(access!(clk, Type::Felt), int!(1))
+        access!(clk, 1, Type::Scalar),
+        add!(access!(clk, Type::Scalar), int!(1))
     )));
     // boundary_constraints {
     //     enf clk.first = 0
     // }
     expected.boundary_constraints.push(enforce!(eq!(
-        bounded_access!(clk, Boundary::First, Type::Felt),
+        bounded_access!(clk, Boundary::First, Type::Scalar),
         int!(0)
     )));
 

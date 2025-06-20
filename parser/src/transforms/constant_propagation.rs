@@ -140,8 +140,10 @@ impl<'a> ConstantPropagation<'a> {
                     let span = range.span();
                     let range = range.to_slice_range();
                     let vector = range.map(|i| i as u64).collect();
-                    self.local
-                        .insert(expr.name, Span::new(span, ConstantExpr::Vector(vector)));
+                    self.local.insert(
+                        expr.name,
+                        Span::new(span, ConstantExpr::Vector(ScalarType::Int, vector)),
+                    );
                 }
                 _ => unreachable!(),
             }
@@ -328,47 +330,53 @@ impl VisitMut<SemanticAnalysisError> for ConstantPropagation<'_> {
                 };
                 if let Some((span, constant_expr)) = constant_value {
                     match constant_expr {
-                        cexpr @ ConstantExpr::Scalar(_) => {
+                        cexpr @ ConstantExpr::Scalar(_, _) => {
                             assert_eq!(access.access_type, AccessType::Default);
                             *expr = Expr::Const(Span::new(span, cexpr));
                         }
-                        ConstantExpr::Vector(value) => match access.access_type.clone() {
+                        ConstantExpr::Vector(sty, value) => match access.access_type.clone() {
                             AccessType::Default => {
-                                *expr = Expr::Const(Span::new(span, ConstantExpr::Vector(value)));
+                                *expr =
+                                    Expr::Const(Span::new(span, ConstantExpr::Vector(sty, value)));
                             }
                             AccessType::Slice(range) => {
                                 let range = range.to_slice_range();
                                 let vector = value[range].to_vec();
-                                *expr = Expr::Const(Span::new(span, ConstantExpr::Vector(vector)));
+                                *expr =
+                                    Expr::Const(Span::new(span, ConstantExpr::Vector(sty, vector)));
                             }
                             AccessType::Index(idx) => {
-                                *expr =
-                                    Expr::Const(Span::new(span, ConstantExpr::Scalar(value[idx])));
+                                *expr = Expr::Const(Span::new(
+                                    span,
+                                    ConstantExpr::Scalar(sty, value[idx]),
+                                ));
                             }
                             ref ty => panic!(
                                 "invalid constant reference, expected scalar access, got {:?}",
                                 ty
                             ),
                         },
-                        ConstantExpr::Matrix(value) => match access.access_type.clone() {
+                        ConstantExpr::Matrix(sty, value) => match access.access_type.clone() {
                             AccessType::Default => {
-                                *expr = Expr::Const(Span::new(span, ConstantExpr::Matrix(value)));
+                                *expr =
+                                    Expr::Const(Span::new(span, ConstantExpr::Matrix(sty, value)));
                             }
                             AccessType::Slice(range) => {
                                 let range = range.to_slice_range();
                                 let matrix = value[range].to_vec();
-                                *expr = Expr::Const(Span::new(span, ConstantExpr::Matrix(matrix)));
+                                *expr =
+                                    Expr::Const(Span::new(span, ConstantExpr::Matrix(sty, matrix)));
                             }
                             AccessType::Index(idx) => {
                                 *expr = Expr::Const(Span::new(
                                     span,
-                                    ConstantExpr::Vector(value[idx].clone()),
+                                    ConstantExpr::Vector(sty, value[idx].clone()),
                                 ));
                             }
                             AccessType::Matrix(row, col) => {
                                 *expr = Expr::Const(Span::new(
                                     span,
-                                    ConstantExpr::Scalar(value[row][col]),
+                                    ConstantExpr::Scalar(sty, value[row][col]),
                                 ));
                             }
                         },
@@ -444,18 +452,19 @@ impl VisitMut<SemanticAnalysisError> for ConstantPropagation<'_> {
 
                 if is_constant {
                     let ty = match vector.first().and_then(|e| e.ty()).unwrap() {
-                        Type::Felt => Type::Vector(vector.len()),
-                        Type::Vector(n) => Type::Matrix(vector.len(), n),
+                        Type::Scalar(sty) => Type::Vector(sty, vector.len()),
+                        Type::Vector(sty, n) => Type::Matrix(sty, vector.len(), n),
                         _ => unreachable!(),
                     };
 
                     let new_expr = match ty {
-                        Type::Vector(_) => ConstantExpr::Vector(
+                        Type::Vector(sty, _) => ConstantExpr::Vector(
+                            sty,
                             vector
                                 .iter()
                                 .map(|expr| match expr {
                                     Expr::Const(Span {
-                                        item: ConstantExpr::Scalar(v),
+                                        item: ConstantExpr::Scalar(sty, v),
                                         ..
                                     }) => *v,
                                     _ => unreachable!(),

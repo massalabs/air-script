@@ -208,7 +208,7 @@ impl<'a> MirBuilder<'a> {
                         let vector_node = Vector::create(params_vec, span);
                         self.bindings.insert(name.unwrap(), vector_node.clone());
                     }
-                    ast::Type::Felt => {
+                    ast::Type::Scalar => {
                         let param = all_params_flatten_for_trace_segment[i].clone();
                         i += 1;
                         self.bindings.insert(name.unwrap(), param.clone());
@@ -287,7 +287,7 @@ impl<'a> MirBuilder<'a> {
         i: &mut usize,
     ) -> Result<Vec<Link<Op>>, CompileError> {
         match ty {
-            ast::Type::Felt => {
+            ast::Type::Scalar => {
                 let param = Parameter::create(*i, MirType::Felt, span);
                 *i += 1;
                 Ok(vec![param])
@@ -325,7 +325,7 @@ impl<'a> MirBuilder<'a> {
         i: &mut usize,
     ) -> Result<Link<Op>, CompileError> {
         match ty {
-            ast::Type::Felt => {
+            ast::Type::Scalar => {
                 let param = Parameter::create(*i, MirType::Felt, span);
                 *i += 1;
                 Ok(param)
@@ -377,7 +377,7 @@ impl<'a> MirBuilder<'a> {
 
     fn translate_type(&mut self, ty: &ast::Type) -> MirType {
         match ty {
-            ast::Type::Felt => MirType::Felt,
+            ast::Type::Scalar => MirType::Felt,
             ast::Type::Vector(size) => MirType::Vector(*size),
             ast::Type::Matrix(rows, cols) => MirType::Matrix(*rows, *cols),
         }
@@ -451,7 +451,7 @@ impl<'a> MirBuilder<'a> {
 
         self.bindings.enter();
         for (index, binding) in list_comp.bindings.iter().enumerate() {
-            let binding_node = Parameter::create(index, ast::Type::Felt.into(), binding.span());
+            let binding_node = Parameter::create(index, ast::Type::Scalar.into(), binding.span());
             params.push(binding_node.clone());
             self.bindings.insert(binding, binding_node);
         }
@@ -965,7 +965,7 @@ impl<'a> MirBuilder<'a> {
         self.bindings.enter();
         let mut params = Vec::new();
         for (index, binding) in list_comp.bindings.iter().enumerate() {
-            let binding_node = Parameter::create(index, ast::Type::Felt.into(), binding.span());
+            let binding_node = Parameter::create(index, ast::Type::Scalar.into(), binding.span());
             params.push(binding_node.clone());
             self.bindings.insert(binding, binding_node);
         }

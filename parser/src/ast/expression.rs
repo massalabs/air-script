@@ -325,22 +325,31 @@ impl Expr {
             Self::Const(constant) => Some(constant.ty()),
             Self::Range(range) => range.ty(),
             Self::Vector(vector) => match vector.first().and_then(|e| e.ty()) {
-                Some(Type::Felt) => Some(Type::Vector(vector.len())),
-                Some(Type::Vector(n)) => Some(Type::Matrix(vector.len(), n)),
+                Some(Type::Scalar(ty)) => Some(Type::Vector(ty, vector.len())),
+                Some(Type::Vector(ty, n)) => Some(Type::Matrix(ty, vector.len(), n)),
                 Some(_) => None,
-                None => Some(Type::Vector(0)),
+                None => Some(Type::Vector(ScalarType::Untyped, 0)),
             },
             Self::Matrix(matrix) => {
                 let rows = matrix.len();
                 let cols = matrix[0].len();
-                Some(Type::Matrix(rows, cols))
+                let ty = match matrix[0].first().map(|e| e.ty()) {
+                    Some(Ok(Some(ty))) => ty,
+                    _ => Type::Scalar(ScalarType::Untyped),
+                };
+                let sty = match ty {
+                    Type::Scalar(ty) => ty,
+                    Type::Vector(ty, _) => ty,
+                    Type::Matrix(ty, _, _) => ty,
+                };
+                Some(Type::Matrix(sty, rows, cols))
             }
             Self::SymbolAccess(ref access) => access.ty,
-            Self::Binary(_) => Some(Type::Felt),
+            Self::Binary(be) => be.lhs.ty().ok()?,
             Self::Call(ref call) => call.ty,
             Self::ListComprehension(ref lc) => lc.ty,
             Self::Let(ref let_expr) => let_expr.ty(),
-            Self::BusOperation(_) | Self::Null(_) => Some(Type::Felt),
+            Self::BusOperation(_) | Self::Null(_) => Some(Type::Scalar(ScalarType::Untyped)),
         }
     }
 }
@@ -477,7 +486,7 @@ impl TryFrom<Statement> for Expr {
 #[derive(Clone, PartialEq, Eq, Spanned)]
 pub enum ScalarExpr {
     /// A constant scalar value, i.e. integer
-    Const(Span<u64>),
+    Const(ScalarType, #[span] Span<u64>),
     /// A reference to a named value
     ///
     /// NOTE: Symbol accesses in a `ScalarExpr` context must produce scalar values.
@@ -532,7 +541,7 @@ impl ScalarExpr {
     /// with a span covering the source of the conflict.
     pub fn ty(&self) -> Result<Option<Type>, SourceSpan> {
         match self {
-            Self::Const(_) => Ok(Some(Type::Felt)),
+            Self::Const(_) => Ok(Some(Type::Scalar)),
             Self::SymbolAccess(ref sym) => Ok(sym.ty),
             Self::BoundedSymbolAccess(ref sym) => Ok(sym.column.ty),
             Self::Binary(ref expr) => match (expr.lhs.ty()?, expr.rhs.ty()?) {
@@ -542,7 +551,7 @@ impl ScalarExpr {
             },
             Self::Call(ref expr) => Ok(expr.ty),
             Self::Let(ref expr) => Ok(expr.ty()),
-            Self::BusOperation(_) | ScalarExpr::Null(_) => Ok(Some(Type::Felt)),
+            Self::BusOperation(_) | ScalarExpr::Null(_) => Ok(Some(Type::Scalar)),
         }
     }
 }
@@ -554,7 +563,7 @@ impl TryFrom<Expr> for ScalarExpr {
             Expr::Const(constant) => {
                 let span = constant.span();
                 match constant.item {
-                    ConstantExpr::Scalar(v) => Ok(Self::Const(Span::new(span, v))),
+                    ConstantExpr::Scalar(ty, v) => Ok(Self::Const(Span::new(span, v))),
                     _ => Err(InvalidExprError::InvalidScalarExpr(span)),
                 }
             }
@@ -964,17 +973,19 @@ impl SymbolAccess {
         match access_type {
             AccessType::Default => Ok(self.clone()),
             AccessType::Index(idx) => match ty {
-                Type::Felt => Err(InvalidAccessError::IndexIntoScalar),
-                Type::Vector(len) if idx >= len => Err(InvalidAccessError::IndexOutOfBounds),
-                Type::Vector(_) => Ok(Self {
+                Type::Scalar(_) => Err(InvalidAccessError::IndexIntoScalar),
+                Type::Vector(_, len) if idx >= len => Err(InvalidAccessError::IndexOutOfBounds),
+                Type::Vector(ty, _) => Ok(Self {
                     access_type: AccessType::Index(idx),
-                    ty: Some(Type::Felt),
+                    ty: Some(Type::Scalar(ty)),
                     ..self.clone()
                 }),
-                Type::Matrix(rows, _) if idx >= rows => Err(InvalidAccessError::IndexOutOfBounds),
-                Type::Matrix(_, cols) => Ok(Self {
+                Type::Matrix(_, rows, _) if idx >= rows => {
+                    Err(InvalidAccessError::IndexOutOfBounds)
+                }
+                Type::Matrix(ty, _, cols) => Ok(Self {
                     access_type: AccessType::Index(idx),
-                    ty: Some(Type::Vector(cols)),
+                    ty: Some(Type::Vector(ty, cols)),
                     ..self.clone()
                 }),
             },
@@ -982,33 +993,33 @@ impl SymbolAccess {
                 let slice_range = range.to_slice_range();
                 let rlen = slice_range.end - slice_range.start;
                 match ty {
-                    Type::Felt => Err(InvalidAccessError::IndexIntoScalar),
-                    Type::Vector(len) if slice_range.end > len => {
+                    Type::Scalar(_) => Err(InvalidAccessError::IndexIntoScalar),
+                    Type::Vector(_, len) if slice_range.end > len => {
                         Err(InvalidAccessError::IndexOutOfBounds)
                     }
-                    Type::Vector(_) => Ok(Self {
+                    Type::Vector(ty, _) => Ok(Self {
                         access_type: AccessType::Slice(range),
-                        ty: Some(Type::Vector(rlen)),
+                        ty: Some(Type::Vector(ty, rlen)),
                         ..self.clone()
                     }),
-                    Type::Matrix(rows, _) if slice_range.end > rows => {
+                    Type::Matrix(_, rows, _) if slice_range.end > rows => {
                         Err(InvalidAccessError::IndexOutOfBounds)
                     }
-                    Type::Matrix(_, cols) => Ok(Self {
+                    Type::Matrix(ty, _, cols) => Ok(Self {
                         access_type: AccessType::Slice(range),
-                        ty: Some(Type::Matrix(rlen, cols)),
+                        ty: Some(Type::Matrix(ty, rlen, cols)),
                         ..self.clone()
                     }),
                 }
             }
             AccessType::Matrix(row, col) => match ty {
-                Type::Felt | Type::Vector(_) => Err(InvalidAccessError::IndexIntoScalar),
-                Type::Matrix(rows, cols) if row >= rows || col >= cols => {
+                Type::Scalar(_) | Type::Vector(_, _) => Err(InvalidAccessError::IndexIntoScalar),
+                Type::Matrix(_, rows, cols) if row >= rows || col >= cols => {
                     Err(InvalidAccessError::IndexOutOfBounds)
                 }
-                Type::Matrix(_, _) => Ok(Self {
+                Type::Matrix(ty, _, _) => Ok(Self {
                     access_type: AccessType::Matrix(row, col),
-                    ty: Some(Type::Felt),
+                    ty: Some(Type::Scalar(ty)),
                     ..self.clone()
                 }),
             },
@@ -1024,17 +1035,19 @@ impl SymbolAccess {
         match access_type {
             AccessType::Default => Ok(self.clone()),
             AccessType::Index(idx) => match ty {
-                Type::Felt => unreachable!(),
-                Type::Vector(len) if idx >= len => Err(InvalidAccessError::IndexOutOfBounds),
-                Type::Vector(_) => Ok(Self {
+                Type::Scalar(_) => unreachable!(),
+                Type::Vector(_, len) if idx >= len => Err(InvalidAccessError::IndexOutOfBounds),
+                Type::Vector(ty, _) => Ok(Self {
                     access_type: AccessType::Index(base_range.start + idx),
-                    ty: Some(Type::Felt),
+                    ty: Some(Type::Scalar(ty)),
                     ..self.clone()
                 }),
-                Type::Matrix(rows, _) if idx >= rows => Err(InvalidAccessError::IndexOutOfBounds),
-                Type::Matrix(_, cols) => Ok(Self {
+                Type::Matrix(_, rows, _) if idx >= rows => {
+                    Err(InvalidAccessError::IndexOutOfBounds)
+                }
+                Type::Matrix(ty, _, cols) => Ok(Self {
                     access_type: AccessType::Index(base_range.start + idx),
-                    ty: Some(Type::Vector(cols)),
+                    ty: Some(Type::Vector(ty, cols)),
                     ..self.clone()
                 }),
             },
@@ -1050,33 +1063,33 @@ impl SymbolAccess {
                     end: RangeBound::Const(Span::new(range.end.span(), end)),
                 };
                 match ty {
-                    Type::Felt => unreachable!(),
-                    Type::Vector(_) if slice_range.end > blen => {
+                    Type::Scalar(_) => unreachable!(),
+                    Type::Vector(_, _) if slice_range.end > blen => {
                         Err(InvalidAccessError::IndexOutOfBounds)
                     }
-                    Type::Vector(_) => Ok(Self {
+                    Type::Vector(ty, _) => Ok(Self {
                         access_type: AccessType::Slice(shifted),
-                        ty: Some(Type::Vector(rlen)),
+                        ty: Some(Type::Vector(ty, rlen)),
                         ..self.clone()
                     }),
-                    Type::Matrix(rows, _) if slice_range.end > rows => {
+                    Type::Matrix(_, rows, _) if slice_range.end > rows => {
                         Err(InvalidAccessError::IndexOutOfBounds)
                     }
-                    Type::Matrix(_, cols) => Ok(Self {
+                    Type::Matrix(ty, _, cols) => Ok(Self {
                         access_type: AccessType::Slice(shifted),
-                        ty: Some(Type::Matrix(rlen, cols)),
+                        ty: Some(Type::Matrix(ty, rlen, cols)),
                         ..self.clone()
                     }),
                 }
             }
             AccessType::Matrix(row, col) => match ty {
-                Type::Felt | Type::Vector(_) => Err(InvalidAccessError::IndexIntoScalar),
-                Type::Matrix(rows, cols) if row >= rows || col >= cols => {
+                Type::Scalar(_) | Type::Vector(_, _) => Err(InvalidAccessError::IndexIntoScalar),
+                Type::Matrix(_, rows, cols) if row >= rows || col >= cols => {
                     Err(InvalidAccessError::IndexOutOfBounds)
                 }
-                Type::Matrix(_, _) => Ok(Self {
+                Type::Matrix(ty, _, _) => Ok(Self {
                     access_type: AccessType::Matrix(row, col),
-                    ty: Some(Type::Felt),
+                    ty: Some(Type::Scalar(ty)),
                     ..self.clone()
                 }),
             },
@@ -1092,17 +1105,19 @@ impl SymbolAccess {
         match access_type {
             AccessType::Default => Ok(self.clone()),
             AccessType::Index(idx) => match ty {
-                Type::Felt => Err(InvalidAccessError::IndexIntoScalar),
-                Type::Vector(len) if idx >= len => Err(InvalidAccessError::IndexOutOfBounds),
-                Type::Vector(_) => Ok(Self {
+                Type::Scalar(_) => Err(InvalidAccessError::IndexIntoScalar),
+                Type::Vector(_, len) if idx >= len => Err(InvalidAccessError::IndexOutOfBounds),
+                Type::Vector(ty, _) => Ok(Self {
                     access_type: AccessType::Matrix(base_idx, idx),
-                    ty: Some(Type::Felt),
+                    ty: Some(Type::Scalar(ty)),
                     ..self.clone()
                 }),
-                Type::Matrix(rows, _) if idx >= rows => Err(InvalidAccessError::IndexOutOfBounds),
-                Type::Matrix(_, cols) => Ok(Self {
+                Type::Matrix(_, rows, _) if idx >= rows => {
+                    Err(InvalidAccessError::IndexOutOfBounds)
+                }
+                Type::Matrix(ty, _, cols) => Ok(Self {
                     access_type: AccessType::Matrix(base_idx, idx),
-                    ty: Some(Type::Vector(cols)),
+                    ty: Some(Type::Vector(ty, cols)),
                     ..self.clone()
                 }),
             },
@@ -1388,13 +1403,13 @@ impl Call {
     /// Constructs a function call for the `sum` reducer/fold
     #[inline]
     pub fn sum(span: SourceSpan, args: Vec<Expr>) -> Self {
-        Self::new_builtin(span, "sum", args, Type::Felt)
+        Self::new_builtin(span, "sum", args, Type::Scalar)
     }
 
     /// Constructs a function call for the `prod` reducer/fold
     #[inline]
     pub fn prod(span: SourceSpan, args: Vec<Expr>) -> Self {
-        Self::new_builtin(span, "prod", args, Type::Felt)
+        Self::new_builtin(span, "prod", args, Type::Scalar)
     }
 
     fn new_builtin(span: SourceSpan, name: &str, args: Vec<Expr>, ty: Type) -> Self {
