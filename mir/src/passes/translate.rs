@@ -1,7 +1,7 @@
 use core::panic;
 use std::ops::Deref;
 
-use air_parser::ast::AccessType;
+use air_parser::ast::{AccessType, ScalarType};
 use air_parser::{ast, symbols, LexicalScope};
 use air_pass::Pass;
 use miden_diagnostics::{DiagnosticsHandler, Severity, SourceSpan, Span, Spanned};
@@ -194,7 +194,7 @@ impl<'a> MirBuilder<'a> {
             for binding in trace_segment.bindings.iter() {
                 let name = binding.name.as_ref();
                 match &binding.ty {
-                    ast::Type::Vector(size) => {
+                    ast::Type::Vector(_, size) => {
                         let mut params_vec = Vec::new();
                         let mut span = SourceSpan::UNKNOWN;
                         for _ in 0..*size {
@@ -208,7 +208,7 @@ impl<'a> MirBuilder<'a> {
                         let vector_node = Vector::create(params_vec, span);
                         self.bindings.insert(name.unwrap(), vector_node.clone());
                     }
-                    ast::Type::Scalar => {
+                    ast::Type::Scalar(_) => {
                         let param = all_params_flatten_for_trace_segment[i].clone();
                         i += 1;
                         self.bindings.insert(name.unwrap(), param.clone());
@@ -287,21 +287,21 @@ impl<'a> MirBuilder<'a> {
         i: &mut usize,
     ) -> Result<Vec<Link<Op>>, CompileError> {
         match ty {
-            ast::Type::Scalar => {
-                let param = Parameter::create(*i, MirType::Felt, span);
+            ast::Type::Scalar(sty) => {
+                let param = Parameter::create(*i, MirType::Scalar(*sty), span);
                 *i += 1;
                 Ok(vec![param])
             }
-            ast::Type::Vector(size) => {
+            ast::Type::Vector(sty, size) => {
                 let mut params = Vec::new();
                 for _ in 0..*size {
-                    let param = Parameter::create(*i, MirType::Felt, span);
+                    let param = Parameter::create(*i, MirType::Scalar(*sty), span);
                     *i += 1;
                     params.push(param);
                 }
                 Ok(params)
             }
-            ast::Type::Matrix(_rows, _cols) => {
+            ast::Type::Matrix(_, _rows, _cols) => {
                 let span = if let Some(name) = name {
                     name.span()
                 } else {
@@ -325,17 +325,17 @@ impl<'a> MirBuilder<'a> {
         i: &mut usize,
     ) -> Result<Link<Op>, CompileError> {
         match ty {
-            ast::Type::Scalar => {
-                let param = Parameter::create(*i, MirType::Felt, span);
+            ast::Type::Scalar(sty) => {
+                let param = Parameter::create(*i, MirType::Scalar(*sty), span);
                 *i += 1;
                 Ok(param)
             }
-            ast::Type::Vector(size) => {
-                let param = Parameter::create(*i, MirType::Vector(*size), span);
+            ast::Type::Vector(sty, size) => {
+                let param = Parameter::create(*i, MirType::Vector(*sty, *size), span);
                 *i += 1;
                 Ok(param)
             }
-            ast::Type::Matrix(_rows, _cols) => {
+            ast::Type::Matrix(_sty, _rows, _cols) => {
                 let span = if let Some(name) = name {
                     name.span()
                 } else {
@@ -377,9 +377,9 @@ impl<'a> MirBuilder<'a> {
 
     fn translate_type(&mut self, ty: &ast::Type) -> MirType {
         match ty {
-            ast::Type::Scalar => MirType::Felt,
-            ast::Type::Vector(size) => MirType::Vector(*size),
-            ast::Type::Matrix(rows, cols) => MirType::Matrix(*rows, *cols),
+            ast::Type::Scalar(sty) => MirType::Scalar(*sty),
+            ast::Type::Vector(sty, size) => MirType::Vector(*sty, *size),
+            ast::Type::Matrix(sty, rows, cols) => MirType::Matrix(*sty, *rows, *cols),
         }
     }
 
@@ -451,7 +451,11 @@ impl<'a> MirBuilder<'a> {
 
         self.bindings.enter();
         for (index, binding) in list_comp.bindings.iter().enumerate() {
-            let binding_node = Parameter::create(index, ast::Type::Scalar.into(), binding.span());
+            let sty = list_comp
+                .ty
+                .map_or(ScalarType::Untyped, |ty| ty.scalar_type());
+            let binding_node =
+                Parameter::create(index, ast::Type::Scalar(sty).into(), binding.span());
             params.push(binding_node.clone());
             self.bindings.insert(binding, binding_node);
         }
@@ -624,7 +628,8 @@ impl<'a> MirBuilder<'a> {
 
     fn translate_range(&mut self, range_expr: &ast::RangeExpr) -> Result<Link<Op>, CompileError> {
         let values = range_expr.to_slice_range();
-        let const_expr = ast::ConstantExpr::Vector(values.map(|v| v as u64).collect());
+        let const_expr =
+            ast::ConstantExpr::Vector(ScalarType::Int, values.map(|v| v as u64).collect());
         self.translate_const(&const_expr, range_expr.span)
     }
 
@@ -818,9 +823,11 @@ impl<'a> MirBuilder<'a> {
             match call.callee.as_ref().name() {
                 symbols::Sum => {
                     assert_eq!(call.args.len(), 1);
-                    let iterator_node = self.translate_expr(call.args.first().unwrap())?;
+                    let args = call.args.first().unwrap();
+                    let iterator_node = self.translate_expr(args)?;
+                    let sty = args.ty().map_or(ScalarType::Untyped, |t| t.scalar_type());
                     let accumulator_node =
-                        self.translate_const(&ast::ConstantExpr::Scalar(0), call.span())?;
+                        self.translate_const(&ast::ConstantExpr::Scalar(sty, 0), call.span())?;
                     let node = Fold::builder()
                         .span(call.span())
                         .iterator(iterator_node)
@@ -831,9 +838,11 @@ impl<'a> MirBuilder<'a> {
                 }
                 symbols::Prod => {
                     assert_eq!(call.args.len(), 1);
-                    let iterator_node = self.translate_expr(call.args.first().unwrap())?;
+                    let args = call.args.first().unwrap();
+                    let iterator_node = self.translate_expr(args)?;
+                    let sty = args.ty().map_or(ScalarType::Untyped, |t| t.scalar_type());
                     let accumulator_node =
-                        self.translate_const(&ast::ConstantExpr::Scalar(1), call.span())?;
+                        self.translate_const(&ast::ConstantExpr::Scalar(sty, 1), call.span())?;
                     let node = Fold::builder()
                         .span(call.span())
                         .iterator(iterator_node)
@@ -965,7 +974,11 @@ impl<'a> MirBuilder<'a> {
         self.bindings.enter();
         let mut params = Vec::new();
         for (index, binding) in list_comp.bindings.iter().enumerate() {
-            let binding_node = Parameter::create(index, ast::Type::Scalar.into(), binding.span());
+            let sty = list_comp
+                .ty
+                .map_or(ScalarType::Untyped, |ty| ty.scalar_type());
+            let binding_node =
+                Parameter::create(index, ast::Type::Scalar(sty).into(), binding.span());
             params.push(binding_node.clone());
             self.bindings.insert(binding, binding_node);
         }
@@ -1007,7 +1020,7 @@ impl<'a> MirBuilder<'a> {
         scalar_expr: &'a ast::ScalarExpr,
     ) -> Result<Link<Op>, CompileError> {
         match scalar_expr {
-            ast::ScalarExpr::Const(c) => self.translate_scalar_const(c.item, c.span()),
+            ast::ScalarExpr::Const(sty, c) => self.translate_scalar_const(*sty, c.item, c.span()),
             ast::ScalarExpr::SymbolAccess(s) => self.translate_symbol_access(s),
             ast::ScalarExpr::BoundedSymbolAccess(s) => self.translate_bounded_symbol_access(s),
             ast::ScalarExpr::Binary(b) => self.translate_binary_op(b),
@@ -1023,11 +1036,12 @@ impl<'a> MirBuilder<'a> {
 
     fn translate_scalar_const(
         &mut self,
+        sty: ScalarType,
         c: u64,
         span: SourceSpan,
     ) -> Result<Link<Op>, CompileError> {
         let value = SpannedMirValue {
-            value: MirValue::Constant(ConstantValue::Felt(c)),
+            value: MirValue::Constant(ConstantValue::Scalar(sty, c)),
             span,
         };
         let node = Value::builder().value(value).build();
@@ -1119,20 +1133,21 @@ impl<'a> MirBuilder<'a> {
         span: SourceSpan,
     ) -> Result<Link<Op>, CompileError> {
         match c {
-            ast::ConstantExpr::Scalar(s) => self.translate_scalar_const(*s, span),
-            ast::ConstantExpr::Vector(v) => self.translate_vector_const(v.clone(), span),
-            ast::ConstantExpr::Matrix(m) => self.translate_matrix_const(m.clone(), span),
+            ast::ConstantExpr::Scalar(sty, s) => self.translate_scalar_const(*sty, *s, span),
+            ast::ConstantExpr::Vector(sty, v) => self.translate_vector_const(*sty, v.clone(), span),
+            ast::ConstantExpr::Matrix(sty, m) => self.translate_matrix_const(*sty, m.clone(), span),
         }
     }
 
     fn translate_vector_const(
         &mut self,
+        sty: ScalarType,
         v: Vec<u64>,
         span: SourceSpan,
     ) -> Result<Link<Op>, CompileError> {
         let mut node = Vector::builder().size(v.len()).span(span);
         for value in v.iter() {
-            let value_node = self.translate_scalar_const(*value, span)?;
+            let value_node = self.translate_scalar_const(sty, *value, span)?;
             node = node.elements(value_node);
         }
         Ok(node.build())
@@ -1140,12 +1155,13 @@ impl<'a> MirBuilder<'a> {
 
     fn translate_matrix_const(
         &mut self,
+        sty: ScalarType,
         m: Vec<Vec<u64>>,
         span: SourceSpan,
     ) -> Result<Link<Op>, CompileError> {
         let mut node = Matrix::builder().size(m.len()).span(span);
         for row in m.iter() {
-            let row_node = self.translate_vector_const(row.clone(), span)?;
+            let row_node = self.translate_vector_const(sty, row.clone(), span)?;
             node = node.elements(row_node);
         }
         let node = node.build();

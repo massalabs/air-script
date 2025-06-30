@@ -540,8 +540,8 @@ fn check_evaluator_argument_sizes(
             } else if let Some(parameter) = child.as_parameter() {
                 let Parameter { ty, .. } = parameter.deref();
                 let size = match ty {
-                    MirType::Felt => 1,
-                    MirType::Vector(len) => *len,
+                    MirType::Scalar(_) => 1,
+                    MirType::Vector(_, len) => *len,
                     _ => unreachable!("expected felt or vector, got {:?}", ty),
                 };
                 trace_segments_arg_vector_len += size;
@@ -563,8 +563,8 @@ fn check_evaluator_argument_sizes(
                 } else if let Some(parameter) = indexable.as_parameter() {
                     let Parameter { ty, .. } = parameter.deref();
                     let size = match ty {
-                        MirType::Felt => 1,
-                        MirType::Vector(len) => *len,
+                        MirType::Scalar(_) => 1,
+                        MirType::Vector(_, len) => *len,
                         _ => unreachable!("expected felt or vector, got {:?}", ty),
                     };
                     trace_segments_arg_vector_len += size;
@@ -668,8 +668,8 @@ fn unpack_evaluator_arguments(args: &[Link<Op>]) -> Vec<Link<Op>> {
                 } else if let Some(parameter) = indexable.as_parameter() {
                     let Parameter { ty, .. } = parameter.deref();
                     let _size = match ty {
-                        MirType::Felt => 1,
-                        MirType::Vector(len) => *len,
+                        MirType::Scalar(_) => 1,
+                        MirType::Vector(_, len) => *len,
                         _ => unreachable!("expected felt or vector, got {:?}", ty),
                     };
 

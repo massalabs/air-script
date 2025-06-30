@@ -1,6 +1,6 @@
 use std::{collections::HashMap, ops::Deref, rc::Rc};
 
-use air_parser::ast::AccessType;
+use air_parser::ast::{AccessType, ScalarType};
 use air_pass::Pass;
 use miden_diagnostics::{DiagnosticsHandler, Spanned};
 
@@ -140,26 +140,26 @@ impl UnrollingFirstPass<'_> {
             let mir_value = value_ref.value.value.clone();
             match mir_value {
                 MirValue::Constant(c) => match c {
-                    ConstantValue::Felt(_) => {}
-                    ConstantValue::Vector(v) => {
+                    ConstantValue::Scalar(_, _) => {}
+                    ConstantValue::Vector(sty, v) => {
                         let mut vec = vec![];
                         for val in v {
                             let val = Value::create(SpannedMirValue {
                                 span: value_ref.value.span,
-                                value: MirValue::Constant(ConstantValue::Felt(val)),
+                                value: MirValue::Constant(ConstantValue::Scalar(sty, val)),
                             });
                             vec.push(val);
                         }
                         updated_value = Some(Vector::create(vec, value_ref.span()));
                     }
-                    ConstantValue::Matrix(m) => {
+                    ConstantValue::Matrix(sty, m) => {
                         let mut res_m = vec![];
                         for row in m {
                             let mut res_row = vec![];
                             for val in row {
                                 let val = Value::create(SpannedMirValue {
                                     span: value_ref.value.span,
-                                    value: MirValue::Constant(ConstantValue::Felt(val)),
+                                    value: MirValue::Constant(ConstantValue::Scalar(sty, val)),
                                 });
                                 res_row.push(val);
                             }
@@ -506,7 +506,10 @@ impl UnrollingFirstPass<'_> {
 
             let one_constant = SpannedMirValue {
                 span: Default::default(),
-                value: MirValue::Constant(ConstantValue::Felt(1)),
+                value: MirValue::Constant(ConstantValue::Scalar(
+                    air_parser::ast::ScalarType::Untyped,
+                    1,
+                )),
             };
 
             if let Op::Vector(else_branch_vector) = else_branch.clone().borrow().deref() {
@@ -727,9 +730,9 @@ impl UnrollingFirstPass<'_> {
                 AccessType::Matrix(_, _) => 1,
             },
             Op::Parameter(parameter) => match parameter.ty {
-                MirType::Felt => 1,
-                MirType::Vector(l) => l,
-                MirType::Matrix(l, _) => l,
+                MirType::Scalar(_) => 1,
+                MirType::Vector(_, l) => l,
+                MirType::Matrix(_, l, _) => l,
             },
             _ => 1,
         }
@@ -772,8 +775,13 @@ impl UnrollingFirstPass<'_> {
             let mut new_vec = vec![];
 
             for i in 0..iterator_expected_len {
-                let new_node =
-                    Parameter::create(i, MirType::Felt, for_node.as_for().unwrap().deref().span());
+                let new_node = Parameter::create(
+                    i,
+                    // TODO: figure out a way to grab the correct type,
+                    // or let inference handle it
+                    MirType::Scalar(ScalarType::Untyped),
+                    for_node.as_for().unwrap().deref().span(),
+                );
                 new_vec.push(new_node.clone());
 
                 let iterators_i = iterators
@@ -1003,9 +1011,14 @@ impl Visitor for UnrollingSecondPass<'_> {
             // If there is a selector, we need to enforce it on the body
             let new_node_with_selector_if_needed =
                 if let Some(selector) = self.for_inlining_context.clone().unwrap().selector {
+                    // FIXME: ectract the scalar type once Typed is implemented
+                    // let sty = new_node
+                    //     .ty()
+                    //     .map_or(ScalarType::Untyped, |ty| ty.scalar_type());
+                    let sty = ScalarType::Untyped;
                     let zero_node = Value::create(SpannedMirValue {
                         span: Default::default(),
-                        value: MirValue::Constant(ConstantValue::Felt(0)),
+                        value: MirValue::Constant(ConstantValue::Scalar(sty, 0)),
                     });
                     // FIXME: The Sub here is used to keep the form of Eq(lhs, rhs) -> Enf(Sub(lhs, rhs) == 0),
                     // but it introduces an unnecessary zero node

@@ -1,6 +1,6 @@
 use super::*;
 
-#[derive(Hash, Debug, Copy, Clone, PartialEq, Eq, Ord, Default)]
+#[derive(Hash, Debug, Copy, Clone, PartialEq, Eq, Default)]
 pub enum ScalarType {
     /// A field element
     Felt,
@@ -25,6 +25,11 @@ impl PartialOrd for ScalarType {
             (Self::Int, Self::Bool) => std::cmp::Ordering::Greater,
             (Self::Bool, Self::Int) => std::cmp::Ordering::Less,
         })
+    }
+}
+impl Ord for ScalarType {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.partial_cmp(other).unwrap()
     }
 }
 
@@ -113,6 +118,13 @@ impl Type {
                 AccessType::Matrix(_, _) => Ok(Self::Scalar(ty)),
                 _ => unreachable!(),
             },
+        }
+    }
+    pub fn scalar_type(&self) -> ScalarType {
+        match self {
+            Self::Scalar(sty) => *sty,
+            Self::Vector(sty, _) => *sty,
+            Self::Matrix(sty, _, _) => *sty,
         }
     }
 }

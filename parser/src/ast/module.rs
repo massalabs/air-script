@@ -341,7 +341,7 @@ impl Module {
         }
 
         // Validate constant expression
-        if let ConstantExpr::Matrix(ref matrix) = &constant.value {
+        if let ConstantExpr::Matrix(sty, ref matrix) = &constant.value {
             let expected_len = matrix
                 .first()
                 .expect("expected matrix to have at least one row")

@@ -41,8 +41,8 @@ impl TraceSegment {
         for binding in raw_bindings.into_iter() {
             let (name, size) = binding.item;
             let ty = match size {
-                1 => Type::Scalar,
-                n => Type::Vector(n),
+                1 => Type::Scalar(ScalarType::Untyped),
+                n => Type::Vector(ScalarType::Untyped, n),
             };
             bindings.push(TraceBinding::new(
                 binding.span(),

@@ -452,9 +452,9 @@ impl TryFrom<ScalarExpr> for Expr {
     #[inline]
     fn try_from(expr: ScalarExpr) -> Result<Self, Self::Error> {
         match expr {
-            ScalarExpr::Const(spanned) => Ok(Self::Const(Span::new(
+            ScalarExpr::Const(sty, spanned) => Ok(Self::Const(Span::new(
                 spanned.span(),
-                ConstantExpr::Scalar(spanned.item),
+                ConstantExpr::Scalar(sty, spanned.item),
             ))),
             ScalarExpr::SymbolAccess(access) => Ok(Self::SymbolAccess(access)),
             ScalarExpr::Binary(expr) => Ok(Self::Binary(expr)),
@@ -521,7 +521,7 @@ pub enum ScalarExpr {
 impl ScalarExpr {
     /// Returns true if this is a constant value
     pub fn is_constant(&self) -> bool {
-        matches!(self, Self::Const(_))
+        matches!(self, Self::Const(_, _))
     }
 
     /// Returns true if this scalar expression could expand to a block, e.g. due to a function call being inlined.
@@ -541,7 +541,7 @@ impl ScalarExpr {
     /// with a span covering the source of the conflict.
     pub fn ty(&self) -> Result<Option<Type>, SourceSpan> {
         match self {
-            Self::Const(_) => Ok(Some(Type::Scalar)),
+            Self::Const(sty, _) => Ok(Some(Type::Scalar(*sty))),
             Self::SymbolAccess(ref sym) => Ok(sym.ty),
             Self::BoundedSymbolAccess(ref sym) => Ok(sym.column.ty),
             Self::Binary(ref expr) => match (expr.lhs.ty()?, expr.rhs.ty()?) {
@@ -551,7 +551,9 @@ impl ScalarExpr {
             },
             Self::Call(ref expr) => Ok(expr.ty),
             Self::Let(ref expr) => Ok(expr.ty()),
-            Self::BusOperation(_) | ScalarExpr::Null(_) => Ok(Some(Type::Scalar)),
+            Self::BusOperation(_) | ScalarExpr::Null(_) => {
+                Ok(Some(Type::Scalar(ScalarType::Untyped)))
+            }
         }
     }
 }
@@ -563,7 +565,7 @@ impl TryFrom<Expr> for ScalarExpr {
             Expr::Const(constant) => {
                 let span = constant.span();
                 match constant.item {
-                    ConstantExpr::Scalar(ty, v) => Ok(Self::Const(Span::new(span, v))),
+                    ConstantExpr::Scalar(sty, v) => Ok(Self::Const(sty, Span::new(span, v))),
                     _ => Err(InvalidExprError::InvalidScalarExpr(span)),
                 }
             }
@@ -594,13 +596,13 @@ impl TryFrom<Statement> for ScalarExpr {
 }
 impl From<u64> for ScalarExpr {
     fn from(value: u64) -> Self {
-        Self::Const(Span::new(SourceSpan::UNKNOWN, value))
+        Self::Const(ScalarType::Untyped, Span::new(SourceSpan::UNKNOWN, value))
     }
 }
 impl fmt::Debug for ScalarExpr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::Const(i) => f.debug_tuple("Const").field(&i.item).finish(),
+            Self::Const(sty, i) => f.debug_tuple("Const").field(sty).field(&i.item).finish(),
             Self::SymbolAccess(ref expr) => f.debug_tuple("SymbolAccess").field(expr).finish(),
             Self::BoundedSymbolAccess(ref expr) => {
                 f.debug_tuple("BoundedSymbolAccess").field(expr).finish()
@@ -616,7 +618,7 @@ impl fmt::Debug for ScalarExpr {
 impl fmt::Display for ScalarExpr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::Const(ref value) => write!(f, "{}", value),
+            Self::Const(ref sty, ref value) => write!(f, "{} as {}", value, sty),
             Self::SymbolAccess(ref expr) => write!(f, "{}", expr),
             Self::BoundedSymbolAccess(ref expr) => write!(f, "{}.{}", &expr.column, &expr.boundary),
             Self::Binary(ref expr) => write!(f, "{}", expr),
@@ -704,9 +706,10 @@ impl RangeExpr {
 
     pub fn ty(&self) -> Option<Type> {
         match (&self.start, &self.end) {
-            (RangeBound::Const(start), RangeBound::Const(end)) => {
-                Some(Type::Vector(end.item.abs_diff(start.item)))
-            }
+            (RangeBound::Const(start), RangeBound::Const(end)) => Some(Type::Vector(
+                ScalarType::Untyped,
+                end.item.abs_diff(start.item),
+            )),
             _ => None,
         }
     }
@@ -1403,13 +1406,13 @@ impl Call {
     /// Constructs a function call for the `sum` reducer/fold
     #[inline]
     pub fn sum(span: SourceSpan, args: Vec<Expr>) -> Self {
-        Self::new_builtin(span, "sum", args, Type::Scalar)
+        Self::new_builtin(span, "sum", args, Type::Scalar(ScalarType::Untyped))
     }
 
     /// Constructs a function call for the `prod` reducer/fold
     #[inline]
     pub fn prod(span: SourceSpan, args: Vec<Expr>) -> Self {
-        Self::new_builtin(span, "prod", args, Type::Scalar)
+        Self::new_builtin(span, "prod", args, Type::Scalar(ScalarType::Untyped))
     }
 
     fn new_builtin(span: SourceSpan, name: &str, args: Vec<Expr>, ty: Type) -> Self {

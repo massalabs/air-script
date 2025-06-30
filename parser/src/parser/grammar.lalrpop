@@ -131,9 +131,9 @@ Constant: Constant = {
 }
 
 ConstExpr: ConstantExpr = {
-    <Num_u64> => ConstantExpr::Scalar(<>),
-    <Vector<Num_u64>> => ConstantExpr::Vector(<>),
-    <Matrix<Num_u64>> => ConstantExpr::Matrix(<>),
+    <Num_u64> => ConstantExpr::Scalar(ScalarType::Untyped, <>),
+    <Vector<Num_u64>> => ConstantExpr::Vector(ScalarType::Untyped, <>),
+    <Matrix<Num_u64>> => ConstantExpr::Matrix(ScalarType::Untyped, <>),
 }
 
 // PUBLIC INPUTS
@@ -462,7 +462,7 @@ ScalarExpr: ScalarExpr = {
 ScalarExprBase: ScalarExpr = {
     #[precedence(level="0")]
     SymbolAccess,
-    <Int> => ScalarExpr::Const(<>),
+    <Int> => ScalarExpr::Const(ScalarType::Untyped, <>),
     <l:@L> "null" <r:@R> => ScalarExpr::Null(Span::new(span!(l, r), ())),
     "(" <ScalarExpr> ")",
 
@@ -471,7 +471,7 @@ ScalarExprBase: ScalarExpr = {
 
     #[precedence(level="2")]
     <l:@L> "!" <expr:ScalarExprBase> <r:@R>
-        => ScalarExpr::Binary(BinaryExpr::new(span!(l, r), BinaryOp::Sub, ScalarExpr::Const(Span::new(span!(l, r), 1)), expr)),
+        => ScalarExpr::Binary(BinaryExpr::new(span!(l, r), BinaryOp::Sub, ScalarExpr::Const(ScalarType::Untyped, Span::new(span!(l, r), 1)), expr)),
 
     #[precedence(level="3")] #[assoc(side="left")]
     <l:@L> <lhs: ScalarExprBase> "^" <rhs: ScalarExprBase> <r:@R>

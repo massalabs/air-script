@@ -108,3 +108,8 @@ pub trait Builder {
     /// Create a new empty builder that exposes all fields
     fn builder() -> Self::Empty;
 }
+
+pub trait Typed {
+    /// Get the type of the node
+    fn ty(&self) -> Option<MirType>;
+}

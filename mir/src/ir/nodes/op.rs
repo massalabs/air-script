@@ -3,6 +3,7 @@ use crate::ir::{
     Enf, Exp, Fold, For, If, Link, Matrix, MirValue, Mul, Node, Owner, Parameter, Parent,
     Singleton, SpannedMirValue, Sub, Value, Vector,
 };
+use air_parser::ast::ScalarType;
 use miden_diagnostics::{SourceSpan, Spanned};
 
 use std::{
@@ -832,7 +833,7 @@ impl From<i64> for Link<Op> {
     fn from(value: i64) -> Self {
         Op::Value(Value {
             value: SpannedMirValue {
-                value: MirValue::Constant(ConstantValue::Felt(value as u64)),
+                value: MirValue::Constant(ConstantValue::Scalar(ScalarType::Untyped, value as u64)),
                 ..Default::default()
             },
             ..Default::default()

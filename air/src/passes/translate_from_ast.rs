@@ -304,15 +304,15 @@ impl AirBuilder<'_> {
     fn eval_expr(&mut self, expr: &ast::Expr) -> Result<MemoizedBinding, CompileError> {
         match expr {
             ast::Expr::Const(ref constant) => match &constant.item {
-                ast::ConstantExpr::Scalar(value) => {
+                ast::ConstantExpr::Scalar(_, value) => {
                     let value = self.insert_constant(*value);
                     Ok(MemoizedBinding::Scalar(value))
                 }
-                ast::ConstantExpr::Vector(values) => {
+                ast::ConstantExpr::Vector(_, values) => {
                     let values = self.insert_constants(values.as_slice());
                     Ok(MemoizedBinding::Vector(values))
                 }
-                ast::ConstantExpr::Matrix(values) => {
+                ast::ConstantExpr::Matrix(_, values) => {
                     let values = values
                         .iter()
                         .map(|vs| self.insert_constants(vs.as_slice()))
@@ -328,7 +328,7 @@ impl AirBuilder<'_> {
                 Ok(MemoizedBinding::Vector(values))
             }
             ast::Expr::Vector(ref values) => match values[0].ty().unwrap() {
-                ast::Type::Scalar => {
+                ast::Type::Scalar(_) => {
                     let mut nodes = vec![];
                     for value in values.iter().cloned() {
                         let value = value.try_into().unwrap();
@@ -336,12 +336,12 @@ impl AirBuilder<'_> {
                     }
                     Ok(MemoizedBinding::Vector(nodes))
                 }
-                ast::Type::Vector(n) => {
+                ast::Type::Vector(_, n) => {
                     let mut nodes = vec![];
                     for row in values.iter().cloned() {
                         match row {
                             ast::Expr::Const(Span {
-                                item: ast::ConstantExpr::Vector(vs),
+                                item: ast::ConstantExpr::Vector(_, vs),
                                 ..
                             }) => {
                                 nodes.push(self.insert_constants(vs.as_slice()));
@@ -440,7 +440,7 @@ impl AirBuilder<'_> {
 
     fn insert_scalar_expr(&mut self, expr: &ast::ScalarExpr) -> Result<NodeIndex, CompileError> {
         match expr {
-            ast::ScalarExpr::Const(value) => {
+            ast::ScalarExpr::Const(_, value) => {
                 Ok(self.insert_op(Operation::Value(Value::Constant(value.item))))
             }
             ast::ScalarExpr::SymbolAccess(access) => Ok(self.insert_symbol_access(access)),
@@ -478,7 +478,7 @@ impl AirBuilder<'_> {
     fn insert_binary_expr(&mut self, expr: &ast::BinaryExpr) -> Result<NodeIndex, CompileError> {
         if expr.op == ast::BinaryOp::Exp {
             let lhs = self.insert_scalar_expr(expr.lhs.as_ref())?;
-            let ast::ScalarExpr::Const(rhs) = expr.rhs.as_ref() else {
+            let ast::ScalarExpr::Const(_, rhs) = expr.rhs.as_ref() else {
                 unreachable!();
             };
             return Ok(self.expand_exp(lhs, rhs.item));

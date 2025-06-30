@@ -93,7 +93,7 @@ impl<'a> ConstantPropagation<'a> {
     fn try_fold_binary_expr(
         &mut self,
         expr: &mut BinaryExpr,
-    ) -> Result<Option<Span<u64>>, SemanticAnalysisError> {
+    ) -> Result<Option<(ScalarType, Span<u64>)>, SemanticAnalysisError> {
         // Visit operands first to ensure they are reduced to constants if possible
         if let ControlFlow::Break(err) = self.visit_mut_scalar_expr(expr.lhs.as_mut()) {
             return Err(err);
@@ -188,7 +188,7 @@ impl VisitMut<SemanticAnalysisError> for ConstantPropagation<'_> {
     ) -> ControlFlow<SemanticAnalysisError> {
         match expr {
             // Expression is already folded
-            ScalarExpr::Const(_) | ScalarExpr::Null(_) => ControlFlow::Continue(()),
+            ScalarExpr::Const(_, _) | ScalarExpr::Null(_) => ControlFlow::Continue(()),
             // Need to check if this access is to a constant value, and transform to a constant if so
             ScalarExpr::SymbolAccess(sym) => {
                 let constant_value = match sym.name {
@@ -205,13 +205,13 @@ impl VisitMut<SemanticAnalysisError> for ConstantPropagation<'_> {
                 };
                 if let Some((span, constant_expr)) = constant_value {
                     match constant_expr {
-                        ConstantExpr::Scalar(value) => {
+                        ConstantExpr::Scalar(sty, value) => {
                             assert_eq!(sym.access_type, AccessType::Default);
-                            *expr = ScalarExpr::Const(Span::new(span, value));
+                            *expr = ScalarExpr::Const(sty, Span::new(span, value));
                         }
-                        ConstantExpr::Vector(value) => match sym.access_type {
+                        ConstantExpr::Vector(sty, value) => match sym.access_type {
                             AccessType::Index(idx) => {
-                                *expr = ScalarExpr::Const(Span::new(span, value[idx]));
+                                *expr = ScalarExpr::Const(sty, Span::new(span, value[idx]));
                             }
                             // This access cannot be resolved here, so we need to record the fact
                             // that there are still live uses of this binding
@@ -219,9 +219,9 @@ impl VisitMut<SemanticAnalysisError> for ConstantPropagation<'_> {
                                 self.live.insert(*sym.name.as_ref());
                             }
                         },
-                        ConstantExpr::Matrix(value) => match sym.access_type {
+                        ConstantExpr::Matrix(sty, value) => match sym.access_type {
                             AccessType::Matrix(row, col) => {
-                                *expr = ScalarExpr::Const(Span::new(span, value[row][col]));
+                                *expr = ScalarExpr::Const(sty, Span::new(span, value[row][col]));
                             }
                             // This access cannot be resolved here, so we need to record the fact
                             // that there are still live uses of this binding
@@ -240,8 +240,8 @@ impl VisitMut<SemanticAnalysisError> for ConstantPropagation<'_> {
             ScalarExpr::Binary(ref mut binary_expr) => {
                 match self.try_fold_binary_expr(binary_expr) {
                     Ok(maybe_folded) => {
-                        if let Some(folded) = maybe_folded {
-                            *expr = ScalarExpr::Const(folded);
+                        if let Some((sty, folded)) = maybe_folded {
+                            *expr = ScalarExpr::Const(sty, folded);
                         }
                         ControlFlow::Continue(())
                     }
@@ -267,8 +267,8 @@ impl VisitMut<SemanticAnalysisError> for ConstantPropagation<'_> {
                     Ok(Left(Some(const_expr))) => {
                         let span = const_expr.span();
                         match const_expr.item {
-                            ConstantExpr::Scalar(value) => {
-                                *expr = ScalarExpr::Const(Span::new(span, value));
+                            ConstantExpr::Scalar(sty, value) => {
+                                *expr = ScalarExpr::Const(sty, Span::new(span, value));
                             }
                             _ => {
                                 self.diagnostics.diagnostic(miden_diagnostics::Severity::Error)
@@ -395,14 +395,16 @@ impl VisitMut<SemanticAnalysisError> for ConstantPropagation<'_> {
                         if let Expr::Const(ref value) = &call.args[0] {
                             let span = value.span();
                             match &value.item {
-                                ConstantExpr::Vector(ref elems) => {
+                                ConstantExpr::Vector(sty, ref elems) => {
                                     let folded = if name == symbols::Sum {
                                         elems.iter().sum::<u64>()
                                     } else {
                                         elems.iter().product::<u64>()
                                     };
-                                    *expr =
-                                        Expr::Const(Span::new(span, ConstantExpr::Scalar(folded)));
+                                    *expr = Expr::Const(Span::new(
+                                        span,
+                                        ConstantExpr::Scalar(*sty, folded),
+                                    ));
                                 }
                                 invalid => {
                                     panic!("bad argument to list folding builtin: {:#?}", invalid)
@@ -417,10 +419,10 @@ impl VisitMut<SemanticAnalysisError> for ConstantPropagation<'_> {
             Expr::Call(ref mut call) => self.visit_mut_call(call),
             Expr::Binary(ref mut binary_expr) => match self.try_fold_binary_expr(binary_expr) {
                 Ok(maybe_folded) => {
-                    if let Some(folded) = maybe_folded {
+                    if let Some((sty, folded)) = maybe_folded {
                         *expr = Expr::Const(Span::new(
                             folded.span(),
-                            ConstantExpr::Scalar(folded.item),
+                            ConstantExpr::Scalar(sty, folded.item),
                         ));
                     }
                     ControlFlow::Continue(())
@@ -471,12 +473,13 @@ impl VisitMut<SemanticAnalysisError> for ConstantPropagation<'_> {
                                 })
                                 .collect(),
                         ),
-                        Type::Matrix(_, _) => ConstantExpr::Matrix(
+                        Type::Matrix(sty, _, _) => ConstantExpr::Matrix(
+                            sty,
                             vector
                                 .iter()
                                 .map(|expr| match expr {
                                     Expr::Const(Span {
-                                        item: ConstantExpr::Vector(vs),
+                                        item: ConstantExpr::Vector(sty, vs),
                                         ..
                                     }) => vs.clone(),
                                     _ => unreachable!(),
@@ -499,13 +502,20 @@ impl VisitMut<SemanticAnalysisError> for ConstantPropagation<'_> {
                     }
                 }
                 if is_constant {
+                    let sty = matrix
+                        .first()
+                        .and_then(|r| r.first())
+                        .and_then(|e| e.ty().unwrap())
+                        .map(|t| t.scalar_type())
+                        .unwrap_or(ScalarType::Untyped);
                     let matrix = ConstantExpr::Matrix(
+                        sty,
                         matrix
                             .iter()
                             .map(|row| {
                                 row.iter()
                                     .map(|col| match col {
-                                        ScalarExpr::Const(elem) => elem.item,
+                                        ScalarExpr::Const(_, elem) => elem.item,
                                         _ => unreachable!(),
                                     })
                                     .collect::<Vec<_>>()
@@ -543,11 +553,11 @@ impl VisitMut<SemanticAnalysisError> for ConstantPropagation<'_> {
                 // steps based on the length of the first iterable
                 let max_len = match &lc.iterables[0] {
                     Expr::Const(Span {
-                        item: ConstantExpr::Vector(elems),
+                        item: ConstantExpr::Vector(sty, elems),
                         ..
                     }) => elems.len(),
                     Expr::Const(Span {
-                        item: ConstantExpr::Matrix(rows),
+                        item: ConstantExpr::Matrix(sty, rows),
                         ..
                     }) => rows.len(),
                     Expr::Const(_) => panic!("expected iterable constant, got scalar"),
@@ -559,6 +569,13 @@ impl VisitMut<SemanticAnalysisError> for ConstantPropagation<'_> {
                 };
 
                 // Drive the comprehension step-by-step
+                let sty = lc
+                    .body
+                    .ty()
+                    .ok()
+                    .flatten()
+                    .unwrap_or(Type::Scalar(ScalarType::Untyped))
+                    .scalar_type();
                 let mut folded = vec![];
                 for step in 0..max_len {
                     for (binding, iterable) in lc.bindings.iter().copied().zip(lc.iterables.iter())
@@ -566,23 +583,26 @@ impl VisitMut<SemanticAnalysisError> for ConstantPropagation<'_> {
                         let span = iterable.span();
                         match iterable {
                             Expr::Const(Span {
-                                item: ConstantExpr::Vector(elems),
+                                item: ConstantExpr::Vector(sty, elems),
                                 ..
                             }) => {
-                                let value = ConstantExpr::Scalar(elems[step]);
+                                let value = ConstantExpr::Scalar(*sty, elems[step]);
                                 self.local.insert(binding, Span::new(span, value));
                             }
                             Expr::Const(Span {
-                                item: ConstantExpr::Matrix(elems),
+                                item: ConstantExpr::Matrix(sty, elems),
                                 ..
                             }) => {
-                                let value = ConstantExpr::Vector(elems[step].clone());
+                                let value = ConstantExpr::Vector(*sty, elems[step].clone());
                                 self.local.insert(binding, Span::new(span, value));
                             }
                             Expr::Range(range) => {
                                 let range = range.to_slice_range();
                                 assert!(range.end > range.start + step);
-                                let value = ConstantExpr::Scalar((range.start + step) as u64);
+                                let value = ConstantExpr::Scalar(
+                                    ScalarType::Int,
+                                    (range.start + step) as u64,
+                                );
                                 self.local.insert(binding, Span::new(span, value));
                             }
                             _ => unreachable!(
@@ -595,7 +615,7 @@ impl VisitMut<SemanticAnalysisError> for ConstantPropagation<'_> {
                     if let Some(mut selector) = lc.selector.as_ref().cloned() {
                         self.visit_mut_scalar_expr(&mut selector)?;
                         match selector {
-                            ScalarExpr::Const(selected) => {
+                            ScalarExpr::Const(_, selected) => {
                                 // If the selector returns false on this iteration, go to the next step
                                 if *selected == 0 {
                                     continue;
@@ -614,7 +634,7 @@ impl VisitMut<SemanticAnalysisError> for ConstantPropagation<'_> {
 
                     // If the body is constant, store the result in the vector, otherwise we must
                     // bail because this comprehension cannot be folded
-                    if let ScalarExpr::Const(folded_body) = body {
+                    if let ScalarExpr::Const(sty, folded_body) = body {
                         folded.push(folded_body.item);
                     } else {
                         self.in_list_comprehension = old_in_lc;
@@ -626,7 +646,7 @@ impl VisitMut<SemanticAnalysisError> for ConstantPropagation<'_> {
                 self.local.exit();
 
                 // If we reach here, the comprehension was expanded to a constant vector
-                *expr = Expr::Const(Span::new(span, ConstantExpr::Vector(folded)));
+                *expr = Expr::Const(Span::new(span, ConstantExpr::Vector(sty, folded)));
                 self.in_list_comprehension = old_in_lc;
                 ControlFlow::Continue(())
             }
@@ -745,9 +765,11 @@ impl VisitMut<SemanticAnalysisError> for ConstantPropagation<'_> {
 /// `Err(InvalidExprError)` will be returned.
 pub(crate) fn try_fold_binary_expr(
     expr: &BinaryExpr,
-) -> Result<Option<Span<u64>>, InvalidExprError> {
+) -> Result<Option<(ScalarType, Span<u64>)>, InvalidExprError> {
     // If both operands are constant, fold
-    if let (ScalarExpr::Const(l), ScalarExpr::Const(r)) = (expr.lhs.as_ref(), expr.rhs.as_ref()) {
+    if let (ScalarExpr::Const(lsty, l), ScalarExpr::Const(rsty, r)) =
+        (expr.lhs.as_ref(), expr.rhs.as_ref())
+    {
         let folded = match expr.op {
             BinaryOp::Add => l.item.checked_add(r.item),
             BinaryOp::Sub => l.item.checked_sub(r.item),
@@ -759,7 +781,7 @@ pub(crate) fn try_fold_binary_expr(
             // This op cannot be folded
             BinaryOp::Eq => return Ok(None),
         };
-        Ok(folded.map(|v| Span::new(expr.span(), v)))
+        Ok(folded.map(|v| (*lsty, Span::new(expr.span(), v))))
     } else {
         // If we observe a non-constant power in an exponentiation operation, raise an error
         if expr.op == BinaryOp::Exp && !expr.rhs.is_constant() {

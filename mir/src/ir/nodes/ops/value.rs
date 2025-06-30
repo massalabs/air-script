@@ -1,4 +1,6 @@
-use air_parser::ast::{self, Identifier, QualifiedIdentifier, TraceColumnIndex, TraceSegmentId};
+use air_parser::ast::{
+    self, Identifier, QualifiedIdentifier, ScalarType, TraceColumnIndex, TraceSegmentId,
+};
 use miden_diagnostics::{SourceSpan, Spanned};
 
 use crate::ir::{BackLink, Builder, Bus, Child, Link, Node, Op, Owner, Singleton};
@@ -28,7 +30,7 @@ impl From<i64> for Value {
     fn from(value: i64) -> Self {
         Self {
             value: SpannedMirValue {
-                value: MirValue::Constant(ConstantValue::Felt(value as u64)),
+                value: MirValue::Constant(ConstantValue::Scalar(ScalarType::Untyped, value as u64)),
                 span: Default::default(),
             },
             ..Default::default()
@@ -101,9 +103,9 @@ impl BusAccess {
 
 #[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub enum ConstantValue {
-    Felt(u64),
-    Vector(Vec<u64>),
-    Matrix(Vec<Vec<u64>>),
+    Scalar(ScalarType, u64),
+    Vector(ScalarType, Vec<u64>),
+    Matrix(ScalarType, Vec<Vec<u64>>),
 }
 
 /// [TraceAccess] is like [SymbolAccess], but is used to describe an access to a specific trace column or columns.
@@ -149,20 +151,25 @@ pub struct SpannedMirValue {
     pub value: MirValue,
 }
 
-#[derive(Debug, Default, Eq, PartialEq, Clone, Hash)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub enum MirType {
-    #[default]
-    Felt,
-    Vector(usize),
-    Matrix(usize, usize),
+    Scalar(ScalarType),
+    Vector(ScalarType, usize),
+    Matrix(ScalarType, usize, usize),
+}
+
+impl Default for MirType {
+    fn default() -> Self {
+        MirType::Scalar(ScalarType::Untyped)
+    }
 }
 
 impl From<ast::Type> for MirType {
     fn from(value: ast::Type) -> Self {
         match value {
-            ast::Type::Scalar => MirType::Felt,
-            ast::Type::Vector(n) => MirType::Vector(n),
-            ast::Type::Matrix(cols, rows) => MirType::Matrix(cols, rows),
+            ast::Type::Scalar(sty) => MirType::Scalar(sty),
+            ast::Type::Vector(sty, n) => MirType::Vector(sty, n),
+            ast::Type::Matrix(sty, cols, rows) => MirType::Matrix(sty, cols, rows),
         }
     }
 }
@@ -228,7 +235,7 @@ impl PublicInputTableAccess {
 impl Default for SpannedMirValue {
     fn default() -> Self {
         Self {
-            value: MirValue::Constant(ConstantValue::Felt(0)),
+            value: MirValue::Constant(ConstantValue::Scalar(ScalarType::Untyped, 0)),
             span: Default::default(),
         }
     }

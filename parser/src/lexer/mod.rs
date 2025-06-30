@@ -278,6 +278,8 @@ impl fmt::Display for Token {
             Self::Ev => write!(f, "ev"),
             Self::Fn => write!(f, "fn"),
             Self::Felt => write!(f, "felt"),
+            Self::Int => write!(f, "int"),
+            Self::Bool => write!(f, "bool"),
             Self::Buses => write!(f, "buses"),
             Self::Multiset => write!(f, "multiset"),
             Self::Logup => write!(f, "logup"),

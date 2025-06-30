@@ -39,12 +39,33 @@ impl BindingType {
     pub fn ty(&self) -> Option<Type> {
         match self {
             Self::TraceColumn(tb) | Self::TraceParam(tb) => Some(tb.ty()),
-            Self::Vector(elems) => Some(Type::Vector(elems.len())),
+            Self::Vector(elems) => {
+                let mut sty = ScalarType::Untyped;
+                for elem in elems {
+                    let Some(ty) = elem.ty() else {
+                        continue;
+                    };
+                    let new_sty = ty.scalar_type();
+                    sty = match (sty, new_sty) {
+                        (ScalarType::Untyped, _) => new_sty,
+                        (ScalarType::Felt, ScalarType::Felt) => ScalarType::Felt,
+                        (ScalarType::Int, ScalarType::Int) => ScalarType::Int,
+                        (ScalarType::Bool, ScalarType::Bool) => ScalarType::Bool,
+                        _ => {
+                            panic!(
+                                "incompatible scalar types in vector: {:#?} and {:#?}",
+                                sty, new_sty
+                            );
+                        }
+                    };
+                }
+                Some(Type::Vector(sty, elems.len()))
+            }
             Self::Alias(aliased) => aliased.ty(),
             Self::Local(ty) | Self::Constant(ty) | Self::PublicInput(ty) => Some(*ty),
-            Self::PeriodicColumn(_) => Some(Type::Scalar),
+            Self::PeriodicColumn(_) => Some(Type::Scalar(ScalarType::Untyped)),
             Self::Function(ty) => ty.result(),
-            Self::Bus(_) => Some(Type::Scalar),
+            Self::Bus(_) => Some(Type::Scalar(ScalarType::Untyped)),
         }
     }
 
