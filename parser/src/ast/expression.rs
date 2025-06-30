@@ -345,7 +345,62 @@ impl Expr {
                 Some(Type::Matrix(sty, rows, cols))
             }
             Self::SymbolAccess(ref access) => access.ty,
-            Self::Binary(be) => be.lhs.ty().ok()?,
+            Self::Binary(be) => match (be.op, be.lhs.ty(), be.rhs.ty()) {
+                (_, Err(_), _) | (_, _, Err(_)) => {
+                    // If either side of the binary expression has an error, propagate it
+                    None
+                }
+                (BinaryOp::Eq, Ok(_), Ok(_)) => {
+                    // Equality is always a boolean expression
+                    Some(Type::Scalar(ScalarType::Bool))
+                }
+                (
+                    BinaryOp::Exp,
+                    Ok(Some(Type::Scalar(sty))),
+                    Ok(Some(Type::Scalar(ScalarType::Int))),
+                ) => {
+                    // Exponentiation with an integer exponent
+                    // is always a scalar of the same type as the base
+                    Some(Type::Scalar(sty))
+                }
+                (
+                    BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul,
+                    Ok(Some(Type::Scalar(ScalarType::Felt))),
+                    Ok(None | Some(Type::Scalar(ScalarType::Felt | ScalarType::Untyped))),
+                ) => {
+                    // Felt binary operations
+                    Some(Type::Scalar(ScalarType::Felt))
+                }
+                (
+                    BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul,
+                    Ok(Some(Type::Scalar(ScalarType::Int))),
+                    Ok(None | Some(Type::Scalar(ScalarType::Int | ScalarType::Untyped))),
+                ) => {
+                    // Integer binary operations
+                    Some(Type::Scalar(ScalarType::Int))
+                }
+                (
+                    BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul,
+                    Ok(Some(Type::Scalar(ScalarType::Bool))),
+                    Ok(None | Some(Type::Scalar(ScalarType::Bool | ScalarType::Untyped))),
+                ) => {
+                    // Boolean binary operations
+                    Some(Type::Scalar(ScalarType::Bool))
+                }
+                (
+                    BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul,
+                    Ok(None | Some(Type::Scalar(ScalarType::Untyped))),
+                    Ok(ty),
+                ) => {
+                    // Untyped binary operations (lhs)
+                    // always produce the right-hand side type
+                    ty
+                }
+                (_, _, _) => {
+                    // If the types are not compatible, we cannot resolve the type
+                    None
+                }
+            },
             Self::Call(ref call) => call.ty,
             Self::ListComprehension(ref lc) => lc.ty,
             Self::Let(ref let_expr) => let_expr.ty(),
