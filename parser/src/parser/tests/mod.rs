@@ -367,10 +367,10 @@ macro_rules! bounded_access {
 
 macro_rules! int {
     ($value:literal) => {
-        ScalarExpr::Const(miden_diagnostics::Span::new(
-            miden_diagnostics::SourceSpan::UNKNOWN,
-            $value,
-        ))
+        ScalarExpr::Const(
+            ScalarType::Int,
+            miden_diagnostics::Span::new(miden_diagnostics::SourceSpan::UNKNOWN, $value),
+        )
     };
 
     ($value:expr) => {
@@ -418,22 +418,22 @@ macro_rules! constant {
         Constant::new(
             SourceSpan::UNKNOWN,
             ident!($name),
-            ConstantExpr::Scalar($value),
+            ConstantExpr::Scalar(ScalarType::Untyped, $value),
         )
     };
 
     ($name:ident = [$($value:literal),+]) => {
-        Constant::new(SourceSpan::UNKNOWN, ident!($name), ConstantExpr::Vector(vec![$($value),+]))
+        Constant::new(SourceSpan::UNKNOWN, ident!($name), ConstantExpr::Vector(ScalarType::Untyped, vec![$($value),+]))
     };
 
     ($name:ident = [$([$($value:literal),+]),+]) => {
-        Constant::new(SourceSpan::UNKNOWN, ident!($name), ConstantExpr::Matrix(vec![$(vec![$($value),+]),+]))
+        Constant::new(SourceSpan::UNKNOWN, ident!($name), ConstantExpr::Matrix(ScalarType::Untyped, vec![$(vec![$($value),+]),+]))
     };
 }
 
 macro_rules! vector {
     ($($value:literal),*) => {
-        Expr::Const(miden_diagnostics::Span::new(miden_diagnostics::SourceSpan::UNKNOWN, ConstantExpr::Vector(vec![$($value),*])))
+        Expr::Const(miden_diagnostics::Span::new(miden_diagnostics::SourceSpan::UNKNOWN, ConstantExpr::Vector(ScalarType::Untyped, vec![$($value),*])))
     };
 
     ($($value:expr),*) => {
@@ -713,14 +713,14 @@ fn full_air_file() {
     //     enf clk' = clk + 1
     // }
     expected.integrity_constraints.push(enforce!(eq!(
-        access!(clk, 1, Type::Scalar),
-        add!(access!(clk, Type::Scalar), int!(1))
+        access!(clk, 1, Type::Scalar(ScalarType::Untyped)),
+        add!(access!(clk, Type::Scalar(ScalarType::Untyped)), int!(1))
     )));
     // boundary_constraints {
     //     enf clk.first = 0
     // }
     expected.boundary_constraints.push(enforce!(eq!(
-        bounded_access!(clk, Boundary::First, Type::Scalar),
+        bounded_access!(clk, Boundary::First, Type::Scalar(ScalarType::Untyped)),
         int!(0)
     )));
 
