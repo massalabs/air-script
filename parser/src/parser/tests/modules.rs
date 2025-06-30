@@ -68,9 +68,9 @@ fn modules_integration_test() {
             ident!(bar_constraint),
             vec![trace_segment!(0, "%0", [(clk, 1)])],
             vec![enforce_all!(lc!((("%1", range!(0..1))) => eq!(
-                access!(clk, 1, Type::Scalar),
-                add!(access!(clk, Type::Scalar), access!(bar, k0, Type::Scalar))
-            ), when access!(bar, k0, Type::Scalar)))],
+                access!(clk, 1, Type::Scalar(ScalarType::Untyped)),
+                add!(access!(clk, Type::Scalar(ScalarType::Untyped)), access!(bar, k0, Type::Scalar(ScalarType::Untyped)))
+            ), when access!(bar, k0, Type::Scalar(ScalarType::Untyped))))],
         ),
     );
     // ev foo_constraint([clk]) {
@@ -82,7 +82,7 @@ fn modules_integration_test() {
             SourceSpan::UNKNOWN,
             ident!(foo_constraint),
             vec![trace_segment!(0, "%0", [(clk, 1)])],
-            vec![enforce_all!(lc!((("%1", range!(0..1))) => eq!(access!(clk, 1, Type::Scalar), add!(access!(clk, Type::Scalar), int!(1))), when access!(foo, k0, Type::Scalar)))],
+            vec![enforce_all!(lc!((("%1", range!(0..1))) => eq!(access!(clk, 1, Type::Scalar(ScalarType::Untyped)), add!(access!(clk, Type::Scalar(ScalarType::Untyped)), int!(1))), when access!(foo, k0, Type::Scalar(ScalarType::Untyped))))],
         ),
     );
     expected.public_inputs.insert(
@@ -93,16 +93,16 @@ fn modules_integration_test() {
         .integrity_constraints
         .push(enforce!(call!(foo::foo_constraint(vector!(access!(
             clk,
-            Type::Scalar
+            Type::Scalar(ScalarType::Untyped)
         ))))));
     expected
         .integrity_constraints
         .push(enforce!(call!(bar::bar_constraint(vector!(access!(
             clk,
-            Type::Scalar
+            Type::Scalar(ScalarType::Untyped)
         ))))));
     expected.boundary_constraints.push(enforce!(eq!(
-        bounded_access!(clk, Boundary::First, Type::Scalar),
+        bounded_access!(clk, Boundary::First, Type::Scalar(ScalarType::Untyped)),
         int!(0)
     )));
 
