@@ -7,7 +7,7 @@ use foo::*;
 use bar::bar_constraint;
 
 trace_columns {
-    main: [clk, fmp, ctx],
+    main: [clk: felt, fmp: felt, ctx: felt],
 }
 
 public_inputs {

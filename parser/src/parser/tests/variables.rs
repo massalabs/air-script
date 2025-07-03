@@ -11,7 +11,7 @@ fn variables_with_and_operators() {
     let source = "
     mod test
 
-    ev test([clk]) {
+    ev test([clk: int]) {
         let flag = n1 & !n2;
         enf clk' = clk + 1 when flag;
     }";
@@ -26,7 +26,7 @@ fn variables_with_and_operators() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(test),
-            vec![trace_segment!(0, "%0", [(clk, 1)])],
+            vec![trace_segment!(0, "%0", [(ScalarType::Int, clk, 1)])],
             body,
         ),
     );
@@ -39,7 +39,7 @@ fn variables_with_or_operators() {
     let source = "
     mod test
 
-    ev test([clk]) {
+    ev test([clk: int]) {
         let flag = n1 | !n2';
         enf clk' = clk + 1 when flag;
     }";
@@ -54,7 +54,7 @@ fn variables_with_or_operators() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(test),
-            vec![trace_segment!(0, "%0", [(clk, 1)])],
+            vec![trace_segment!(0, "%0", [(ScalarType::Int, clk, 1)])],
             body,
         ),
     );

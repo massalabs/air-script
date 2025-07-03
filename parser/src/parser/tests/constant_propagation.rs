@@ -15,7 +15,7 @@ fn test_constant_propagation() {
     use lib::*;
 
     trace_columns {
-        main: [clk, a, b[2], c],
+        main: [clk: bool, a: felt, b: felt[2], c: felt],
     }
 
     public_inputs {
@@ -43,7 +43,7 @@ fn test_constant_propagation() {
 
     const EXP = 2;
 
-    ev test_constraint([b0, b1]) {
+    ev test_constraint([b0: felt, b1: felt]) {
         let x = EXP;
         let y = 2^x;
         enf b0 + x = b1 + y;
@@ -68,7 +68,12 @@ fn test_constant_propagation() {
     expected.trace_columns.push(trace_segment!(
         0,
         "$main",
-        [(clk, 1), (a, 1), (b, 2), (c, 1)]
+        [
+            (ScalarType::Felt, clk, 1),
+            (ScalarType::Felt, a, 1),
+            (ScalarType::Felt, b, 2),
+            (ScalarType::Felt, c, 1)
+        ]
     ));
     expected.public_inputs.insert(
         ident!(inputs),
@@ -113,7 +118,11 @@ fn test_constant_propagation() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(test_constraint),
-            vec![trace_segment!(0, "%0", [(b0, 1), (b1, 1)])],
+            vec![trace_segment!(
+                0,
+                "%0",
+                [(ScalarType::Felt, b0, 1), (ScalarType::Felt, b1, 1)]
+            )],
             body,
         ),
     );

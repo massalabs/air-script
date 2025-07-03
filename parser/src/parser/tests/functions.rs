@@ -23,10 +23,10 @@ fn fn_def_with_scalars() {
             SourceSpan::UNKNOWN,
             function_ident!(fn_with_scalars),
             vec![
-                (ident!(a), Type::Scalar(ScalarType::Untyped)),
-                (ident!(b), Type::Scalar(ScalarType::Untyped)),
+                (ident!(a), Type::Scalar(ScalarType::Felt)),
+                (ident!(b), Type::Scalar(ScalarType::Felt)),
             ],
-            Type::Scalar(ScalarType::Untyped),
+            Type::Scalar(ScalarType::Felt),
             vec![return_!(expr!(add!(access!(a), access!(b))))],
         ),
     );
@@ -49,10 +49,10 @@ fn fn_def_with_vectors() {
             SourceSpan::UNKNOWN,
             function_ident!(fn_with_vectors),
             vec![
-                (ident!(a), Type::Vector(ScalarType::Untyped, 12)),
-                (ident!(b), Type::Vector(ScalarType::Untyped, 12)),
+                (ident!(a), Type::Vector(ScalarType::Felt, 12)),
+                (ident!(b), Type::Vector(ScalarType::Felt, 12)),
             ],
-            Type::Vector(ScalarType::Untyped, 12),
+            Type::Vector(ScalarType::Felt, 12),
             vec![return_!(expr!(
                 lc!(((x, expr!(access!(a))), (y, expr!(access!(b)))) =>
                 add!(access!(x), access!(y)))
@@ -72,7 +72,7 @@ fn fn_use_scalars_and_vectors() {
         }
 
         trace_columns {
-            main: [a, b[12]],
+            main: [a: felt, b: felt[12]],
         }
 
         fn fn_with_scalars_and_vectors(a: felt, b: felt[12]) -> felt {
@@ -95,19 +95,21 @@ fn fn_use_scalars_and_vectors() {
             SourceSpan::UNKNOWN,
             function_ident!(fn_with_scalars_and_vectors),
             vec![
-                (ident!(a), Type::Scalar(ScalarType::Untyped)),
-                (ident!(b), Type::Vector(ScalarType::Untyped, 12)),
+                (ident!(a), Type::Scalar(ScalarType::Felt)),
+                (ident!(b), Type::Vector(ScalarType::Felt, 12)),
             ],
-            Type::Scalar(ScalarType::Untyped),
+            Type::Scalar(ScalarType::Felt),
             vec![return_!(expr!(call!(sum(expr!(
                 lc!(((x, expr!(access!(b)))) => add!(access!(a), access!(x)))
             )))))],
         ),
     );
 
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(a, 1), (b, 12)]));
+    expected.trace_columns.push(trace_segment!(
+        0,
+        "$main",
+        [(ScalarType::Felt, a, 1), (ScalarType::Felt, b, 12)]
+    ));
 
     expected.public_inputs.insert(
         ident!(stack_inputs),
@@ -141,7 +143,7 @@ fn fn_call_in_fn() {
     }
 
     trace_columns {
-        main: [a, b[12]],
+        main: [a: felt, b: felt[12]],
     }
 
     fn fold_vec(a: felt[12]) -> felt {
@@ -167,8 +169,8 @@ fn fn_call_in_fn() {
         Function::new(
             SourceSpan::UNKNOWN,
             function_ident!(fold_vec),
-            vec![(ident!(a), Type::Vector(ScalarType::Untyped, 12))],
-            Type::Scalar(ScalarType::Untyped),
+            vec![(ident!(a), Type::Vector(ScalarType::Felt, 12))],
+            Type::Scalar(ScalarType::Felt),
             vec![return_!(expr!(call!(sum(expr!(
                 lc!(((x, expr!(access!(a)))) => access!(x))
             )))))],
@@ -181,10 +183,10 @@ fn fn_call_in_fn() {
             SourceSpan::UNKNOWN,
             function_ident!(fold_scalar_and_vec),
             vec![
-                (ident!(a), Type::Scalar(ScalarType::Untyped)),
-                (ident!(b), Type::Vector(ScalarType::Untyped, 12)),
+                (ident!(a), Type::Scalar(ScalarType::Felt)),
+                (ident!(b), Type::Vector(ScalarType::Felt, 12)),
             ],
-            Type::Scalar(ScalarType::Untyped),
+            Type::Scalar(ScalarType::Felt),
             vec![return_!(expr!(add!(
                 access!(a),
                 call!(fold_vec(expr!(access!(b))))
@@ -192,9 +194,11 @@ fn fn_call_in_fn() {
         ),
     );
 
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(a, 1), (b, 12)]));
+    expected.trace_columns.push(trace_segment!(
+        0,
+        "$main",
+        [(ScalarType::Felt, a, 1), (ScalarType::Felt, b, 12)]
+    ));
 
     expected.public_inputs.insert(
         ident!(stack_inputs),
@@ -227,7 +231,7 @@ fn fn_call_in_ev() {
     }
 
     trace_columns {
-        main: [a, b[12]],
+        main: [a: felt, b: felt[12]],
     }
 
     fn fold_vec(a: felt[12]) -> felt {
@@ -287,7 +291,11 @@ fn fn_call_in_ev() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(evaluator),
-            vec![trace_segment!(0, "%0", [(a, 1), (b, 12)])],
+            vec![trace_segment!(
+                0,
+                "%0",
+                [(ScalarType::Felt, a, 1), (ScalarType::Felt, b, 12)]
+            )],
             vec![enforce!(eq!(
                 access!(a, 1),
                 call!(fold_scalar_and_vec(expr!(access!(a)), expr!(access!(b))))
@@ -295,9 +303,11 @@ fn fn_call_in_ev() {
         ),
     );
 
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(a, 1), (b, 12)]));
+    expected.trace_columns.push(trace_segment!(
+        0,
+        "$main",
+        [(ScalarType::Felt, a, 1), (ScalarType::Felt, b, 12)]
+    ));
 
     expected.public_inputs.insert(
         ident!(stack_inputs),
@@ -330,7 +340,7 @@ fn fn_as_lc_iterables() {
     }
 
     trace_columns {
-        main: [a[12], b[12]],
+        main: [a: felt[12], b: felt[12]],
     }
 
     fn operation(a: felt, b: felt) -> felt {
@@ -365,9 +375,11 @@ fn fn_as_lc_iterables() {
         ),
     );
 
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(a, 12), (b, 12)]));
+    expected.trace_columns.push(trace_segment!(
+        0,
+        "$main",
+        [(ScalarType::Felt, a, 12), (ScalarType::Felt, b, 12)]
+    ));
 
     expected.public_inputs.insert(
         ident!(stack_inputs),
@@ -406,7 +418,7 @@ fn fn_call_in_binary_ops() {
     }
 
     trace_columns {
-        main: [a[12], b[12]],
+        main: [a: felt[12], b: felt[12]],
     }
 
     fn operation(a: felt[12], b: felt[12]) -> felt {
@@ -443,9 +455,11 @@ fn fn_call_in_binary_ops() {
         ),
     );
 
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(a, 12), (b, 12)]));
+    expected.trace_columns.push(trace_segment!(
+        0,
+        "$main",
+        [(ScalarType::Felt, a, 12), (ScalarType::Felt, b, 12)]
+    ));
 
     expected.public_inputs.insert(
         ident!(stack_inputs),
@@ -493,7 +507,7 @@ fn fn_call_in_vector_def() {
     }
 
     trace_columns {
-        main: [a[12], b[12]],
+        main: [a: felt[12], b: felt[12]],
     }
 
     fn operation(a: felt[12], b: felt[12]) -> felt[12] {
@@ -531,9 +545,11 @@ fn fn_call_in_vector_def() {
         ),
     );
 
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(a, 12), (b, 12)]));
+    expected.trace_columns.push(trace_segment!(
+        0,
+        "$main",
+        [(ScalarType::Felt, a, 12), (ScalarType::Felt, b, 12)]
+    ));
 
     expected.public_inputs.insert(
         ident!(stack_inputs),

@@ -34,15 +34,15 @@ impl TraceSegment {
         span: SourceSpan,
         id: TraceSegmentId,
         name: Identifier,
-        raw_bindings: Vec<Span<(Identifier, usize)>>,
+        raw_bindings: Vec<Span<(ScalarType, Identifier, usize)>>, // TODO: HERE!
     ) -> Self {
         let mut bindings = Vec::with_capacity(raw_bindings.len());
         let mut offset = 0;
         for binding in raw_bindings.into_iter() {
-            let (name, size) = binding.item;
+            let (sty, name, size) = binding.item;
             let ty = match size {
-                1 => Type::Scalar(ScalarType::Untyped),
-                n => Type::Vector(ScalarType::Untyped, n),
+                1 => Type::Scalar(sty),
+                n => Type::Vector(sty, n),
             };
             bindings.push(TraceBinding::new(
                 binding.span(),

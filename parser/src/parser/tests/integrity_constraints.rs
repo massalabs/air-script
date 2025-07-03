@@ -13,7 +13,7 @@ fn integrity_constraints() {
     def test
 
     trace_columns {
-        main: [clk],
+        main: [clk: felt],
     }
 
     public_inputs {
@@ -31,7 +31,7 @@ fn integrity_constraints() {
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
     expected
         .trace_columns
-        .push(trace_segment!(0, "$main", [(clk, 1)]));
+        .push(trace_segment!(0, "$main", [(ScalarType::Felt, clk, 1)]));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new_vector(SourceSpan::UNKNOWN, ident!(inputs), 2),
@@ -56,7 +56,7 @@ fn integrity_constraints_with_buses() {
     def test
 
     trace_columns {
-        main: [clk],
+        main: [clk: felt],
     }
 
     buses {
@@ -84,7 +84,7 @@ fn integrity_constraints_with_buses() {
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
     expected
         .trace_columns
-        .push(trace_segment!(0, "$main", [(clk, 1)]));
+        .push(trace_segment!(0, "$main", [(ScalarType::Felt, clk, 1)]));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new_vector(SourceSpan::UNKNOWN, ident!(inputs), 2),
@@ -148,7 +148,7 @@ fn err_integrity_constraints_invalid() {
     def test
 
     trace_columns {
-        main: [clk]
+        main: [clk: felt]
     }
 
     public_inputs {
@@ -172,7 +172,7 @@ fn multiple_integrity_constraints() {
     def test
 
     trace_columns {
-        main: [clk],
+        main: [clk: felt],
     }
 
     public_inputs {
@@ -191,7 +191,7 @@ fn multiple_integrity_constraints() {
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
     expected
         .trace_columns
-        .push(trace_segment!(0, "$main", [(clk, 1)]));
+        .push(trace_segment!(0, "$main", [(ScalarType::Felt, clk, 1)]));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new_vector(SourceSpan::UNKNOWN, ident!(inputs), 2),
@@ -219,7 +219,7 @@ fn integrity_constraint_with_periodic_col() {
     def test
 
     trace_columns {
-        main: [b],
+        main: [b: felt],
     }
 
     public_inputs {
@@ -241,7 +241,7 @@ fn integrity_constraint_with_periodic_col() {
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
     expected
         .trace_columns
-        .push(trace_segment!(0, "$main", [(b, 1)]));
+        .push(trace_segment!(0, "$main", [(ScalarType::Felt, b, 1)]));
     expected.periodic_columns.insert(
         ident!(k0),
         PeriodicColumn::new(SourceSpan::UNKNOWN, ident!(k0), vec![1, 0]),
@@ -270,7 +270,7 @@ fn integrity_constraint_with_constants() {
     def test
 
     trace_columns {
-        main: [clk],
+        main: [clk: felt],
     }
 
     const A = 0;
@@ -292,7 +292,7 @@ fn integrity_constraint_with_constants() {
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
     expected
         .trace_columns
-        .push(trace_segment!(0, "$main", [(clk, 1)]));
+        .push(trace_segment!(0, "$main", [(ScalarType::Felt, clk, 1)]));
     expected.constants.insert(ident!(A), constant!(A = 0));
     expected.constants.insert(ident!(B), constant!(B = [0, 1]));
     expected
@@ -325,7 +325,7 @@ fn integrity_constraint_with_variables() {
     def test
 
     trace_columns {
-        main: [clk],
+        main: [clk: felt],
     }
 
     public_inputs {
@@ -346,7 +346,7 @@ fn integrity_constraint_with_variables() {
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
     expected
         .trace_columns
-        .push(trace_segment!(0, "$main", [(clk, 1)]));
+        .push(trace_segment!(0, "$main", [(ScalarType::Felt, clk, 1)]));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new_vector(SourceSpan::UNKNOWN, ident!(inputs), 2),
@@ -374,7 +374,7 @@ fn integrity_constraint_with_indexed_trace_access() {
     def test
 
     trace_columns {
-        main: [a, b],
+        main: [a: felt, b: felt],
     }
 
     public_inputs {
@@ -390,9 +390,11 @@ fn integrity_constraint_with_indexed_trace_access() {
     }";
 
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(a, 1), (b, 1)]));
+    expected.trace_columns.push(trace_segment!(
+        0,
+        "$main",
+        [(ScalarType::Felt, a, 1), (ScalarType::Felt, b, 1)]
+    ));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new_vector(SourceSpan::UNKNOWN, ident!(inputs), 2),
@@ -420,7 +422,7 @@ fn ic_comprehension_one_iterable_identifier() {
     def test
 
     trace_columns {
-        main: [a, b, c[4]],
+        main: [a: felt, b: felt, c: felt[4]],
     }
 
     public_inputs {
@@ -436,9 +438,15 @@ fn ic_comprehension_one_iterable_identifier() {
     }";
 
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(a, 1), (b, 1), (c, 4)]));
+    expected.trace_columns.push(trace_segment!(
+        0,
+        "$main",
+        [
+            (ScalarType::Felt, a, 1),
+            (ScalarType::Felt, b, 1),
+            (ScalarType::Felt, c, 4)
+        ]
+    ));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new_vector(SourceSpan::UNKNOWN, ident!(inputs), 2),
@@ -465,7 +473,7 @@ fn ic_comprehension_one_iterable_range() {
     def test
 
     trace_columns {
-        main: [a, b, c[4]],
+        main: [a: felt, b: felt, c: felt[4]],
     }
 
     public_inputs {
@@ -481,9 +489,15 @@ fn ic_comprehension_one_iterable_range() {
     }";
 
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(a, 1), (b, 1), (c, 4)]));
+    expected.trace_columns.push(trace_segment!(
+        0,
+        "$main",
+        [
+            (ScalarType::Felt, a, 1),
+            (ScalarType::Felt, b, 1),
+            (ScalarType::Felt, c, 4)
+        ]
+    ));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new_vector(SourceSpan::UNKNOWN, ident!(inputs), 2),
@@ -510,7 +524,7 @@ fn ic_comprehension_with_selectors() {
     def test
 
     trace_columns {
-        main: [s[2], a, b, c[4]],
+        main: [s: felt[2], a: felt, b: felt, c: felt[4]],
     }
 
     public_inputs {
@@ -526,9 +540,16 @@ fn ic_comprehension_with_selectors() {
     }";
 
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(s, 2), (a, 1), (b, 1), (c, 4)]));
+    expected.trace_columns.push(trace_segment!(
+        0,
+        "$main",
+        [
+            (ScalarType::Felt, s, 2),
+            (ScalarType::Felt, a, 1),
+            (ScalarType::Felt, b, 1),
+            (ScalarType::Felt, c, 4)
+        ]
+    ));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new_vector(SourceSpan::UNKNOWN, ident!(inputs), 2),
@@ -554,12 +575,12 @@ fn ic_comprehension_with_evaluator_call() {
     let source = "
     def test
 
-    ev is_binary([x]) {
+    ev is_binary([x: felt]) {
         enf x^2 = x;
     }
 
     trace_columns {
-        main: [a, b, c[4], d[4]],
+        main: [a: felt, b: felt, c: felt[4], d: felt[4]],
     }
 
     public_inputs {
@@ -575,15 +596,22 @@ fn ic_comprehension_with_evaluator_call() {
     }";
 
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(a, 1), (b, 1), (c, 4), (d, 4)]));
+    expected.trace_columns.push(trace_segment!(
+        0,
+        "$main",
+        [
+            (ScalarType::Felt, a, 1),
+            (ScalarType::Felt, b, 1),
+            (ScalarType::Felt, c, 4),
+            (ScalarType::Felt, d, 4)
+        ]
+    ));
     expected.evaluators.insert(
         ident!(is_binary),
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(is_binary),
-            vec![trace_segment!(0, "%0", [(x, 1)])],
+            vec![trace_segment!(0, "%0", [(ScalarType::Felt, x, 1)])],
             vec![enforce!(eq!(exp!(access!(x), int!(2)), access!(x)))],
         ),
     );
@@ -612,12 +640,12 @@ fn ic_comprehension_with_evaluator_and_selectors() {
     let source = "
     def test
 
-    ev is_binary([x]) {
+    ev is_binary([x: felt]) {
         enf x^2 = x;
     }
 
     trace_columns {
-        main: [s[2], a, b, c[4], d[4]],
+        main: [s: felt[2], a: felt, b: felt, c: felt[4], d: felt[4]],
     }
 
     public_inputs {
@@ -636,14 +664,20 @@ fn ic_comprehension_with_evaluator_and_selectors() {
     expected.trace_columns.push(trace_segment!(
         0,
         "$main",
-        [(s, 2), (a, 1), (b, 1), (c, 4), (d, 4)]
+        [
+            (ScalarType::Felt, s, 2),
+            (ScalarType::Felt, a, 1),
+            (ScalarType::Felt, b, 1),
+            (ScalarType::Felt, c, 4),
+            (ScalarType::Felt, d, 4)
+        ]
     ));
     expected.evaluators.insert(
         ident!(is_binary),
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(is_binary),
-            vec![trace_segment!(0, "%0", [(x, 1)])],
+            vec![trace_segment!(0, "%0", [(ScalarType::Felt, x, 1)])],
             vec![enforce!(eq!(exp!(access!(x), int!(2)), access!(x)))],
         ),
     );
@@ -672,12 +706,12 @@ fn ic_match_constraint() {
     let source = "
     def test
 
-    ev is_binary([x]) {
+    ev is_binary([x: felt]) {
         enf x^2 = x;
     }
 
     trace_columns {
-        main: [s[2], a, b, c[4], d[4]],
+        main: [s: felt[2], a: felt, b: felt, c: felt[4], d: felt[4]],
     }
 
     public_inputs {
@@ -699,14 +733,20 @@ fn ic_match_constraint() {
     expected.trace_columns.push(trace_segment!(
         0,
         "$main",
-        [(s, 2), (a, 1), (b, 1), (c, 4), (d, 4)]
+        [
+            (ScalarType::Felt, s, 2),
+            (ScalarType::Felt, a, 1),
+            (ScalarType::Felt, b, 1),
+            (ScalarType::Felt, c, 4),
+            (ScalarType::Felt, d, 4)
+        ]
     ));
     expected.evaluators.insert(
         ident!(is_binary),
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(is_binary),
-            vec![trace_segment!(0, "%0", [(x, 1)])],
+            vec![trace_segment!(0, "%0", [(ScalarType::Felt, x, 1)])],
             vec![enforce!(eq!(exp!(access!(x), int!(2)), access!(x)))],
         ),
     );
@@ -744,7 +784,7 @@ fn err_ic_comprehension_one_member_two_iterables() {
     def test
 
     trace_columns {
-        main: [a, b, c[4]],
+        main: [a: felt, b: felt, c: felt[4]],
     }
 
     integrity_constraints {
@@ -761,7 +801,7 @@ fn err_ic_comprehension_two_members_one_iterable() {
     def test
 
     trace_columns {
-        main: [a, b, c[4]],
+        main: [a: felt, b: felt, c: felt[4]],
     }
 
     integrity_constraints {
@@ -781,7 +821,7 @@ fn err_missing_integrity_constraint() {
     def test
 
     trace_columns {
-        main: [clk],
+        main: [clk: felt],
     }
 
     integrity_constraints {
@@ -798,7 +838,7 @@ fn ic_invalid() {
     def test
 
     trace_columns {
-        main: [clk],
+        main: [clk: felt],
     }
 
     integrity_constraints {
@@ -813,7 +853,7 @@ fn error_invalid_next_usage() {
     def test
 
     trace_columns {
-        main: [clk],
+        main: [clk: felt],
     }
 
     integrity_constraints {
@@ -828,7 +868,7 @@ fn err_empty_integrity_constraints() {
     def test
 
     trace_columns {
-        main: [clk],
+        main: [clk: felt],
     }
 
     integrity_constraints {}

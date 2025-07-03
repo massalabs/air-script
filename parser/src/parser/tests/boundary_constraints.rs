@@ -11,7 +11,7 @@ const BASE_MODULE: &str = r#"
 def test
 
 trace_columns {
-    main: [clk],
+    main: [clk: int],
 }
 
 buses {
@@ -34,7 +34,7 @@ integrity_constraints {
 /// def test
 ///
 /// trace_columns {
-///     main: [clk]
+///     main: [clk: int],
 /// }
 ///
 /// buses {
@@ -56,7 +56,7 @@ fn test_module() -> Module {
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
     expected
         .trace_columns
-        .push(trace_segment!(0, "$main", [(clk, 1)]));
+        .push(trace_segment!(0, "$main", [(ScalarType::Int, clk, 1)]));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new_vector(SourceSpan::UNKNOWN, ident!(inputs), 2),

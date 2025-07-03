@@ -13,7 +13,7 @@ fn bc_one_iterable_identifier_lc() {
     def test
 
     trace_columns {
-        main: [a, b, c[4]],
+        main: [a: felt, b: felt, c: felt[4]],
     }
 
     public_inputs {
@@ -32,9 +32,15 @@ fn bc_one_iterable_identifier_lc() {
     }";
 
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(a, 1), (b, 1), (c, 4)]));
+    expected.trace_columns.push(trace_segment!(
+        0,
+        "$main",
+        [
+            (ScalarType::Felt, a, 1),
+            (ScalarType::Felt, b, 1),
+            (ScalarType::Felt, c, 4)
+        ]
+    ));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new_vector(SourceSpan::UNKNOWN, ident!(inputs), 2),
@@ -62,7 +68,7 @@ fn bc_identifier_and_range_lc() {
     const THREE = 3;
 
     trace_columns {
-        main: [a, b, c[4]],
+        main: [a: felt, b: felt, c: felt[4]],
     }
 
     public_inputs {
@@ -82,9 +88,15 @@ fn bc_identifier_and_range_lc() {
     expected
         .constants
         .insert(ident!(THREE), constant!(THREE = 3));
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(a, 1), (b, 1), (c, 4)]));
+    expected.trace_columns.push(trace_segment!(
+        0,
+        "$main",
+        [
+            (ScalarType::Felt, a, 1),
+            (ScalarType::Felt, b, 1),
+            (ScalarType::Felt, c, 4)
+        ]
+    ));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new_vector(SourceSpan::UNKNOWN, ident!(inputs), 2),
@@ -110,7 +122,7 @@ fn bc_iterable_slice_lc() {
     def test
 
     trace_columns {
-        main: [a, b, c[4]],
+        main: [a: felt, b: felt, c: felt[4]],
     }
 
     public_inputs {
@@ -127,9 +139,15 @@ fn bc_iterable_slice_lc() {
     }";
 
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(a, 1), (b, 1), (c, 4)]));
+    expected.trace_columns.push(trace_segment!(
+        0,
+        "$main",
+        [
+            (ScalarType::Felt, a, 1),
+            (ScalarType::Felt, b, 1),
+            (ScalarType::Felt, c, 4)
+        ]
+    ));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new_vector(SourceSpan::UNKNOWN, ident!(inputs), 2),
@@ -155,7 +173,7 @@ fn bc_two_iterable_identifier_lc() {
     def test
 
     trace_columns {
-        main: [a, b, c[4], d[4]],
+        main: [a: felt, b: felt, c: felt[4], d: felt[4]],
     }
 
     public_inputs {
@@ -172,9 +190,16 @@ fn bc_two_iterable_identifier_lc() {
     }";
 
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(a, 1), (b, 1), (c, 4), (d, 4)]));
+    expected.trace_columns.push(trace_segment!(
+        0,
+        "$main",
+        [
+            (ScalarType::Felt, a, 1),
+            (ScalarType::Felt, b, 1),
+            (ScalarType::Felt, c, 4),
+            (ScalarType::Felt, d, 4)
+        ]
+    ));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new_vector(SourceSpan::UNKNOWN, ident!(inputs), 2),
@@ -200,7 +225,7 @@ fn bc_multiple_iterables_lc() {
     def test
 
     trace_columns {
-        main: [a, b[3], c[4], d[4]],
+        main: [a: felt, b: felt[3], c: felt[4], d: felt[4]],
     }
 
     public_inputs {
@@ -217,9 +242,16 @@ fn bc_multiple_iterables_lc() {
     }";
 
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(a, 1), (b, 3), (c, 4), (d, 4)]));
+    expected.trace_columns.push(trace_segment!(
+        0,
+        "$main",
+        [
+            (ScalarType::Felt, a, 1),
+            (ScalarType::Felt, b, 3),
+            (ScalarType::Felt, c, 4),
+            (ScalarType::Felt, d, 4)
+        ]
+    ));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new_vector(SourceSpan::UNKNOWN, ident!(inputs), 2),
@@ -246,7 +278,7 @@ fn ic_one_iterable_identifier_lc() {
     def test
 
     trace_columns {
-        main: [a, b, c[4]],
+        main: [a: felt, b: felt, c: felt[4]],
     }
 
     public_inputs {
@@ -267,9 +299,15 @@ fn ic_one_iterable_identifier_lc() {
     }";
 
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(a, 1), (b, 1), (c, 4)]));
+    expected.trace_columns.push(trace_segment!(
+        0,
+        "$main",
+        [
+            (ScalarType::Felt, a, 1),
+            (ScalarType::Felt, b, 1),
+            (ScalarType::Felt, c, 4)
+        ]
+    ));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new_vector(SourceSpan::UNKNOWN, ident!(inputs), 2),
@@ -296,7 +334,7 @@ fn ic_iterable_identifier_range_lc() {
     def test
 
     trace_columns {
-        main: [a, b, c[4]],
+        main: [a: felt, b: felt, c: felt[4]],
     }
 
     public_inputs {
@@ -313,9 +351,15 @@ fn ic_iterable_identifier_range_lc() {
     }";
 
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(a, 1), (b, 1), (c, 4)]));
+    expected.trace_columns.push(trace_segment!(
+        0,
+        "$main",
+        [
+            (ScalarType::Felt, a, 1),
+            (ScalarType::Felt, b, 1),
+            (ScalarType::Felt, c, 4)
+        ]
+    ));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new_vector(SourceSpan::UNKNOWN, ident!(inputs), 2),
@@ -341,7 +385,7 @@ fn ic_iterable_slice_lc() {
     def test
 
     trace_columns {
-        main: [a, b, c[4]],
+        main: [a: felt, b: felt, c: felt[4]],
     }
 
     public_inputs {
@@ -358,9 +402,15 @@ fn ic_iterable_slice_lc() {
     }";
 
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(a, 1), (b, 1), (c, 4)]));
+    expected.trace_columns.push(trace_segment!(
+        0,
+        "$main",
+        [
+            (ScalarType::Felt, a, 1),
+            (ScalarType::Felt, b, 1),
+            (ScalarType::Felt, c, 4)
+        ]
+    ));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new_vector(SourceSpan::UNKNOWN, ident!(inputs), 2),
@@ -386,7 +436,7 @@ fn ic_two_iterable_identifier_lc() {
     def test
 
     trace_columns {
-        main: [a, b, c[4], d[4]],
+        main: [a: felt, b: felt, c: felt[4], d: felt[4]],
     }
 
     public_inputs {
@@ -403,9 +453,16 @@ fn ic_two_iterable_identifier_lc() {
     }";
 
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(a, 1), (b, 1), (c, 4), (d, 4)]));
+    expected.trace_columns.push(trace_segment!(
+        0,
+        "$main",
+        [
+            (ScalarType::Felt, a, 1),
+            (ScalarType::Felt, b, 1),
+            (ScalarType::Felt, c, 4),
+            (ScalarType::Felt, d, 4)
+        ]
+    ));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new_vector(SourceSpan::UNKNOWN, ident!(inputs), 2),
@@ -431,7 +488,7 @@ fn ic_multiple_iterables_lc() {
     def test
 
     trace_columns {
-        main: [a, b[3], c[4], d[4]],
+        main: [a: felt, b: felt[3], c: felt[4], d: felt[4]],
     }
 
     public_inputs {
@@ -448,9 +505,16 @@ fn ic_multiple_iterables_lc() {
     }";
 
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(a, 1), (b, 3), (c, 4), (d, 4)]));
+    expected.trace_columns.push(trace_segment!(
+        0,
+        "$main",
+        [
+            (ScalarType::Felt, a, 1),
+            (ScalarType::Felt, b, 3),
+            (ScalarType::Felt, c, 4),
+            (ScalarType::Felt, d, 4)
+        ]
+    ));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new_vector(SourceSpan::UNKNOWN, ident!(inputs), 2),
@@ -480,7 +544,7 @@ fn err_bc_lc_one_member_two_iterables() {
     def test
 
     trace_columns {
-        main: [a, b, c[4]],
+        main: [a: felt, b: felt, c: felt[4]],
     }
 
     boundary_constraints {
@@ -498,7 +562,7 @@ fn err_bc_lc_two_members_one_iterables() {
     def test
 
     trace_columns {
-        main: [a, b, c[4]],
+        main: [a: felt, b: felt, c: felt[4]],
     }
 
     boundary_constraints {
@@ -516,7 +580,7 @@ fn err_ic_lc_one_member_two_iterables() {
     def test
 
     trace_columns {
-        main: [a, b, c[4]],
+        main: [a: felt, b: felt, c: felt[4]],
     }
 
     integrity_constraints {
@@ -534,7 +598,7 @@ fn err_ic_lc_two_members_one_iterable() {
     def test
 
     trace_columns {
-        main: [a, b, c[4]],
+        main: [a: felt, b: felt, c: felt[4]],
     }
 
     integrity_constraints {

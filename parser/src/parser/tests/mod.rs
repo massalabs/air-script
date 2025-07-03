@@ -406,9 +406,9 @@ macro_rules! call {
 }
 
 macro_rules! trace_segment {
-    ($idx:literal, $name:literal, [$(($binding_name:ident, $binding_size:literal)),*]) => {
+    ($idx:literal, $name:literal, [$(($binding_type:expr, $binding_name:ident, $binding_size:literal)),*]) => {
         TraceSegment::new(miden_diagnostics::SourceSpan::UNKNOWN, $idx, ident!($name), vec![
-            $(miden_diagnostics::Span::new(miden_diagnostics::SourceSpan::UNKNOWN, (ident!($binding_name), $binding_size))),*
+            $(miden_diagnostics::Span::new(miden_diagnostics::SourceSpan::UNKNOWN, ($binding_type, ident!($binding_name), $binding_size))),*
         ])
     }
 }
@@ -706,9 +706,15 @@ fn full_air_file() {
     // trace_columns {
     //     main: [clk, fmp, ctx]
     // }
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(clk, 1), (fmp, 1), (ctx, 1)]));
+    expected.trace_columns.push(trace_segment!(
+        0,
+        "$main",
+        [
+            (ScalarType::Int, clk, 1),
+            (ScalarType::Felt, fmp, 1),
+            (ScalarType::Bool, ctx, 1)
+        ]
+    ));
     // integrity_constraints {
     //     enf clk' = clk + 1
     // }

@@ -13,7 +13,7 @@ fn trace_columns() {
     def test
 
     trace_columns {
-        main: [clk, fmp, ctx],
+        main: [clk: felt, fmp: int, ctx: bool],
     }
 
     public_inputs {
@@ -28,9 +28,15 @@ fn trace_columns() {
         enf clk = 0;
     }"#;
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(clk, 1), (fmp, 1), (ctx, 1)]));
+    expected.trace_columns.push(trace_segment!(
+        0,
+        "$main",
+        [
+            (ScalarType::Felt, clk, 1),
+            (ScalarType::Int, fmp, 1),
+            (ScalarType::Bool, ctx, 1)
+        ]
+    ));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new_vector(SourceSpan::UNKNOWN, ident!(inputs), 2),
@@ -55,7 +61,7 @@ fn trace_columns_groups() {
     def test
 
     trace_columns {
-        main: [clk, fmp, ctx, a[3]],
+        main: [clk: felt, fmp: int, ctx: bool, a: int[3]],
     }
 
     public_inputs {
@@ -74,7 +80,12 @@ fn trace_columns_groups() {
     expected.trace_columns.push(trace_segment!(
         0,
         "$main",
-        [(clk, 1), (fmp, 1), (ctx, 1), (a, 3)]
+        [
+            (ScalarType::Felt, clk, 1),
+            (ScalarType::Int, fmp, 1),
+            (ScalarType::Bool, ctx, 1),
+            (ScalarType::Int, a, 3)
+        ]
     ));
     expected.public_inputs.insert(
         ident!(inputs),

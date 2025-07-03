@@ -9,7 +9,7 @@ fn call_fold_identifier() {
     let source = "
     mod test
 
-    ev test([a, c[2]]) {
+    ev test([a: felt, c: felt[2]]) {
         let x = sum(c);
         let y = prod(c);
         enf a = x + y;
@@ -24,7 +24,11 @@ fn call_fold_identifier() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(test),
-            vec![trace_segment!(0, "%0", [(a, 1), (c, 2)])],
+            vec![trace_segment!(
+                0,
+                "%0",
+                [(ScalarType::Felt, a, 1), (ScalarType::Felt, c, 2)]
+            )],
             body,
         ),
     );
@@ -37,7 +41,7 @@ fn call_fold_vector_literal() {
     let source = "
     mod test
 
-    ev test([a, b, c[4]]) {
+    ev test([a: felt, b: felt, c: felt[4]]) {
         let x = sum([a, b, c[0]]);
         let y = prod([a, b, c[0]]);
         enf a = x + y;
@@ -54,7 +58,15 @@ fn call_fold_vector_literal() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(test),
-            vec![trace_segment!(0, "%0", [(a, 1), (b, 1), (c, 4)])],
+            vec![trace_segment!(
+                0,
+                "%0",
+                [
+                    (ScalarType::Felt, a, 1),
+                    (ScalarType::Felt, b, 1),
+                    (ScalarType::Felt, c, 4)
+                ]
+            )],
             body,
         ),
     );
@@ -67,7 +79,7 @@ fn call_fold_list_comprehension() {
     let source = "
     mod test
 
-    ev test([a, b, c[4]]) {
+    ev test([a: felt, b: felt, c: felt[4]]) {
         let x = sum([col^7 for col in c]);
         let y = prod([col^7 for col in c]);
         enf a = x + y;
@@ -84,7 +96,15 @@ fn call_fold_list_comprehension() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(test),
-            vec![trace_segment!(0, "%0", [(a, 1), (b, 1), (c, 4)])],
+            vec![trace_segment!(
+                0,
+                "%0",
+                [
+                    (ScalarType::Felt, a, 1),
+                    (ScalarType::Felt, b, 1),
+                    (ScalarType::Felt, c, 4)
+                ]
+            )],
             body,
         ),
     );

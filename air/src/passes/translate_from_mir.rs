@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, ops::Deref};
 
 use air_parser::{
-    ast::{self, TraceSegment},
+    ast::{self, ScalarType, TraceSegment},
     SemanticAnalysisError,
 };
 use air_pass::Pass;
@@ -41,7 +41,16 @@ impl Pass for MirToAir<'_> {
         if !buses.is_empty() {
             let bus_raw_bindings: Vec<_> = buses
                 .keys()
-                .map(|k| Span::new(k.span(), (Identifier::new(k.span(), k.name()), AUX_SEGMENT)))
+                .map(|k| {
+                    Span::new(
+                        k.span(),
+                        (
+                            ScalarType::Untyped,
+                            Identifier::new(k.span(), k.name()),
+                            AUX_SEGMENT,
+                        ),
+                    )
+                })
                 .collect();
 
             // Add buses as `aux` trace columns

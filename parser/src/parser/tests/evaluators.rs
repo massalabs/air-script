@@ -12,7 +12,7 @@ fn ev_fn_main_cols() {
     let source = "
     mod test
 
-    ev advance_clock([clk]) {
+    ev advance_clock([clk: int]) {
         enf clk' = clk + 1;
     }";
 
@@ -22,7 +22,7 @@ fn ev_fn_main_cols() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(advance_clock),
-            vec![trace_segment!(0, "%0", [(clk, 1)])],
+            vec![trace_segment!(0, "%0", [(ScalarType::Int, clk, 1)])],
             vec![enforce!(eq!(access!(clk, 1), add!(access!(clk), int!(1))))],
         ),
     );
@@ -35,7 +35,7 @@ fn ev_fn_call_simple() {
     def test
 
     trace_columns {
-        main: [clk],
+        main: [clk: int],
     }
 
     public_inputs {
@@ -53,7 +53,7 @@ fn ev_fn_call_simple() {
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
     expected
         .trace_columns
-        .push(trace_segment!(0, "$main", [(clk, 1)]));
+        .push(trace_segment!(0, "$main", [(ScalarType::Int, clk, 1)]));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new_vector(SourceSpan::UNKNOWN, ident!(inputs), 2),
@@ -76,7 +76,7 @@ fn ev_fn_call() {
     def test
 
     trace_columns {
-        main: [a[2], b[4], c[6]],
+        main: [a: int[2], b: int[4], c: int[6]],
     }
 
     public_inputs {
@@ -92,9 +92,15 @@ fn ev_fn_call() {
     }";
 
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(a, 2), (b, 4), (c, 6)]));
+    expected.trace_columns.push(trace_segment!(
+        0,
+        "$main",
+        [
+            (ScalarType::Int, a, 2),
+            (ScalarType::Int, b, 4),
+            (ScalarType::Int, c, 6)
+        ]
+    ));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new_vector(SourceSpan::UNKNOWN, ident!(inputs), 2),
@@ -120,7 +126,7 @@ fn ev_fn_call_inside_ev_fn() {
     let source = "
     mod test
 
-    ev ev_func([clk]) {
+    ev ev_func([clk: int]) {
         enf advance_clock([clk]);
     }";
 
@@ -131,7 +137,7 @@ fn ev_fn_call_inside_ev_fn() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(ev_func),
-            vec![trace_segment!(0, "%0", [(clk, 1)])],
+            vec![trace_segment!(0, "%0", [(ScalarType::Int, clk, 1)])],
             body,
         ),
     );
@@ -145,7 +151,7 @@ fn ev_fn_call_with_more_than_two_args() {
     def test
 
     trace_columns {
-        main: [a, b, c],
+        main: [a: int, b: int, c: int],
     }
 
     public_inputs {
@@ -161,9 +167,15 @@ fn ev_fn_call_with_more_than_two_args() {
     }";
 
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
-    expected
-        .trace_columns
-        .push(trace_segment!(0, "$main", [(a, 1), (b, 1), (c, 1)]));
+    expected.trace_columns.push(trace_segment!(
+        0,
+        "$main",
+        [
+            (ScalarType::Int, a, 1),
+            (ScalarType::Int, b, 1),
+            (ScalarType::Int, c, 1)
+        ]
+    ));
     expected.public_inputs.insert(
         ident!(inputs),
         PublicInput::new_vector(SourceSpan::UNKNOWN, ident!(inputs), 2),

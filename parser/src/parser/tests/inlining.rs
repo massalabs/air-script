@@ -28,7 +28,7 @@ fn test_inlining_with_evaluator_split_input_binding() {
     use lib::*;
 
     trace_columns {
-        main: [clk, a, b[2], c],
+        main: [clk: int, a: int, b: int[2], c: int],
     }
 
     public_inputs {
@@ -56,7 +56,7 @@ fn test_inlining_with_evaluator_split_input_binding() {
 
     const EXP = 2;
 
-    ev test_constraint([b0, b1]) {
+    ev test_constraint([b0: int, b1: int]) {
         let x = EXP;
         let y = 2^x;
         enf b0 + x = b1 + y;
@@ -82,7 +82,12 @@ fn test_inlining_with_evaluator_split_input_binding() {
     expected.trace_columns.push(trace_segment!(
         0,
         "$main",
-        [(clk, 1), (a, 1), (b, 2), (c, 1)]
+        [
+            (ScalarType::Int, clk, 1),
+            (ScalarType::Int, a, 1),
+            (ScalarType::Int, b, 2),
+            (ScalarType::Int, c, 1)
+        ]
     ));
     expected.public_inputs.insert(
         ident!(inputs),
@@ -125,7 +130,11 @@ fn test_inlining_with_evaluator_split_input_binding() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(test_constraint),
-            vec![trace_segment!(0, "%0", [(b0, 1), (b1, 1)])],
+            vec![trace_segment!(
+                0,
+                "%0",
+                [(ScalarType::Int, b0, 1), (ScalarType::Int, b1, 1)]
+            )],
             body,
         ),
     );
@@ -153,7 +162,7 @@ fn test_inlining_with_vector_literal_binding_regrouped() {
     use lib::*;
 
     trace_columns {
-        main: [clk, a, b[2], c],
+        main: [clk: int, a: int, b: int[2], c: int],
     }
 
     public_inputs {
@@ -172,7 +181,7 @@ fn test_inlining_with_vector_literal_binding_regrouped() {
     let lib = r#"
     mod lib
 
-    ev test_constraint([pair[2], b1]) {
+    ev test_constraint([pair: int[2], b1: int]) {
         enf pair[0] + pair[1] = b1;
     }"#;
 
@@ -196,7 +205,12 @@ fn test_inlining_with_vector_literal_binding_regrouped() {
     expected.trace_columns.push(trace_segment!(
         0,
         "$main",
-        [(clk, 1), (a, 1), (b, 2), (c, 1)]
+        [
+            (ScalarType::Int, clk, 1),
+            (ScalarType::Int, a, 1),
+            (ScalarType::Int, b, 2),
+            (ScalarType::Int, c, 1)
+        ]
     ));
     expected.public_inputs.insert(
         ident!(inputs),
@@ -230,7 +244,11 @@ fn test_inlining_with_vector_literal_binding_regrouped() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(test_constraint),
-            vec![trace_segment!(0, "%0", [(pair, 2), (b1, 1)])],
+            vec![trace_segment!(
+                0,
+                "%0",
+                [(ScalarType::Int, pair, 2), (ScalarType::Int, b1, 1)]
+            )],
             body,
         ),
     );
@@ -249,7 +267,7 @@ fn test_inlining_with_vector_literal_binding_unordered() {
     use lib::*;
 
     trace_columns {
-        main: [clk, a, b[2], c],
+        main: [clk: int, a: int, b: int[2], c: int],
     }
 
     public_inputs {
@@ -267,7 +285,7 @@ fn test_inlining_with_vector_literal_binding_unordered() {
     let lib = r#"
     mod lib
 
-    ev test_constraint([b0, pair[2]]) {
+    ev test_constraint([b0: int, pair: int[2]]) {
         enf pair[1] + b0 = pair[0];
     }"#;
 
@@ -291,7 +309,12 @@ fn test_inlining_with_vector_literal_binding_unordered() {
     expected.trace_columns.push(trace_segment!(
         0,
         "$main",
-        [(clk, 1), (a, 1), (b, 2), (c, 1)]
+        [
+            (ScalarType::Int, clk, 1),
+            (ScalarType::Int, a, 1),
+            (ScalarType::Int, b, 2),
+            (ScalarType::Int, c, 1)
+        ]
     ));
     expected.public_inputs.insert(
         ident!(inputs),
@@ -325,7 +348,11 @@ fn test_inlining_with_vector_literal_binding_unordered() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(test_constraint),
-            vec![trace_segment!(0, "%0", [(b0, 1), (pair, 2)])],
+            vec![trace_segment!(
+                0,
+                "%0",
+                [(ScalarType::Int, b0, 1), (ScalarType::Int, pair, 2)]
+            )],
             body,
         ),
     );
@@ -344,7 +371,7 @@ fn test_inlining_with_vector_literal_binding_different_arity_many_to_few() {
     use lib::*;
 
     trace_columns {
-        main: [clk, a, b[2], c],
+        main: [clk: int, a: int, b: int[2], c: int],
     }
 
     public_inputs {
@@ -362,7 +389,7 @@ fn test_inlining_with_vector_literal_binding_different_arity_many_to_few() {
     let lib = r#"
     mod lib
 
-    ev test_constraint([pair[3], foo]) {
+    ev test_constraint([pair: int[3], foo: int]) {
         enf pair[0] + pair[1] = foo + pair[2];
     }"#;
 
@@ -386,7 +413,12 @@ fn test_inlining_with_vector_literal_binding_different_arity_many_to_few() {
     expected.trace_columns.push(trace_segment!(
         0,
         "$main",
-        [(clk, 1), (a, 1), (b, 2), (c, 1)]
+        [
+            (ScalarType::Int, clk, 1),
+            (ScalarType::Int, a, 1),
+            (ScalarType::Int, b, 2),
+            (ScalarType::Int, c, 1)
+        ]
     ));
     expected.public_inputs.insert(
         ident!(inputs),
@@ -426,7 +458,11 @@ fn test_inlining_with_vector_literal_binding_different_arity_many_to_few() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(test_constraint),
-            vec![trace_segment!(0, "%0", [(pair, 3), (foo, 1)])],
+            vec![trace_segment!(
+                0,
+                "%0",
+                [(ScalarType::Int, pair, 3), (ScalarType::Int, foo, 1)]
+            )],
             body,
         ),
     );
@@ -445,7 +481,7 @@ fn test_inlining_with_vector_literal_binding_different_arity_few_to_many() {
     use lib::*;
 
     trace_columns {
-        main: [clk, a, b[2], c],
+        main: [clk: int, a: int, b: int[2], c: int],
     }
 
     public_inputs {
@@ -463,7 +499,7 @@ fn test_inlining_with_vector_literal_binding_different_arity_few_to_many() {
     let lib = r#"
     mod lib
 
-    ev test_constraint([x, y, z]) {
+    ev test_constraint([x: int, y: int, z: int]) {
         enf x + y = z;
     }"#;
 
@@ -487,7 +523,12 @@ fn test_inlining_with_vector_literal_binding_different_arity_few_to_many() {
     expected.trace_columns.push(trace_segment!(
         0,
         "$main",
-        [(clk, 1), (a, 1), (b, 2), (c, 1)]
+        [
+            (ScalarType::Int, clk, 1),
+            (ScalarType::Int, a, 1),
+            (ScalarType::Int, b, 2),
+            (ScalarType::Int, c, 1)
+        ]
     ));
     expected.public_inputs.insert(
         ident!(inputs),
@@ -521,7 +562,15 @@ fn test_inlining_with_vector_literal_binding_different_arity_few_to_many() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(test_constraint),
-            vec![trace_segment!(0, "%0", [(x, 1), (y, 1), (z, 1)])],
+            vec![trace_segment!(
+                0,
+                "%0",
+                [
+                    (ScalarType::Int, x, 1),
+                    (ScalarType::Int, y, 1),
+                    (ScalarType::Int, z, 1)
+                ]
+            )],
             body,
         ),
     );
@@ -539,7 +588,7 @@ fn test_inlining_across_modules_with_nested_evaluators_variant1() {
     use lib1::test_constraint;
 
     trace_columns {
-        main: [clk, a, b[2], c],
+        main: [clk: int, a: int, b: int[2], c: int],
     }
 
     public_inputs {
@@ -559,13 +608,13 @@ fn test_inlining_across_modules_with_nested_evaluators_variant1() {
 
     use lib2::*;
 
-    ev test_constraint([tuple[3], z]) {
+    ev test_constraint([tuple: int[3], z: int]) {
         enf helper_constraint([z, tuple[1..3]]);
     }"#;
     let lib2 = r#"
     mod lib2
 
-    ev helper_constraint([x[2], y]) {
+    ev helper_constraint([x: int[2], y: int]) {
         enf x[0] + x[1] = y;
     }"#;
 
@@ -591,7 +640,12 @@ fn test_inlining_across_modules_with_nested_evaluators_variant1() {
     expected.trace_columns.push(trace_segment!(
         0,
         "$main",
-        [(clk, 1), (a, 1), (b, 2), (c, 1)]
+        [
+            (ScalarType::Int, clk, 1),
+            (ScalarType::Int, a, 1),
+            (ScalarType::Int, b, 2),
+            (ScalarType::Int, c, 1)
+        ]
     ));
     expected.public_inputs.insert(
         ident!(inputs),
@@ -622,7 +676,11 @@ fn test_inlining_across_modules_with_nested_evaluators_variant1() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(test_constraint),
-            vec![trace_segment!(0, "%0", [(tuple, 3), (z, 1)])],
+            vec![trace_segment!(
+                0,
+                "%0",
+                [(ScalarType::Int, tuple, 3), (ScalarType::Int, z, 1)]
+            )],
             body,
         ),
     );
@@ -640,7 +698,11 @@ fn test_inlining_across_modules_with_nested_evaluators_variant1() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(helper_constraint),
-            vec![trace_segment!(0, "%0", [(x, 2), (y, 1)])],
+            vec![trace_segment!(
+                0,
+                "%0",
+                [(ScalarType::Int, x, 2), (ScalarType::Int, y, 1)]
+            )],
             body,
         ),
     );
@@ -657,7 +719,7 @@ fn test_inlining_across_modules_with_nested_evaluators_variant2() {
     use lib1::test_constraint;
 
     trace_columns {
-        main: [clk, a, b[2], c],
+        main: [clk: int, a: int, b: int[2], c: int],
     }
 
     public_inputs {
@@ -677,13 +739,13 @@ fn test_inlining_across_modules_with_nested_evaluators_variant2() {
 
     use lib2::*;
 
-    ev test_constraint([tuple[3], z]) {
+    ev test_constraint([tuple: int[3], z: int]) {
         enf helper_constraint([z, tuple[1], tuple[2..3]]);
     }"#;
     let lib2 = r#"
     mod lib2
 
-    ev helper_constraint([x[2], y]) {
+    ev helper_constraint([x: int[2], y: int]) {
         enf x[0] + x[1] = y;
     }"#;
 
@@ -709,7 +771,12 @@ fn test_inlining_across_modules_with_nested_evaluators_variant2() {
     expected.trace_columns.push(trace_segment!(
         0,
         "$main",
-        [(clk, 1), (a, 1), (b, 2), (c, 1)]
+        [
+            (ScalarType::Int, clk, 1),
+            (ScalarType::Int, a, 1),
+            (ScalarType::Int, b, 2),
+            (ScalarType::Int, c, 1)
+        ]
     ));
     expected.public_inputs.insert(
         ident!(inputs),
@@ -741,7 +808,11 @@ fn test_inlining_across_modules_with_nested_evaluators_variant2() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(test_constraint),
-            vec![trace_segment!(0, "%0", [(tuple, 3), (z, 1)])],
+            vec![trace_segment!(
+                0,
+                "%0",
+                [(ScalarType::Int, tuple, 3), (ScalarType::Int, z, 1)]
+            )],
             body,
         ),
     );
@@ -759,7 +830,11 @@ fn test_inlining_across_modules_with_nested_evaluators_variant2() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(helper_constraint),
-            vec![trace_segment!(0, "%0", [(x, 2), (y, 1)])],
+            vec![trace_segment!(
+                0,
+                "%0",
+                [(ScalarType::Int, x, 2), (ScalarType::Int, y, 1)]
+            )],
             body,
         ),
     );
@@ -780,7 +855,7 @@ fn test_inlining_constraint_comprehensions_no_selector() {
     const YS = [2, 4, 6, 8];
 
     trace_columns {
-        main: [clk, a, b[2], c],
+        main: [clk: int, a: int, b: int[2], c: int],
     }
 
     public_inputs {
@@ -821,7 +896,12 @@ fn test_inlining_constraint_comprehensions_no_selector() {
     expected.trace_columns.push(trace_segment!(
         0,
         "$main",
-        [(clk, 1), (a, 1), (b, 2), (c, 1)]
+        [
+            (ScalarType::Int, clk, 1),
+            (ScalarType::Int, a, 1),
+            (ScalarType::Int, b, 2),
+            (ScalarType::Int, c, 1)
+        ]
     ));
     expected.public_inputs.insert(
         ident!(inputs),
@@ -860,7 +940,7 @@ fn test_inlining_constraint_comprehensions_with_selector() {
     const YS = [2, 4, 6, 8];
 
     trace_columns {
-        main: [clk, a, b[2], c],
+        main: [clk: int, a: int, b: int[2], c: int],
     }
 
     public_inputs {
@@ -901,7 +981,12 @@ fn test_inlining_constraint_comprehensions_with_selector() {
     expected.trace_columns.push(trace_segment!(
         0,
         "$main",
-        [(clk, 1), (a, 1), (b, 2), (c, 1)]
+        [
+            (ScalarType::Int, clk, 1),
+            (ScalarType::Int, a, 1),
+            (ScalarType::Int, b, 2),
+            (ScalarType::Int, c, 1)
+        ]
     ));
     expected.public_inputs.insert(
         ident!(inputs),
@@ -940,7 +1025,7 @@ fn test_inlining_constraint_comprehensions_with_constant_selector() {
     const YS = [0, 4, 0, 8];
 
     trace_columns {
-        main: [clk, a, b[4], c],
+        main: [clk: int, a: int, b: int[4], c: int],
     }
 
     public_inputs {
@@ -981,7 +1066,12 @@ fn test_inlining_constraint_comprehensions_with_constant_selector() {
     expected.trace_columns.push(trace_segment!(
         0,
         "$main",
-        [(clk, 1), (a, 1), (b, 4), (c, 1)]
+        [
+            (ScalarType::Int, clk, 1),
+            (ScalarType::Int, a, 1),
+            (ScalarType::Int, b, 4),
+            (ScalarType::Int, c, 1)
+        ]
     ));
     expected.public_inputs.insert(
         ident!(inputs),
@@ -1019,7 +1109,7 @@ fn test_inlining_constraint_comprehensions_in_evaluator() {
     const YS = [0, 4, 0, 8];
 
     trace_columns {
-        main: [clk, a, b[4], c],
+        main: [clk: int, a: int, b: int[4], c: int],
     }
 
     public_inputs {
@@ -1034,7 +1124,7 @@ fn test_inlining_constraint_comprehensions_in_evaluator() {
         enf clk.first = 0;
     }
 
-    ev test_constraint([i, j[2]]) {
+    ev test_constraint([i: int, j: int[2]]) {
         let ys = [x^2 for x in YS];
         let k = j[0];
         let l = j[1];
@@ -1062,7 +1152,12 @@ fn test_inlining_constraint_comprehensions_in_evaluator() {
     expected.trace_columns.push(trace_segment!(
         0,
         "$main",
-        [(clk, 1), (a, 1), (b, 4), (c, 1)]
+        [
+            (ScalarType::Int, clk, 1),
+            (ScalarType::Int, a, 1),
+            (ScalarType::Int, b, 4),
+            (ScalarType::Int, c, 1)
+        ]
     ));
     expected.public_inputs.insert(
         ident!(inputs),
@@ -1086,7 +1181,7 @@ fn test_inlining_constraint_comprehensions_in_evaluator() {
     )));
     // The evaluator definition is never modified by inlining, but is by constant propagation:
     //
-    // ev test_constraint([i, j[2]]) {
+    // ev test_constraint([i: int, j: int[2]]) {
     //     let k = j[0]
     //     let l = j[1]
     //     let xs = [i, k, l]
@@ -1105,7 +1200,11 @@ fn test_inlining_constraint_comprehensions_in_evaluator() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(test_constraint),
-            vec![trace_segment!(0, "%0", [(i, 1), (j, 2)])],
+            vec![trace_segment!(
+                0,
+                "%0",
+                [(ScalarType::Int, i, 1), (ScalarType::Int, j, 2)]
+            )],
             body,
         ),
     );
@@ -1120,7 +1219,7 @@ fn test_inlining_constraints_with_folded_comprehensions_in_evaluator() {
     def root
 
     trace_columns {
-        main: [clk, a, b[4], c],
+        main: [clk: int, a: int, b: int[4], c: int],
     }
 
     public_inputs {
@@ -1135,7 +1234,7 @@ fn test_inlining_constraints_with_folded_comprehensions_in_evaluator() {
         enf clk.first = 0;
     }
 
-    ev test_constraint([x, ys[2]]) {
+    ev test_constraint([x: int, ys: int[2]]) {
         let y = sum([col^7 for col in ys]);
         let z = prod([col^7 for col in ys]);
         enf x = y + z;
@@ -1158,7 +1257,12 @@ fn test_inlining_constraints_with_folded_comprehensions_in_evaluator() {
     expected.trace_columns.push(trace_segment!(
         0,
         "$main",
-        [(clk, 1), (a, 1), (b, 4), (c, 1)]
+        [
+            (ScalarType::Int, clk, 1),
+            (ScalarType::Int, a, 1),
+            (ScalarType::Int, b, 4),
+            (ScalarType::Int, c, 1)
+        ]
     ));
     expected.public_inputs.insert(
         ident!(inputs),
@@ -1207,7 +1311,11 @@ fn test_inlining_constraints_with_folded_comprehensions_in_evaluator() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(test_constraint),
-            vec![trace_segment!(0, "%0", [(x, 1), (ys, 2)])],
+            vec![trace_segment!(
+                0,
+                "%0",
+                [(ScalarType::Int, x, 1), (ScalarType::Int, ys, 2)]
+            )],
             body,
         ),
     );
@@ -1221,7 +1329,7 @@ fn test_inlining_with_function_call_as_binary_operand() {
     def root
 
     trace_columns {
-        main: [clk, a, b[4], c],
+        main: [clk: int, a: int, b: int[4], c: int],
     }
 
     public_inputs {
@@ -1237,11 +1345,11 @@ fn test_inlining_with_function_call_as_binary_operand() {
         enf clk.first = 0;
     }
 
-    fn fold_sum(a: felt[4]) -> felt {
+    fn fold_sum(a: int[4]) -> int {
         return a[0] + a[1] + a[2] + a[3];
     }
 
-    fn fold_vec(a: felt[4]) -> felt {
+    fn fold_vec(a: int[4]) -> int {
         let m = a[0] * a[1];
         let n = m * a[2];
         let o = n * a[3];
@@ -1266,7 +1374,12 @@ fn test_inlining_with_function_call_as_binary_operand() {
     expected.trace_columns.push(trace_segment!(
         0,
         "$main",
-        [(clk, 1), (a, 1), (b, 4), (c, 1)]
+        [
+            (ScalarType::Int, clk, 1),
+            (ScalarType::Int, a, 1),
+            (ScalarType::Int, b, 4),
+            (ScalarType::Int, c, 1)
+        ]
     ));
     expected.public_inputs.insert(
         ident!(inputs),

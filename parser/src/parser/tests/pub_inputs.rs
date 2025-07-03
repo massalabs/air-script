@@ -13,7 +13,7 @@ fn public_inputs_vec() {
     def test
 
     trace_columns {
-        main: [clk],
+        main: [clk: felt],
     }
 
     public_inputs {
@@ -32,7 +32,7 @@ fn public_inputs_vec() {
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
     expected
         .trace_columns
-        .push(trace_segment!(0, "$main", [(clk, 1)]));
+        .push(trace_segment!(0, "$main", [(ScalarType::Felt, clk, 1)]));
     expected.public_inputs.insert(
         ident!(program_hash),
         PublicInput::new_vector(SourceSpan::UNKNOWN, ident!(program_hash), 4),
@@ -61,7 +61,7 @@ fn public_inputs_table() {
     def test
 
     trace_columns {
-        main: [clk],
+        main: [clk: felt],
     }
 
     public_inputs {
@@ -80,7 +80,7 @@ fn public_inputs_table() {
     let mut expected = Module::new(ModuleType::Root, SourceSpan::UNKNOWN, ident!(test));
     expected
         .trace_columns
-        .push(trace_segment!(0, "$main", [(clk, 1)]));
+        .push(trace_segment!(0, "$main", [(ScalarType::Felt, clk, 1)]));
     expected.public_inputs.insert(
         ident!(a),
         PublicInput::new_table(SourceSpan::UNKNOWN, ident!(a), 4),
@@ -109,7 +109,7 @@ fn error_no_public_input() {
     def test
 
     trace_columns {
-        main: [clk]
+        main: [clk: felt]
     }
 
     public_inputs { }

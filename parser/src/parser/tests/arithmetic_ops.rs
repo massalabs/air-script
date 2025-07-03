@@ -13,7 +13,7 @@ fn single_addition() {
     let source = "
     mod test
 
-    ev test([clk]) {
+    ev test([clk: int]) {
         enf clk' + clk = 0;
     }";
 
@@ -23,7 +23,7 @@ fn single_addition() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(test),
-            vec![trace_segment!(0, "%0", [(clk, 1)])],
+            vec![trace_segment!(0, "%0", [(ScalarType::Int, clk, 1)])],
             vec![enforce!(eq!(add!(access!(clk, 1), access!(clk)), int!(0)))],
         ),
     );
@@ -36,7 +36,7 @@ fn multi_addition() {
     let source = "
     mod test
 
-    ev test([clk]) {
+    ev test([clk: int]) {
         enf clk' + clk + 2 = 0;
     }";
 
@@ -46,7 +46,7 @@ fn multi_addition() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(test),
-            vec![trace_segment!(0, "%0", [(clk, 1)])],
+            vec![trace_segment!(0, "%0", [(ScalarType::Int, clk, 1)])],
             vec![enforce!(eq!(
                 add!(add!(access!(clk, 1), access!(clk)), int!(2)),
                 int!(0)
@@ -62,7 +62,7 @@ fn single_subtraction() {
     let source = "
     mod test
 
-    ev test([clk]) {
+    ev test([clk: int]) {
         enf clk' - clk = 0;
     }";
 
@@ -72,7 +72,7 @@ fn single_subtraction() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(test),
-            vec![trace_segment!(0, "%0", [(clk, 1)])],
+            vec![trace_segment!(0, "%0", [(ScalarType::Int, clk, 1)])],
             vec![enforce!(eq!(sub!(access!(clk, 1), access!(clk)), int!(0)))],
         ),
     );
@@ -85,7 +85,7 @@ fn multi_subtraction() {
     let source = "
     mod test
 
-    ev test([clk]) {
+    ev test([clk: int]) {
         enf clk' - clk - 1 = 0;
     }";
 
@@ -95,7 +95,7 @@ fn multi_subtraction() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(test),
-            vec![trace_segment!(0, "%0", [(clk, 1)])],
+            vec![trace_segment!(0, "%0", [(ScalarType::Int, clk, 1)])],
             vec![enforce!(eq!(
                 sub!(sub!(access!(clk, 1), access!(clk)), int!(1)),
                 int!(0)
@@ -111,7 +111,7 @@ fn single_multiplication() {
     let source = "
     mod test
 
-    ev test([clk]) {
+    ev test([clk: int]) {
         enf clk' * clk = 0;
     }";
 
@@ -121,7 +121,7 @@ fn single_multiplication() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(test),
-            vec![trace_segment!(0, "%0", [(clk, 1)])],
+            vec![trace_segment!(0, "%0", [(ScalarType::Int, clk, 1)])],
             vec![enforce!(eq!(mul!(access!(clk, 1), access!(clk)), int!(0)))],
         ),
     );
@@ -134,7 +134,7 @@ fn multi_multiplication() {
     let source = "
     mod test
 
-    ev test([clk]) {
+    ev test([clk: int]) {
         enf clk' * clk * 2 = 0;
     }";
 
@@ -144,7 +144,7 @@ fn multi_multiplication() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(test),
-            vec![trace_segment!(0, "%0", [(clk, 1)])],
+            vec![trace_segment!(0, "%0", [(ScalarType::Int, clk, 1)])],
             vec![enforce!(eq!(
                 mul!(mul!(access!(clk, 1), access!(clk)), int!(2)),
                 int!(0)
@@ -160,7 +160,7 @@ fn unit_with_parens() {
     let source = "
     mod test
 
-    ev test([clk]) {
+    ev test([clk: int]) {
         enf (2) + 1 = 3;
     }";
 
@@ -170,7 +170,7 @@ fn unit_with_parens() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(test),
-            vec![trace_segment!(0, "%0", [(clk, 1)])],
+            vec![trace_segment!(0, "%0", [(ScalarType::Int, clk, 1)])],
             vec![enforce!(eq!(add!(int!(2), int!(1)), int!(3)))],
         ),
     );
@@ -183,7 +183,7 @@ fn ops_with_parens() {
     let source = "
     mod test
 
-    ev test([clk]) {
+    ev test([clk: int]) {
         enf (clk' + clk) * 2 = 4;
     }";
 
@@ -193,7 +193,7 @@ fn ops_with_parens() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(test),
-            vec![trace_segment!(0, "%0", [(clk, 1)])],
+            vec![trace_segment!(0, "%0", [(ScalarType::Int, clk, 1)])],
             vec![enforce!(eq!(
                 mul!(add!(access!(clk, 1), access!(clk)), int!(2)),
                 int!(4)
@@ -209,7 +209,7 @@ fn const_exponentiation() {
     let source = "
     mod test
 
-    ev test([clk]) {
+    ev test([clk: int]) {
         enf clk'^2 = 1;
     }";
 
@@ -219,7 +219,7 @@ fn const_exponentiation() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(test),
-            vec![trace_segment!(0, "%0", [(clk, 1)])],
+            vec![trace_segment!(0, "%0", [(ScalarType::Int, clk, 1)])],
             vec![enforce!(eq!(exp!(access!(clk, 1), int!(2)), int!(1)))],
         ),
     );
@@ -232,7 +232,7 @@ fn non_const_exponentiation() {
     let source = "
     mod test
 
-    ev test([clk]) {
+    ev test([clk: int]) {
         enf clk'^(clk + 2) = 1;
     }";
 
@@ -242,7 +242,7 @@ fn non_const_exponentiation() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(test),
-            vec![trace_segment!(0, "%0", [(clk, 1)])],
+            vec![trace_segment!(0, "%0", [(ScalarType::Int, clk, 1)])],
             vec![enforce!(eq!(
                 exp!(access!(clk, 1), add!(access!(clk), int!(2))),
                 int!(1)
@@ -258,7 +258,7 @@ fn err_ops_without_matching_closing_parens() {
     let source = "
     mod test
 
-    ev test([clk]) {
+    ev test([clk: int]) {
         enf (clk' + clk * 2 = 4
     }";
     ParseTest::new().expect_unrecognized_token(source)
@@ -270,7 +270,7 @@ fn err_closing_paren_without_opening_paren() {
     let source = "
     mod test
 
-    ev test([clk]) {
+    ev test([clk: int]) {
         enf clk' + clk) * 2 = 4
     }";
     ParseTest::new().expect_unrecognized_token(source)
@@ -282,7 +282,7 @@ fn multi_arithmetic_ops_same_precedence() {
     let source = "
     mod test
 
-    ev test([clk]) {
+    ev test([clk: int]) {
         enf clk' - clk - 2 + 1 = 0;
     }";
 
@@ -292,7 +292,7 @@ fn multi_arithmetic_ops_same_precedence() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(test),
-            vec![trace_segment!(0, "%0", [(clk, 1)])],
+            vec![trace_segment!(0, "%0", [(ScalarType::Int, clk, 1)])],
             vec![enforce!(eq!(
                 add!(sub!(sub!(access!(clk, 1), access!(clk)), int!(2)), int!(1)),
                 int!(0)
@@ -308,7 +308,7 @@ fn multi_arithmetic_ops_different_precedence() {
     let source = "
     mod test
 
-    ev test([clk]) {
+    ev test([clk: int]) {
         enf clk'^2 - clk * 2 - 1 = 0;
     }";
 
@@ -324,7 +324,7 @@ fn multi_arithmetic_ops_different_precedence() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(test),
-            vec![trace_segment!(0, "%0", [(clk, 1)])],
+            vec![trace_segment!(0, "%0", [(ScalarType::Int, clk, 1)])],
             vec![enforce!(eq!(
                 sub!(
                     sub!(exp!(access!(clk, 1), int!(2)), mul!(access!(clk), int!(2))),
@@ -343,7 +343,7 @@ fn multi_arithmetic_ops_different_precedence_w_parens() {
     let source = "
     mod test
 
-    ev test([clk]) {
+    ev test([clk: int]) {
         enf clk' - clk^2 * (2 - 1) = 0;
     }";
 
@@ -359,7 +359,7 @@ fn multi_arithmetic_ops_different_precedence_w_parens() {
         EvaluatorFunction::new(
             SourceSpan::UNKNOWN,
             ident!(test),
-            vec![trace_segment!(0, "%0", [(clk, 1)])],
+            vec![trace_segment!(0, "%0", [(ScalarType::Int, clk, 1)])],
             vec![enforce!(eq!(
                 sub!(
                     access!(clk, 1),

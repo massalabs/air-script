@@ -117,9 +117,9 @@ MainTraceBindings: TraceSegment = {
         TraceSegment::new(span!(l, r), 0, name, bindings),
 }
 
-TraceBinding: Span<(Identifier, usize)> = {
-    <name: Identifier> => Span::new(name.span(), (name, 1)),
-    <l:@L> <name: Identifier> <size: Size> <r:@R> => Span::new(span!(l, r), (name, size as usize)),
+TraceBinding: Span<(ScalarType, Identifier, usize)> = {
+    <l:@L> <name: Identifier> ":" <sty: ScalarType> <r:@R> => Span::new(name.span(), (sty, name, 1)),
+    <l:@L> <name: Identifier> ":" <sty: ScalarType> <size: Size> <r:@R> => Span::new(span!(l, r), (sty, name, size as usize)),
 }
 
 // CONSTANTS
@@ -219,7 +219,7 @@ EvaluatorBindings: Vec<TraceSegment> = {
     }
 }
 
-EvaluatorSegmentBindings: (SourceSpan, Vec<Span<(Identifier, usize)>>) = {
+EvaluatorSegmentBindings: (SourceSpan, Vec<Span<(ScalarType, Identifier, usize)>>) = {
     <l:@L> <elems: Vector<TraceBinding>> <r:@R> => (span!(l, r), elems),
     <l:@L> "[" "]" <r:@R> => (span!(l, r), vec![]),
 }
