@@ -1,8 +1,9 @@
 use crate::circuit::{Circuit, Node};
 use crate::{build_ace_circuit, AceVars, QuadFelt};
-use air_ir::Air;
+use air_ir::{Air, CompileError};
 use miden_diagnostics::term::termcolor::ColorChoice;
 use miden_diagnostics::{CodeMap, DefaultEmitter, DiagnosticsHandler};
+use std::path::PathBuf;
 use std::sync::Arc;
 use winter_math::FieldElement;
 
@@ -10,7 +11,7 @@ mod quotient;
 mod random;
 
 /// Generates an ACE circuit and its root index from an AirScript program.
-pub fn generate_circuit(source: &str) -> (Air, Circuit, Node) {
+pub fn generate_circuit(source: &str) -> Result<(Air, Circuit, Node), CompileError> {
     use air_pass::Pass;
 
     let code_map = Arc::new(CodeMap::new());
@@ -27,16 +28,15 @@ pub fn generate_circuit(source: &str) -> (Air, Circuit, Node) {
                 .chain(air_ir::passes::MirToAir::new(&diagnostics))
                 .chain(air_ir::passes::BusOpExpand::new(&diagnostics));
             pipeline.run(ast)
-        })
-        .expect("lowering failed");
+        })?;
 
     let (root, circuit) = build_ace_circuit(&air).expect("codegen failed");
 
-    (air, circuit, root)
+    Ok((air, circuit, root))
 }
 
 /// Loads all Airs in `tests/airs`.
-pub fn load_air_files() -> std::io::Result<Vec<String>> {
+pub fn load_air_files() -> std::io::Result<Vec<(PathBuf, String)>> {
     let ace_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
     let dir = format!("{ace_dir}/src/tests/airs");
     let mut results = Vec::new();
@@ -47,7 +47,7 @@ pub fn load_air_files() -> std::io::Result<Vec<String>> {
 
         if path.extension().is_some_and(|ext| ext == "air") {
             let content = std::fs::read_to_string(&path)?;
-            results.push(content);
+            results.push((path, content));
         }
     }
 
@@ -60,8 +60,10 @@ pub fn load_air_files() -> std::io::Result<Vec<String>> {
 fn test_all_randomized() {
     let log_trace_len = 16u32;
     let airs = load_air_files().expect("unable to read airs");
-    for air_string in airs {
-        let (air, circuit, root_node) = generate_circuit(&air_string);
+    for (path, air_string) in airs {
+        let (air, circuit, root_node) = generate_circuit(&air_string).unwrap_or_else(|e| {
+            panic!("Failed to generate circuit from air: {e}\nFile: {path:?}");
+        });
 
         let ace_vars = AceVars::random_with_valid_quotient(&air, log_trace_len);
         let mem_inputs = ace_vars.to_memory_vec(&circuit.layout);
@@ -78,8 +80,9 @@ fn test_regressions() -> Result<(), std::fmt::Error> {
     std::fs::create_dir_all(&output_dir).expect("Couldn't create output directory");
 
     let airs = load_air_files().expect("unable to read airs");
-    for text in airs {
-        let (air, circuit, _) = generate_circuit(&text);
+    for (path, text) in airs {
+        let (air, circuit, _) = generate_circuit(&text)
+            .unwrap_or_else(|e| panic!("Failed to generate circuit from air: {e}\nFile: {path:?}"));
         let name = &air.name;
         let dot = circuit.to_dot().expect("Could not convert to DOT");
         let path = format!("{output_dir}/{name}.dot");
