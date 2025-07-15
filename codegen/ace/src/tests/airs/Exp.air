@@ -1,7 +1,7 @@
 def Exp
 
 trace_columns {
-    main: [a, b],
+    main: [a: bool, b: int],
 }
 
 public_inputs {

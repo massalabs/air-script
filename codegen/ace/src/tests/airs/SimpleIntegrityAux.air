@@ -1,7 +1,7 @@
 def SimpleIntegrityAux
 
 trace_columns {
-    main: [a],
+    main: [a: felt],
 }
 
 public_inputs {

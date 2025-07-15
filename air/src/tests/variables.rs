@@ -5,7 +5,7 @@ fn let_scalar_constant_in_boundary_constraint() {
     let source = "
     def test
     trace_columns {
-        main: [clk],
+        main: [clk: int],
     }
     public_inputs {
         stack_inputs: [16],
@@ -27,7 +27,7 @@ fn let_vector_constant_in_boundary_constraint() {
     let source = "
     def test
     trace_columns {
-        main: [clk],
+        main: [clk: int],
     }
     public_inputs {
         stack_inputs: [16],
@@ -49,7 +49,7 @@ fn multi_constraint_nested_let_with_expressions_in_boundary_constraint() {
     let source = "
     def test
     trace_columns {
-        main: [clk],
+        main: [clk: int],
     }
     public_inputs {
         stack_inputs: [16],
@@ -75,7 +75,7 @@ fn let_scalar_constant_in_boundary_constraint_both_domains() {
     let source = "
     def test
     trace_columns {
-        main: [clk],
+        main: [clk: int],
     }
     public_inputs {
         stack_inputs: [16],
@@ -98,7 +98,7 @@ fn invalid_column_offset_in_boundary_constraint() {
     let source = "
     def test
     trace_columns {
-        main: [clk],
+        main: [clk: int],
     }
     public_inputs {
         stack_inputs: [16],
@@ -129,7 +129,7 @@ fn nested_let_with_expressions_in_integrity_constraint() {
     let source = "
     def test
     trace_columns {
-        main: [clk],
+        main: [clk: int],
     }
     public_inputs {
         stack_inputs: [16],
@@ -154,7 +154,7 @@ fn nested_let_with_vector_access_in_integrity_constraint() {
     let source = "
     def test
     trace_columns {
-        main: [clk],
+        main: [clk: int],
     }
     public_inputs {
         stack_inputs: [16],
@@ -183,7 +183,7 @@ fn invalid_matrix_literal_with_leading_vector_binding() {
     let source = "
     def test
     trace_columns {
-        main: [clk],
+        main: [clk: int],
     }
     public_inputs {
         stack_inputs: [16],
@@ -209,7 +209,7 @@ fn invalid_matrix_literal_with_trailing_vector_binding() {
     let source = "
     def test
     trace_columns {
-        main: [clk],
+        main: [clk: int],
     }
     public_inputs {
         stack_inputs: [16],
@@ -234,7 +234,7 @@ fn invalid_variable_access_before_declaration() {
     def test
     const A = [[2, 3], [1, 0]];
     trace_columns {
-        main: [clk],
+        main: [clk: int],
     }
     public_inputs {
         stack_inputs: [16],
@@ -266,7 +266,7 @@ fn invalid_trailing_let() {
     def test
     const A = [[2, 3], [1, 0]];
     trace_columns {
-        main: [clk],
+        main: [clk: int],
     }
     public_inputs {
         stack_inputs: [16],
@@ -298,7 +298,7 @@ fn invalid_reference_to_variable_defined_in_other_section() {
     def test
     const A = [[2, 3], [1, 0]];
     trace_columns {
-        main: [clk],
+        main: [clk: int],
     }
     public_inputs {
         stack_inputs: [16],
@@ -330,7 +330,7 @@ fn invalid_vector_variable_access_out_of_bounds() {
     def test
     const A = [[2, 3], [1, 0]];
     trace_columns {
-        main: [clk],
+        main: [clk: int],
     }
     public_inputs {
         stack_inputs: [16],
@@ -361,7 +361,7 @@ fn invalid_matrix_column_variable_access_out_of_bounds() {
     let source = "
     def test
     trace_columns {
-        main: [clk],
+        main: [clk: int],
     }
     public_inputs {
         stack_inputs: [16],
@@ -392,7 +392,7 @@ fn invalid_matrix_row_variable_access_out_of_bounds() {
     let source = "
     def test
     trace_columns {
-        main: [clk],
+        main: [clk: int],
     }
     public_inputs {
         stack_inputs: [16],
@@ -426,7 +426,7 @@ fn invalid_index_into_scalar_variable() {
     const B = [1, 2, 3];
     const C = [[1, 2, 3], [4, 5, 6]];
     trace_columns {
-        main: [clk],
+        main: [clk: int],
     }
     public_inputs {
         stack_inputs: [16],
@@ -459,7 +459,7 @@ fn trace_binding_access_in_integrity_constraint() {
     const B = [1, 2, 3];
     const C = [[1, 2, 3], [4, 5, 6]];
     trace_columns {
-        main: [clk, x[4]],
+        main: [clk: int, x: int[4]],
     }
     public_inputs {
         stack_inputs: [16],

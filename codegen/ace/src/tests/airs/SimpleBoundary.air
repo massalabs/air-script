@@ -1,7 +1,7 @@
 def SimpleBoundary
 
 trace_columns {
-    main: [a, b, len],
+    main: [a: felt, b: felt, len: felt],
 }
 
 public_inputs {

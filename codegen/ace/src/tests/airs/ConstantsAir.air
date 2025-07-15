@@ -5,7 +5,7 @@ const B = [3, 5];
 const C = [[7, 11], [13, 17]];
 
 trace_columns {
-    main: [a, b, c],
+    main: [a: felt, b: felt, c: felt],
 }
 
 public_inputs {

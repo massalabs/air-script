@@ -1,7 +1,7 @@
 def PublicInput
 
 trace_columns {
-    main: [a, b],
+    main: [a: felt, b: felt],
 }
 
 public_inputs {

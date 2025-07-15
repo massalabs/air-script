@@ -5,7 +5,7 @@ fn boundary_constraints() {
     let source = "
     def test
     trace_columns {
-        main: [clk],
+        main: [clk: int],
     }
     public_inputs {
         stack_inputs: [16],

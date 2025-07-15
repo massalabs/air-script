@@ -1,6 +1,6 @@
 def Buses
     trace_columns {
-        main: [a, s],
+        main: [a: felt, s: felt],
     }
     buses {
         multiset b,

@@ -9,7 +9,7 @@ fn invalid_vector_access_in_boundary_constraint() {
     const B = [1, 2, 3];
     const C = [[1, 2, 3], [4, 5, 6]];
     trace_columns {
-        main: [clk],
+        main: [clk: int],
     }
     public_inputs {
         stack_inputs: [16],
@@ -36,7 +36,7 @@ fn invalid_matrix_row_access_in_boundary_constraint() {
     const B = [1, 2, 3];
     const C = [[1, 2, 3], [4, 5, 6]];
     trace_columns {
-        main: [clk],
+        main: [clk: int],
     }
     public_inputs {
         stack_inputs: [16],
@@ -63,7 +63,7 @@ fn invalid_matrix_column_access_in_boundary_constraint() {
     const B = [1, 2, 3];
     const C = [[1, 2, 3], [4, 5, 6]];
     trace_columns {
-        main: [clk],
+        main: [clk: int],
     }
     public_inputs {
         stack_inputs: [16],
@@ -90,7 +90,7 @@ fn invalid_vector_access_in_integrity_constraint() {
     const B = [1, 2, 3];
     const C = [[1, 2, 3], [4, 5, 6]];
     trace_columns {
-        main: [clk],
+        main: [clk: int],
     }
     public_inputs {
         stack_inputs: [16],
@@ -117,7 +117,7 @@ fn invalid_matrix_row_access_in_integrity_constraint() {
     const B = [1, 2, 3];
     const C = [[1, 2, 3], [4, 5, 6]];
     trace_columns {
-        main: [clk],
+        main: [clk: int],
     }
     public_inputs {
         stack_inputs: [16],
@@ -144,7 +144,7 @@ fn invalid_matrix_column_access_in_integrity_constraint() {
     const B = [1, 2, 3];
     const C = [[1, 2, 3], [4, 5, 6]];
     trace_columns {
-        main: [clk],
+        main: [clk: int],
     }
     public_inputs {
         stack_inputs: [16],

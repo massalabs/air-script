@@ -567,7 +567,10 @@ impl VisitMut<SemanticAnalysisError> for SemanticAnalysis<'_> {
             let iterable = &expr.iterables[i];
             let iterable_ty = iterable.ty().unwrap();
             if let Some(expected_ty) = result_ty.replace(iterable_ty) {
-                if expected_ty != iterable_ty {
+                if !types_compatible(&expected_ty, &iterable_ty) {
+                    eprintln!(
+                        "type mismatch in comprehension binding: expected {expected_ty}, got {iterable_ty}"
+                    );
                     self.has_type_errors = true;
                     // Note: We don't break here but at the end of the module's compilation, as we want to continue to gather as many errors as possible
                     let _ = self.type_mismatch(
@@ -734,9 +737,13 @@ impl VisitMut<SemanticAnalysisError> for SemanticAnalysis<'_> {
         // Validate the operand types
         match (expr.lhs.ty(), expr.rhs.ty()) {
             (Ok(Some(lty)), Ok(Some(rty))) => {
-                if lty != rty {
+                if !types_compatible(&lty, &rty) {
                     self.has_type_errors = true;
                     // Note: We don't break here but at the end of the module's compilation, as we want to continue to gather as many errors as possible
+                    eprintln!(
+                        "type mismatch in binary expression: expected {}, got {}",
+                        lty, rty
+                    );
                     let _ = self.type_mismatch(
                         Some(&lty),
                         expr.lhs.span(),
@@ -1218,6 +1225,10 @@ impl SemanticAnalysis<'_> {
                         if size != param.size {
                             self.has_type_errors = true;
                             // Note: We don't break here but at the end of the module's compilation, as we want to continue to gather as many errors as possible
+                            eprintln!(
+                                "type mismatch in evaluator function argument: expected {} trace columns, got {}",
+                                param.size, size
+                            );
                             let _ = self.type_mismatch(
                                 Some(&Type::Vector(ScalarType::Untyped, param.size)),
                                 arg.span(),
@@ -1348,56 +1359,61 @@ impl SemanticAnalysis<'_> {
                         self.visit_mut_symbol_access(&mut access.column)?;
 
                         // Ensure the referenced symbol was a trace column, and that it produces a scalar value, or a bus
-                        let (found, _segment) =
-                            match self.resolvable_binding_type(&access.column.name) {
-                                Ok(ty) => match ty.item.access(access.column.access_type.clone()) {
-                                    Ok(BindingType::TraceColumn(tb))
-                                    | Ok(BindingType::TraceParam(tb)) => {
-                                        if tb.is_scalar() {
-                                            (ty, tb.segment)
-                                        } else {
-                                            let inferred = tb.ty();
-                                            return self.type_mismatch(
-                                                Some(&inferred),
-                                                access.span(),
-                                                &Type::Scalar(ScalarType::Untyped),
-                                                ty.span(),
-                                                constraint_span,
+                        let (found, _segment) = match self
+                            .resolvable_binding_type(&access.column.name)
+                        {
+                            Ok(ty) => match ty.item.access(access.column.access_type.clone()) {
+                                Ok(BindingType::TraceColumn(tb))
+                                | Ok(BindingType::TraceParam(tb)) => {
+                                    if tb.is_scalar() {
+                                        (ty, tb.segment)
+                                    } else {
+                                        let inferred = tb.ty();
+                                        eprintln!(
+                                                "type mismatch in bounded symbol access: expected scalar, got {}",
+                                                inferred
                                             );
-                                        }
-                                    }
-                                    Ok(BindingType::Bus(_)) => {
-                                        // Buses are valid in boundary constraints
-                                        (ty, 0)
-                                    }
-                                    Ok(aty) => {
-                                        let expected = BindingType::TraceColumn(TraceBinding::new(
-                                            constraint_span,
-                                            Identifier::new(constraint_span, symbols::Main),
-                                            0,
-                                            0,
-                                            1,
-                                            Type::Scalar(
-                                                aty.ty()
-                                                    .map(|t| t.scalar_type())
-                                                    .unwrap_or(ScalarType::Untyped),
-                                            ),
-                                        ));
-                                        return self.binding_mismatch(
-                                            &aty,
+                                        return self.type_mismatch(
+                                            Some(&inferred),
                                             access.span(),
-                                            &expected,
+                                            &Type::Scalar(ScalarType::Untyped),
                                             ty.span(),
                                             constraint_span,
                                         );
                                     }
-                                    _ => return ControlFlow::Break(SemanticAnalysisError::Invalid),
-                                },
-                                Err(_) => {
-                                    // We've already raised a diagnostic for the undefined variable
-                                    return ControlFlow::Break(SemanticAnalysisError::Invalid);
                                 }
-                            };
+                                Ok(BindingType::Bus(_)) => {
+                                    // Buses are valid in boundary constraints
+                                    (ty, 0)
+                                }
+                                Ok(aty) => {
+                                    let expected = BindingType::TraceColumn(TraceBinding::new(
+                                        constraint_span,
+                                        Identifier::new(constraint_span, symbols::Main),
+                                        0,
+                                        0,
+                                        1,
+                                        Type::Scalar(
+                                            aty.ty()
+                                                .map(|t| t.scalar_type())
+                                                .unwrap_or(ScalarType::Untyped),
+                                        ),
+                                    ));
+                                    return self.binding_mismatch(
+                                        &aty,
+                                        access.span(),
+                                        &expected,
+                                        ty.span(),
+                                        constraint_span,
+                                    );
+                                }
+                                _ => return ControlFlow::Break(SemanticAnalysisError::Invalid),
+                            },
+                            Err(_) => {
+                                // We've already raised a diagnostic for the undefined variable
+                                return ControlFlow::Break(SemanticAnalysisError::Invalid);
+                            }
+                        };
 
                         match (found.clone().item, expr.rhs.as_mut()) {
                             // Buses boundaries can be constrained by null
@@ -1469,6 +1485,10 @@ impl SemanticAnalysis<'_> {
                                 if let Some(ty) = access.column.ty.as_ref() {
                                     if !ty.is_scalar() {
                                         // Invalid constraint, only scalar values are allowed
+                                        eprintln!(
+                                            "type mismatch in boundary constraint: expected scalar, got {}",
+                                            ty
+                                        );
                                         self.type_mismatch(
                                             Some(ty),
                                             access.span(),
@@ -1487,6 +1507,10 @@ impl SemanticAnalysis<'_> {
                                     // Ensure this access produces a scalar, or if the type is unknown, assume it is valid
                                     // because a diagnostic will have already been emitted
                                     if !access.ty.as_ref().map(|t| t.is_scalar()).unwrap_or(true) {
+                                        eprintln!(
+                                            "type mismatch in boundary SymbolAccess: expected scalar, got {}",
+                                            access.ty.as_ref().unwrap_or(&Type::Scalar(ScalarType::Untyped))
+                                        );
                                         self.type_mismatch(
                                             access.ty.as_ref(),
                                             access.span(),
@@ -1732,6 +1756,10 @@ impl SemanticAnalysis<'_> {
         from: SourceSpan,
         expected_by: SourceSpan,
     ) -> ControlFlow<SemanticAnalysisError> {
+        eprintln!(
+            "type mismatch: inferred type {:?}, expected type {:?}",
+            inferred_type, expected_type
+        );
         self.has_type_errors = true;
         let primary_label = match inferred_type {
             Some(t) => format!("this expression has type {}", t),
@@ -1932,5 +1960,29 @@ fn segment_id_to_name(id: TraceSegmentId) -> Symbol {
     match id {
         0 => symbols::Main,
         _ => unimplemented!(),
+    }
+}
+
+fn types_compatible(lty: &Type, rty: &Type) -> bool {
+    // If the types are the same, they are compatible
+    match (lty, rty) {
+        (Type::Scalar(lsty), Type::Scalar(rsty)) => scalar_types_compatible(lsty, rsty),
+        (Type::Vector(lsty, lsize), Type::Vector(rsty, rsize)) => {
+            scalar_types_compatible(lsty, rsty) && lsize == rsize
+        }
+        (Type::Matrix(lsty, lrows, lcols), Type::Matrix(rsty, rrows, rcols)) => {
+            scalar_types_compatible(lsty, rsty) && lrows == rrows && lcols == rcols
+        }
+        _ => false,
+    }
+}
+
+fn scalar_types_compatible(lsty: &ScalarType, rsty: &ScalarType) -> bool {
+    match (lsty, rsty) {
+        (ScalarType::Untyped, _) | (_, ScalarType::Untyped) => true,
+        (ScalarType::Felt, ScalarType::Felt) => true,
+        (ScalarType::Int, ScalarType::Int) => true,
+        (ScalarType::Bool, ScalarType::Bool) => true,
+        _ => false,
     }
 }

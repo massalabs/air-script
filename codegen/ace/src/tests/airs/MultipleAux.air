@@ -1,7 +1,7 @@
 def MultipleAux
 
 trace_columns {
-    main: [a, b, c],
+    main: [a: felt, b: felt, c: felt],
 }
 
 periodic_columns {

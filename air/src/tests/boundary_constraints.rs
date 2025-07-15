@@ -5,7 +5,7 @@ fn boundary_constraints() {
     let source = "
     def test
     trace_columns {
-        main: [clk],
+        main: [clk: int],
     }
     public_inputs {
         stack_inputs: [16],
@@ -27,7 +27,7 @@ fn err_bc_duplicate_first() {
     let source = "
     def test
     trace_columns {
-        main: [clk],
+        main: [clk: int],
     }
     public_inputs {
         stack_inputs: [16],
@@ -57,7 +57,7 @@ fn err_bc_duplicate_last() {
     let source = "
     def test
     trace_columns {
-        main: [clk],
+        main: [clk: int],
     }
     public_inputs {
         stack_inputs: [16],

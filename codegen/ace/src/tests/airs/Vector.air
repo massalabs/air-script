@@ -1,11 +1,11 @@
 def Vector
 
 trace_columns {
-    main: [clk: bool, fmp: felt[2]],
+    main: [clk: felt, fmp: felt[2]],
 }
 
 public_inputs {
-    stack_inputs: felt[1],
+    stack_inputs: [1],
 }
 
 boundary_constraints {
