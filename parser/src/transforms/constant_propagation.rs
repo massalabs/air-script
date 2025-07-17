@@ -444,7 +444,7 @@ impl VisitMut<SemanticAnalysisError> for ConstantPropagation<'_> {
 
                 if is_constant {
                     let ty = match vector.first().and_then(|e| e.ty()).unwrap() {
-                        Type::Felt => Type::Vector(vector.len()),
+                        Type::Scalar => Type::Vector(vector.len()),
                         Type::Vector(n) => Type::Matrix(vector.len(), n),
                         _ => unreachable!(),
                     };

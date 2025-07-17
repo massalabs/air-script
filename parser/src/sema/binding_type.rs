@@ -41,9 +41,9 @@ impl BindingType {
             Self::Vector(elems) => Some(Type::Vector(elems.len())),
             Self::Alias(aliased) => aliased.ty(),
             Self::Local(ty) | Self::Constant(ty) | Self::PublicInput(ty) => Some(*ty),
-            Self::PeriodicColumn(_) => Some(Type::Felt),
+            Self::PeriodicColumn(_) => Some(Type::Scalar),
             Self::Function(ty) => ty.result(),
-            Self::Bus(_) => Some(Type::Felt),
+            Self::Bus(_) => Some(Type::Scalar),
         }
     }
 
@@ -137,7 +137,7 @@ impl BindingType {
             // if it is empty.
             Self::TraceColumn(tb) if tb.is_scalar() => (Self::TraceColumn(*tb), None),
             Self::TraceColumn(tb) => {
-                let first = Self::TraceColumn(TraceBinding { size: 1, ty: Type::Felt, ..*tb });
+                let first = Self::TraceColumn(TraceBinding { size: 1, ty: Type::Scalar, ..*tb });
                 let remaining = tb.size - 1;
                 if remaining == 0 {
                     (first, None)

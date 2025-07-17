@@ -42,7 +42,7 @@ impl TraceSegment {
         for binding in raw_bindings.into_iter() {
             let (name, size) = binding.item;
             let ty = match size {
-                1 => Type::Felt,
+                1 => Type::Scalar,
                 n => Type::Vector(n),
             };
             bindings.push(TraceBinding::new(binding.span(), name, id, offset, size, ty));
@@ -263,7 +263,12 @@ impl TraceBinding {
             AccessType::Index(idx) if idx >= self.size => Err(InvalidAccessError::IndexOutOfBounds),
             AccessType::Index(idx) => {
                 let offset = self.offset + idx;
-                Ok(Self { offset, size: 1, ty: Type::Felt, ..*self })
+                Ok(Self {
+                    offset,
+                    size: 1,
+                    ty: Type::Scalar,
+                    ..*self
+                })
             },
             AccessType::Matrix(..) => Err(InvalidAccessError::IndexIntoScalar),
         }

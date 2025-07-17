@@ -172,7 +172,7 @@ impl ConstantExpr {
     /// Gets the type of this expression
     pub fn ty(&self) -> Type {
         match self {
-            Self::Scalar(_) => Type::Felt,
+            Self::Scalar(_) => Type::Scalar,
             Self::Vector(elems) => Type::Vector(elems.len()),
             Self::Matrix(rows) => {
                 let num_rows = rows.len();

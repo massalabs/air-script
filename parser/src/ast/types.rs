@@ -4,7 +4,7 @@ use super::*;
 #[derive(Hash, Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Type {
     /// A field element
-    Felt,
+    Scalar,
     /// A vector of N integers
     Vector(usize),
     /// A matrix of N rows and M columns
@@ -15,7 +15,7 @@ impl Type {
     #[inline]
     pub fn is_aggregate(&self) -> bool {
         match self {
-            Self::Felt => false,
+            Self::Scalar => false,
             Self::Vector(_) | Self::Matrix(..) => true,
         }
     }
@@ -23,7 +23,7 @@ impl Type {
     /// Returns true if this type is a scalar
     #[inline]
     pub fn is_scalar(&self) -> bool {
-        matches!(self, Self::Felt)
+        matches!(self, Self::Scalar)
     }
 
     /// Returns true if this type is a valid iterable in a comprehension
@@ -42,7 +42,7 @@ impl Type {
     pub fn access(&self, access_type: AccessType) -> Result<Self, InvalidAccessError> {
         match *self {
             ty if access_type == AccessType::Default => Ok(ty),
-            Self::Felt => Err(InvalidAccessError::IndexIntoScalar),
+            Self::Scalar => Err(InvalidAccessError::IndexIntoScalar),
             Self::Vector(len) => match access_type {
                 AccessType::Slice(range) => {
                     let slice_range = range.to_slice_range();
@@ -53,7 +53,7 @@ impl Type {
                     }
                 },
                 AccessType::Index(idx) if idx >= len => Err(InvalidAccessError::IndexOutOfBounds),
-                AccessType::Index(_) => Ok(Self::Felt),
+                AccessType::Index(_) => Ok(Self::Scalar),
                 AccessType::Matrix(..) => Err(InvalidAccessError::IndexIntoScalar),
                 _ => unreachable!(),
             },
@@ -71,7 +71,7 @@ impl Type {
                 AccessType::Matrix(row, col) if row >= rows || col >= cols => {
                     Err(InvalidAccessError::IndexOutOfBounds)
                 },
-                AccessType::Matrix(..) => Ok(Self::Felt),
+                AccessType::Matrix(..) => Ok(Self::Scalar),
                 _ => unreachable!(),
             },
         }
@@ -80,7 +80,7 @@ impl Type {
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::Felt => f.write_str("felt"),
+            Self::Scalar => f.write_str("felt"),
             Self::Vector(n) => write!(f, "felt[{n}]"),
             Self::Matrix(rows, cols) => write!(f, "felt[{rows}, {cols}]"),
         }

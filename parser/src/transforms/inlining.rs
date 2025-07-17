@@ -946,7 +946,7 @@ impl<'a> Inlining<'a> {
                 Expr::Range(range) => {
                     let span = range.span();
                     let range = range.to_slice_range();
-                    let binding_ty = BindingType::Constant(Type::Felt);
+                    let binding_ty = BindingType::Constant(Type::Scalar);
                     self.bindings.insert(binding, binding_ty);
                     Expr::Const(Span::new(span, ConstantExpr::Scalar((range.start + index) as u64)))
                 },
@@ -1510,9 +1510,9 @@ impl<'a> Inlining<'a> {
                     let original_binding =
                         self.trace[tb.segment].bindings.iter().find(|b| b.name == tb.name).unwrap();
                     let (access_type, ty) = if original_binding.size == 1 {
-                        (AccessType::Default, Type::Felt)
+                        (AccessType::Default, Type::Scalar)
                     } else if tb.size == 1 {
-                        (AccessType::Index(tb.offset - original_binding.offset), Type::Felt)
+                        (AccessType::Index(tb.offset - original_binding.offset), Type::Scalar)
                     } else {
                         let start = tb.offset - original_binding.offset;
                         (
@@ -1560,7 +1560,7 @@ fn eval_expr_binding_type(
         Expr::Const(constant) => Ok(BindingType::Local(constant.ty())),
         Expr::Range(range) => Ok(BindingType::Local(Type::Vector(range.to_slice_range().len()))),
         Expr::Vector(elems) => match elems[0].ty() {
-            None | Some(Type::Felt) => {
+            None | Some(Type::Scalar) => {
                 let mut binding_tys = Vec::with_capacity(elems.len());
                 for elem in elems.iter() {
                     binding_tys.push(eval_expr_binding_type(elem, bindings, imported)?);
@@ -1581,7 +1581,7 @@ fn eval_expr_binding_type(
         Expr::SymbolAccess(access) => eval_access_binding_type(access, bindings, imported),
         Expr::Call(Call { ty: None, .. }) => Err(InvalidAccessError::InvalidBinding),
         Expr::Call(Call { ty: Some(ty), .. }) => Ok(BindingType::Local(*ty)),
-        Expr::Binary(_) => Ok(BindingType::Local(Type::Felt)),
+        Expr::Binary(_) => Ok(BindingType::Local(Type::Scalar)),
         Expr::ListComprehension(lc) => {
             // The types of all iterables must be the same, so the type of
             // the comprehension is given by the type of the iterables. We

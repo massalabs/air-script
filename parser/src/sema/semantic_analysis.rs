@@ -956,7 +956,7 @@ impl VisitMut<SemanticAnalysisError> for SemanticAnalysis<'_> {
                         let range = range.to_slice_range();
                         Type::Vector(range.len())
                     },
-                    _ => Type::Felt,
+                    _ => Type::Scalar,
                 };
                 assert_eq!(expr.ty.replace(ty), None);
                 ControlFlow::Continue(())
@@ -1355,7 +1355,7 @@ impl SemanticAnalysis<'_> {
                                             return self.type_mismatch(
                                                 Some(&inferred),
                                                 access.span(),
-                                                &Type::Felt,
+                                                &Type::Scalar,
                                                 ty.span(),
                                                 constraint_span,
                                             );
@@ -1372,7 +1372,7 @@ impl SemanticAnalysis<'_> {
                                             0,
                                             0,
                                             1,
-                                            Type::Felt,
+                                            Type::Scalar,
                                         ));
                                         return self.binding_mismatch(
                                             &aty,
@@ -1469,7 +1469,7 @@ impl SemanticAnalysis<'_> {
                                         self.type_mismatch(
                                             Some(ty),
                                             access.span(),
-                                            &Type::Felt,
+                                            &Type::Scalar,
                                             found.span(),
                                             constraint_span,
                                         )?;
@@ -1489,7 +1489,7 @@ impl SemanticAnalysis<'_> {
                                         self.type_mismatch(
                                             access.ty.as_ref(),
                                             access.span(),
-                                            &Type::Felt,
+                                            &Type::Scalar,
                                             access.name.span(),
                                             constraint_span,
                                         )?;
@@ -1782,7 +1782,7 @@ impl SemanticAnalysis<'_> {
             Expr::SymbolAccess(expr) => self.access_binding_type(expr),
             Expr::Call(Call { ty: None, .. }) => Err(InvalidAccessError::InvalidBinding),
             Expr::Call(Call { ty: Some(ty), .. }) => Ok(BindingType::Local(*ty)),
-            Expr::Binary(_) => Ok(BindingType::Local(Type::Felt)),
+            Expr::Binary(_) => Ok(BindingType::Local(Type::Scalar)),
             Expr::ListComprehension(lc) => {
                 match lc.ty {
                     Some(ty) => Ok(BindingType::Local(ty)),
@@ -1802,8 +1802,8 @@ impl SemanticAnalysis<'_> {
                     .emit();
                 Err(InvalidAccessError::InvalidBinding)
             },
-            Expr::BusOperation(_expr) => Ok(BindingType::Local(Type::Felt)),
-            Expr::Null(_) | Expr::Unconstrained(_) => Ok(BindingType::Local(Type::Felt)),
+            Expr::BusOperation(_expr) => Ok(BindingType::Local(Type::Scalar)),
+            Expr::Null(_) | Expr::Unconstrained(_) => Ok(BindingType::Local(Type::Scalar)),
         }
     }
 
@@ -1869,7 +1869,7 @@ impl SemanticAnalysis<'_> {
                     // implemented, so the only place this comes up is with these
                     // list folding builtins
                     let folder_ty =
-                        FunctionType::Function(vec![Type::Vector(usize::MAX)], Type::Felt);
+                        FunctionType::Function(vec![Type::Vector(usize::MAX)], Type::Scalar);
                     Ok(Span::new(qid.span(), BindingType::Function(folder_ty)))
                 },
                 name => unimplemented!("unsupported builtin: {}", name),

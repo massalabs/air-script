@@ -160,7 +160,7 @@ pub enum MirType {
 impl From<ast::Type> for MirType {
     fn from(value: ast::Type) -> Self {
         match value {
-            ast::Type::Felt => MirType::Felt,
+            ast::Type::Scalar => MirType::Felt,
             ast::Type::Vector(n) => MirType::Vector(n),
             ast::Type::Matrix(cols, rows) => MirType::Matrix(cols, rows),
         }

@@ -76,7 +76,7 @@ fn test_constant_propagation() {
     //     enf a.first = 1
     expected
         .boundary_constraints
-        .push(enforce!(eq!(bounded_access!(a, Boundary::First, Type::Felt), int!(1))));
+        .push(enforce!(eq!(bounded_access!(a, Boundary::First, Type::Scalar), int!(1))));
     // When constant propagation is done, the integrity constraints should look like:
     //     enf test_constraint(b)
     //     enf a + 4 = c + 5
@@ -84,14 +84,14 @@ fn test_constant_propagation() {
         .integrity_constraints
         .push(enforce!(call!(lib::test_constraint(expr!(access!(b, Type::Vector(2)))))));
     expected.integrity_constraints.push(enforce!(eq!(
-        add!(access!(a, Type::Felt), int!(4)),
-        add!(access!(c, Type::Felt), int!(5))
+        add!(access!(a, Type::Scalar), int!(4)),
+        add!(access!(c, Type::Scalar), int!(5))
     )));
     // The test_constraint function should look like:
     //     enf b0 + 2 = b1 + 4
     let body = vec![enforce!(eq!(
-        add!(access!(b0, Type::Felt), int!(2)),
-        add!(access!(b1, Type::Felt), int!(4))
+        add!(access!(b0, Type::Scalar), int!(2)),
+        add!(access!(b1, Type::Scalar), int!(4))
     ))];
     expected.evaluators.insert(
         function_ident!(lib, test_constraint),
