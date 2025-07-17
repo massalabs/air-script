@@ -1,7 +1,11 @@
 use core::panic;
 use std::ops::Deref;
 
-use air_parser::{LexicalScope, ast, ast::AccessType, symbols};
+use air_parser::{
+    LexicalScope,
+    ast::{self, AccessType, ScalarType, Typed},
+    symbols,
+};
 use air_pass::Pass;
 use miden_diagnostics::{DiagnosticsHandler, Severity, SourceSpan, Span, Spanned};
 
@@ -607,7 +611,8 @@ impl<'a> MirBuilder<'a> {
 
     fn translate_range(&mut self, range_expr: &ast::RangeExpr) -> Result<Link<Op>, CompileError> {
         let values = range_expr.to_slice_range();
-        let const_expr = ast::ConstantExpr::Vector(values.map(|v| v as u64).collect());
+        let const_expr =
+            ast::ConstantExpr::Vector(ScalarType::Uint, values.map(|v| v as u64).collect());
         self.translate_const(&const_expr, range_expr.span)
     }
 
@@ -794,6 +799,7 @@ impl<'a> MirBuilder<'a> {
         // First, resolve the callee, panic if it's not resolved
         let resolved_callee = call.callee.resolved().unwrap();
 
+        let sty = call.args.first().map_or(ast::ScalarType::Untyped, |arg| arg.scalar_ty());
         if call.is_builtin() {
             // If it's a fold operator (Sum / Prod), handle it
             match call.callee.as_ref().name() {
@@ -801,7 +807,7 @@ impl<'a> MirBuilder<'a> {
                     assert_eq!(call.args.len(), 1);
                     let iterator_node = self.translate_expr(call.args.first().unwrap())?;
                     let accumulator_node =
-                        self.translate_const(&ast::ConstantExpr::Scalar(0), call.span())?;
+                        self.translate_const(&ast::ConstantExpr::Scalar(sty, 0), call.span())?;
                     let node = Fold::builder()
                         .span(call.span())
                         .iterator(iterator_node)
@@ -814,7 +820,7 @@ impl<'a> MirBuilder<'a> {
                     assert_eq!(call.args.len(), 1);
                     let iterator_node = self.translate_expr(call.args.first().unwrap())?;
                     let accumulator_node =
-                        self.translate_const(&ast::ConstantExpr::Scalar(1), call.span())?;
+                        self.translate_const(&ast::ConstantExpr::Scalar(sty, 1), call.span())?;
                     let node = Fold::builder()
                         .span(call.span())
                         .iterator(iterator_node)
@@ -982,7 +988,7 @@ impl<'a> MirBuilder<'a> {
         scalar_expr: &'a ast::ScalarExpr,
     ) -> Result<Link<Op>, CompileError> {
         match scalar_expr {
-            ast::ScalarExpr::Const(c) => self.translate_scalar_const(c.item, c.span()),
+            ast::ScalarExpr::Const(sty, c) => self.translate_scalar_const(*sty, c.item, c.span()),
             ast::ScalarExpr::SymbolAccess(s) => self.translate_symbol_access(s),
             ast::ScalarExpr::BoundedSymbolAccess(s) => self.translate_bounded_symbol_access(s),
             ast::ScalarExpr::Binary(b) => self.translate_binary_op(b),
@@ -1002,6 +1008,7 @@ impl<'a> MirBuilder<'a> {
 
     fn translate_scalar_const(
         &mut self,
+        sty: ScalarType,
         c: u64,
         span: SourceSpan,
     ) -> Result<Link<Op>, CompileError> {
@@ -1095,20 +1102,21 @@ impl<'a> MirBuilder<'a> {
         span: SourceSpan,
     ) -> Result<Link<Op>, CompileError> {
         match c {
-            ast::ConstantExpr::Scalar(s) => self.translate_scalar_const(*s, span),
-            ast::ConstantExpr::Vector(v) => self.translate_vector_const(v.clone(), span),
-            ast::ConstantExpr::Matrix(m) => self.translate_matrix_const(m.clone(), span),
+            ast::ConstantExpr::Scalar(sty, s) => self.translate_scalar_const(*sty, *s, span),
+            ast::ConstantExpr::Vector(sty, v) => self.translate_vector_const(*sty, v.clone(), span),
+            ast::ConstantExpr::Matrix(sty, m) => self.translate_matrix_const(*sty, m.clone(), span),
         }
     }
 
     fn translate_vector_const(
         &mut self,
+        sty: ScalarType,
         v: Vec<u64>,
         span: SourceSpan,
     ) -> Result<Link<Op>, CompileError> {
         let mut node = Vector::builder().size(v.len()).span(span);
         for value in v.iter() {
-            let value_node = self.translate_scalar_const(*value, span)?;
+            let value_node = self.translate_scalar_const(sty, *value, span)?;
             node = node.elements(value_node);
         }
         Ok(node.build())
@@ -1116,12 +1124,13 @@ impl<'a> MirBuilder<'a> {
 
     fn translate_matrix_const(
         &mut self,
+        sty: ScalarType,
         m: Vec<Vec<u64>>,
         span: SourceSpan,
     ) -> Result<Link<Op>, CompileError> {
         let mut node = Matrix::builder().size(m.len()).span(span);
         for row in m.iter() {
-            let row_node = self.translate_vector_const(row.clone(), span)?;
+            let row_node = self.translate_vector_const(sty, row.clone(), span)?;
             node = node.elements(row_node);
         }
         let node = node.build();

@@ -153,7 +153,10 @@ pub enum Token {
     Match,
     Case,
     When,
+    Untyped,
     Felt,
+    Uint,
+    Bool,
     With,
 
     // PUNCTUATION
@@ -274,7 +277,10 @@ impl fmt::Display for Token {
             Self::PeriodicColumns => write!(f, "periodic_columns"),
             Self::Ev => write!(f, "ev"),
             Self::Fn => write!(f, "fn"),
+            Self::Untyped => write!(f, "_"),
             Self::Felt => write!(f, "felt"),
+            Self::Uint => write!(f, "uint"),
+            Self::Bool => write!(f, "bool"),
             Self::Buses => write!(f, "buses"),
             Self::Multiset => write!(f, "multiset"),
             Self::Logup => write!(f, "logup"),

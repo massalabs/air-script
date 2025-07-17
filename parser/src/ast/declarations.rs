@@ -162,46 +162,66 @@ impl PartialEq for Constant {
 /// * Scalar: 123
 /// * Vector: \[1, 2, 3\]
 /// * Matrix: \[\[1, 2, 3\], \[4, 5, 6\]\]
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ConstantExpr {
-    Scalar(u64),
-    Vector(Vec<u64>),
-    Matrix(Vec<Vec<u64>>),
+    Scalar(ScalarType, u64),
+    Vector(ScalarType, Vec<u64>),
+    Matrix(ScalarType, Vec<Vec<u64>>),
 }
 impl ConstantExpr {
     /// Gets the type of this expression
     pub fn ty(&self) -> Type {
         // TODO: Handle other [ScalarType]
         match self {
-            Self::Scalar(_) => Type::Scalar(ScalarType::Felt),
-            Self::Vector(elems) => Type::Vector(ScalarType::Felt, elems.len()),
-            Self::Matrix(rows) => {
+            Self::Scalar(sty, _) => Type::Scalar(*sty),
+            Self::Vector(sty, elems) => Type::Vector(*sty, elems.len()),
+            Self::Matrix(sty, rows) => {
                 let num_rows = rows.len();
                 let num_cols = rows.first().unwrap().len();
-                Type::Matrix(ScalarType::Felt, num_rows, num_cols)
+                Type::Matrix(*sty, num_rows, num_cols)
             },
         }
     }
 
     /// Returns true if this expression is of aggregate type
     pub fn is_aggregate(&self) -> bool {
-        matches!(self, Self::Vector(_) | Self::Matrix(_))
+        matches!(self, Self::Vector(_, _) | Self::Matrix(_, _))
     }
 }
 impl fmt::Display for ConstantExpr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::Scalar(value) => write!(f, "{value}"),
-            Self::Vector(values) => {
+            Self::Scalar(_, value) => write!(f, "{value}"),
+            Self::Vector(_, values) => {
                 write!(f, "{}", DisplayList(values.as_slice()))
             },
-            Self::Matrix(values) => write!(
+            Self::Matrix(_, values) => write!(
                 f,
                 "{}",
                 DisplayBracketed(DisplayCsv::new(
                     values.iter().map(|vs| DisplayList(vs.as_slice()))
                 ))
             ),
+        }
+    }
+}
+impl PartialOrd for ConstantExpr {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        match (self, other) {
+            (Self::Scalar(_, l), Self::Scalar(_, r)) => l.partial_cmp(r),
+            (Self::Vector(_, l), Self::Vector(_, r)) => l.partial_cmp(r),
+            (Self::Matrix(_, l), Self::Matrix(_, r)) => l.partial_cmp(r),
+            _ => None, // Different types cannot be compared
+        }
+    }
+}
+impl Ord for ConstantExpr {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match (self, other) {
+            (Self::Scalar(_, l), Self::Scalar(_, r)) => l.cmp(r),
+            (Self::Vector(_, l), Self::Vector(_, r)) => l.cmp(r),
+            (Self::Matrix(_, l), Self::Matrix(_, r)) => l.cmp(r),
+            _ => std::cmp::Ordering::Equal, // Different types cannot be compared
         }
     }
 }

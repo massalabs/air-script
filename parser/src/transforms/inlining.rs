@@ -670,7 +670,7 @@ impl<'a> Inlining<'a> {
     /// been registered.
     fn rewrite_scalar_expr(&mut self, expr: &mut ScalarExpr) -> Result<(), SemanticAnalysisError> {
         match expr {
-            ScalarExpr::Const(_) => Ok(()),
+            ScalarExpr::Const(_, _) => Ok(()),
             ScalarExpr::SymbolAccess(access)
             | ScalarExpr::BoundedSymbolAccess(BoundedSymbolAccess { column: access, .. }) => {
                 if let Some(rewrite) = self.get_trace_access_rewrite(access) {
@@ -882,9 +882,10 @@ impl<'a> Inlining<'a> {
                         // and uses the accumulator as the body
                         Statement::Let(mut wrapper) => {
                             with_let_result(self, &mut wrapper.body, move |_, value| {
+                                let sty = value.scalar_ty();
                                 let value = core::mem::replace(
                                     value,
-                                    Expr::Const(Span::new(span, ConstantExpr::Scalar(0))),
+                                    Expr::Const(Span::new(span, ConstantExpr::Scalar(sty, 0))),
                                 );
                                 Ok(Some(Statement::Let(Let::new(span, name, value, acc))))
                             })?;
@@ -902,9 +903,10 @@ impl<'a> Inlining<'a> {
                 match self.expand_call(call)? {
                     Expr::Let(mut wrapper) => {
                         with_let_result(self, &mut wrapper.body, move |_, value| {
+                            let sty = value.scalar_ty();
                             let value = core::mem::replace(
                                 value,
-                                Expr::Const(Span::new(span, ConstantExpr::Scalar(0))),
+                                Expr::Const(Span::new(span, ConstantExpr::Scalar(sty, 0))),
                             );
                             Ok(Some(Statement::Let(Let::new(span, name, value, acc))))
                         })?;
@@ -934,11 +936,15 @@ impl<'a> Inlining<'a> {
                 Expr::Const(constant) => {
                     let span = constant.span();
                     let value = match constant.item {
-                        ConstantExpr::Vector(ref elems) => ConstantExpr::Scalar(elems[index]),
-                        ConstantExpr::Matrix(ref rows) => ConstantExpr::Vector(rows[index].clone()),
+                        ConstantExpr::Vector(sty, ref elems) => {
+                            ConstantExpr::Scalar(sty, elems[index])
+                        },
+                        ConstantExpr::Matrix(sty, ref rows) => {
+                            ConstantExpr::Vector(sty, rows[index].clone())
+                        },
                         // An iterable may never be a scalar value, this will be caught by semantic
                         // analysis
-                        ConstantExpr::Scalar(_) => unreachable!(),
+                        ConstantExpr::Scalar(_, _) => unreachable!(),
                     };
                     let binding_ty = BindingType::Constant(value.ty());
                     self.bindings.insert(binding, binding_ty);
@@ -950,7 +956,10 @@ impl<'a> Inlining<'a> {
                     let range = range.to_slice_range();
                     let binding_ty = BindingType::Constant(Type::Scalar(ScalarType::Uint));
                     self.bindings.insert(binding, binding_ty);
-                    Expr::Const(Span::new(span, ConstantExpr::Scalar((range.start + index) as u64)))
+                    Expr::Const(Span::new(
+                        span,
+                        ConstantExpr::Scalar(ScalarType::Uint, (range.start + index) as u64),
+                    ))
                 },
                 // If the iterable was a vector, the abstract value is whatever expression is at
                 // the corresponding index of the vector.
@@ -1036,9 +1045,9 @@ impl<'a> Inlining<'a> {
             // #2
             match selector {
                 // If the selector value is zero, or false, we can elide the expansion entirely
-                ScalarExpr::Const(value) if value.item == 0 => return Ok(vec![]),
+                ScalarExpr::Const(_, value) if value.item == 0 => return Ok(vec![]),
                 // If the selector value is non-zero, or true, we can elide just the selector
-                ScalarExpr::Const(_) => Statement::Enforce(body),
+                ScalarExpr::Const(_, _) => Statement::Enforce(body),
                 // We have a selector that requires evaluation at runtime, we need to emit a
                 // conditional scalar constraint
                 other => Statement::EnforceIf(body, other),
@@ -1328,7 +1337,9 @@ impl<'a> Inlining<'a> {
                     }
                 },
                 // An empty vector means there are no bindings for this segment
-                Expr::Const(Span { item: ConstantExpr::Vector(items), .. }) if items.is_empty() => {
+                Expr::Const(Span { item: ConstantExpr::Vector(_, items), .. })
+                    if items.is_empty() =>
+                {
                     continue;
                 },
                 // A vector of bindings was passed as an argument for this segment
@@ -1667,21 +1678,21 @@ impl RewriteIterableBindingsVisitor<'_> {
             Some(Expr::Const(constant)) => {
                 let span = constant.span();
                 match constant.item {
-                    ConstantExpr::Scalar(value) => {
+                    ConstantExpr::Scalar(sty, value) => {
                         assert_eq!(access.access_type, AccessType::Default);
-                        Some(ScalarExpr::Const(Span::new(span, value)))
+                        Some(ScalarExpr::Const(sty, Span::new(span, value)))
                     },
-                    ConstantExpr::Vector(ref elems) => match access.access_type {
+                    ConstantExpr::Vector(sty, ref elems) => match access.access_type {
                         AccessType::Index(idx) => {
-                            Some(ScalarExpr::Const(Span::new(span, elems[idx])))
+                            Some(ScalarExpr::Const(sty, Span::new(span, elems[idx])))
                         },
                         invalid => panic!(
                             "expected vector to be reduced to scalar by access, got {invalid:#?}"
                         ),
                     },
-                    ConstantExpr::Matrix(ref rows) => match access.access_type {
+                    ConstantExpr::Matrix(sty, ref rows) => match access.access_type {
                         AccessType::Matrix(row, col) => {
-                            Some(ScalarExpr::Const(Span::new(span, rows[row][col])))
+                            Some(ScalarExpr::Const(sty, Span::new(span, rows[row][col])))
                         },
                         invalid => panic!(
                             "expected matrix to be reduced to scalar by access, got {invalid:#?}",
@@ -1693,9 +1704,10 @@ impl RewriteIterableBindingsVisitor<'_> {
                 let span = range.span();
                 let range = range.to_slice_range();
                 match access.access_type {
-                    AccessType::Index(idx) => {
-                        Some(ScalarExpr::Const(Span::new(span, (range.start + idx) as u64)))
-                    },
+                    AccessType::Index(idx) => Some(ScalarExpr::Const(
+                        ScalarType::Uint,
+                        Span::new(span, (range.start + idx) as u64),
+                    )),
                     invalid => {
                         panic!("expected range to be reduced to scalar by access, got {invalid:#?}",)
                     },
@@ -1758,7 +1770,7 @@ impl VisitMut<SemanticAnalysisError> for RewriteIterableBindingsVisitor<'_> {
     ) -> ControlFlow<SemanticAnalysisError> {
         match expr {
             // Nothing to do with constants
-            ScalarExpr::Const(_) => ControlFlow::Continue(()),
+            ScalarExpr::Const(_, _) => ControlFlow::Continue(()),
             // If we observe an access, try to rewrite it as an iterable binding, if it is
             // not a candidate for rewrite, leave it alone.
             //
@@ -1780,8 +1792,8 @@ impl VisitMut<SemanticAnalysisError> for RewriteIterableBindingsVisitor<'_> {
             ScalarExpr::Binary(binary_expr) => {
                 self.visit_mut_binary_expr(binary_expr)?;
                 match constant_propagation::try_fold_binary_expr(binary_expr) {
-                    Ok(Some(folded)) => {
-                        *expr = ScalarExpr::Const(folded);
+                    Ok(Some((sty, folded))) => {
+                        *expr = ScalarExpr::Const(sty, folded);
                         ControlFlow::Continue(())
                     },
                     Ok(None) => ControlFlow::Continue(()),
@@ -1821,16 +1833,20 @@ impl VisitMut<SemanticAnalysisError> for ApplyConstraintSelector<'_> {
         match statement {
             Statement::Let(expr) => self.visit_mut_let(expr),
             Statement::Enforce(expr) => {
-                let expr =
-                    core::mem::replace(expr, ScalarExpr::Const(Span::new(SourceSpan::UNKNOWN, 0)));
+                let sty = expr.ty().scalar_ty();
+                let expr = core::mem::replace(
+                    expr,
+                    ScalarExpr::Const(sty, Span::new(SourceSpan::UNKNOWN, 0)),
+                );
                 *statement = Statement::EnforceIf(expr, self.selector.clone());
                 ControlFlow::Continue(())
             },
             Statement::EnforceIf(_, selector) => {
+                let sty = selector.ty().scalar_ty();
                 // Combine the selectors
                 let lhs = core::mem::replace(
                     selector,
-                    ScalarExpr::Const(Span::new(SourceSpan::UNKNOWN, 0)),
+                    ScalarExpr::Const(sty, Span::new(SourceSpan::UNKNOWN, 0)),
                 );
                 let rhs = self.selector.clone();
                 *selector = ScalarExpr::Binary(BinaryExpr::new(

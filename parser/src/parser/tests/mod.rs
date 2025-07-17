@@ -358,10 +358,10 @@ macro_rules! bounded_access {
 
 macro_rules! int {
     ($value:literal) => {
-        ScalarExpr::Const(miden_diagnostics::Span::new(
-            miden_diagnostics::SourceSpan::UNKNOWN,
-            $value,
-        ))
+        ScalarExpr::Const(
+            ScalarType::Felt,
+            miden_diagnostics::Span::new(miden_diagnostics::SourceSpan::UNKNOWN, $value),
+        )
     };
 
     ($value:expr) => {
@@ -406,22 +406,22 @@ macro_rules! constant {
         Constant::new(
             SourceSpan::UNKNOWN,
             ident!($name),
-            ConstantExpr::Scalar($value),
+            ConstantExpr::Scalar(ScalarType::Untyped, $value),
         )
     };
 
     ($name:ident = [$($value:literal),+]) => {
-        Constant::new(SourceSpan::UNKNOWN, ident!($name), ConstantExpr::Vector(vec![$($value),+]))
+        Constant::new(SourceSpan::UNKNOWN, ident!($name), ConstantExpr::Vector(ScalarType::Untyped, vec![$($value),+]))
     };
 
     ($name:ident = [$([$($value:literal),+]),+]) => {
-        Constant::new(SourceSpan::UNKNOWN, ident!($name), ConstantExpr::Matrix(vec![$(vec![$($value),+]),+]))
+        Constant::new(SourceSpan::UNKNOWN, ident!($name), ConstantExpr::Matrix(ScalarType::Untyped, vec![$(vec![$($value),+]),+]))
     };
 }
 
 macro_rules! vector {
     ($($value:literal),*) => {
-        Expr::Const(miden_diagnostics::Span::new(miden_diagnostics::SourceSpan::UNKNOWN, ConstantExpr::Vector(vec![$($value),*])))
+        Expr::Const(miden_diagnostics::Span::new(miden_diagnostics::SourceSpan::UNKNOWN, ConstantExpr::Vector(ScalarType::Untyped, vec![$($value),*])))
     };
 
     ($($value:expr),*) => {

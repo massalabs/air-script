@@ -563,7 +563,7 @@ impl VisitMut<SemanticAnalysisError> for SemanticAnalysis<'_> {
             let iterable = &expr.iterables[i];
             let iterable_ty = iterable.ty().unwrap();
             if let Some(expected_ty) = result_ty.replace(iterable_ty) {
-                if expected_ty != iterable_ty {
+                if !expected_ty.is_compatible(&iterable_ty) {
                     self.has_type_errors = true;
                     // Note: We don't break here but at the end of the module's compilation, as we
                     // want to continue to gather as many errors as possible
@@ -734,7 +734,7 @@ impl VisitMut<SemanticAnalysisError> for SemanticAnalysis<'_> {
         // Validate the operand types
         match (expr.lhs.ty(), expr.rhs.ty()) {
             (Ok(Some(lty)), Ok(Some(rty))) => {
-                if lty != rty {
+                if !lty.is_compatible(&rty) {
                     self.has_type_errors = true;
                     // Note: We don't break here but at the end of the module's compilation, as we
                     // want to continue to gather as many errors as possible
@@ -768,7 +768,7 @@ impl VisitMut<SemanticAnalysisError> for SemanticAnalysis<'_> {
                     &self.library.modules[&qid.module].constants[&qid.item.id()].value
                 };
                 match value {
-                    ConstantExpr::Scalar(value) => {
+                    ConstantExpr::Scalar(_, value) => {
                         let value = usize::try_from(*value).map_err(|err| {
                             self.diagnostics
                                 .diagnostic(Severity::Error)

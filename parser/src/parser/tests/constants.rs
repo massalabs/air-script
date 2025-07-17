@@ -17,11 +17,11 @@ fn constants_scalars() {
     let mut expected = Module::new(ModuleType::Library, SourceSpan::UNKNOWN, ident!(test));
     expected.constants.insert(
         ident!(A),
-        Constant::new(SourceSpan::UNKNOWN, ident!(A), ConstantExpr::Scalar(1)),
+        Constant::new(SourceSpan::UNKNOWN, ident!(A), ConstantExpr::Scalar(ScalarType::Untyped, 1)),
     );
     expected.constants.insert(
         ident!(B),
-        Constant::new(SourceSpan::UNKNOWN, ident!(B), ConstantExpr::Scalar(2)),
+        Constant::new(SourceSpan::UNKNOWN, ident!(B), ConstantExpr::Scalar(ScalarType::Untyped, 2)),
     );
     ParseTest::new().expect_module_ast(source, expected);
 }
@@ -37,11 +37,19 @@ fn constants_vectors() {
     let mut expected = Module::new(ModuleType::Library, SourceSpan::UNKNOWN, ident!(test));
     expected.constants.insert(
         ident!(A),
-        Constant::new(SourceSpan::UNKNOWN, ident!(A), ConstantExpr::Vector(vec![1, 2, 3, 4])),
+        Constant::new(
+            SourceSpan::UNKNOWN,
+            ident!(A),
+            ConstantExpr::Vector(ScalarType::Untyped, vec![1, 2, 3, 4]),
+        ),
     );
     expected.constants.insert(
         ident!(B),
-        Constant::new(SourceSpan::UNKNOWN, ident!(B), ConstantExpr::Vector(vec![5, 6, 7, 8])),
+        Constant::new(
+            SourceSpan::UNKNOWN,
+            ident!(B),
+            ConstantExpr::Vector(ScalarType::Untyped, vec![5, 6, 7, 8]),
+        ),
     );
     ParseTest::new().expect_module_ast(source, expected);
 }
@@ -60,7 +68,7 @@ fn constants_matrices() {
         Constant::new(
             SourceSpan::UNKNOWN,
             ident!(A),
-            ConstantExpr::Matrix(vec![vec![1, 2], vec![3, 4]]),
+            ConstantExpr::Matrix(ScalarType::Untyped, vec![vec![1, 2], vec![3, 4]]),
         ),
     );
     expected.constants.insert(
@@ -68,7 +76,7 @@ fn constants_matrices() {
         Constant::new(
             SourceSpan::UNKNOWN,
             ident!(B),
-            ConstantExpr::Matrix(vec![vec![5, 6], vec![7, 8]]),
+            ConstantExpr::Matrix(ScalarType::Untyped, vec![vec![5, 6], vec![7, 8]]),
         ),
     );
     ParseTest::new().expect_module_ast(source, expected);

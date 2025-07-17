@@ -318,38 +318,6 @@ impl Expr {
             _ => false,
         }
     }
-
-    /// Returns the resolved type of this expression, if known
-    pub fn ty(&self) -> Option<Type> {
-        match self {
-            Self::Const(constant) => Some(constant.ty()),
-            Self::Range(range) => range.ty(),
-            Self::Vector(vector) => match vector.first().and_then(|e| e.ty()) {
-                Some(Type::Scalar(sty)) => Some(Type::Vector(sty, vector.len())),
-                Some(Type::Vector(sty, n)) => Some(Type::Matrix(sty, vector.len(), n)),
-                Some(_) => None,
-                None => Some(Type::Vector(ScalarType::Felt, 0)),
-            },
-            Self::Matrix(matrix) => {
-                let rows = matrix.len();
-                let cols = matrix[0].len();
-                let sty = matrix
-                    .first()
-                    .and_then(|row| row.first().and_then(|e| e.ty().ok().flatten()))
-                    .scalar_ty();
-                Some(Type::Matrix(sty, rows, cols))
-            },
-            Self::SymbolAccess(access) => access.ty,
-            // TODO: Handle binary expressions with different types
-            Self::Binary(_) => Some(Type::Scalar(ScalarType::Felt)),
-            Self::Call(call) => call.ty,
-            Self::ListComprehension(lc) => lc.ty,
-            Self::Let(let_expr) => let_expr.ty(),
-            Self::BusOperation(_) | Self::Null(_) | Self::Unconstrained(_) => {
-                Some(Type::Scalar(ScalarType::Felt))
-            },
-        }
-    }
 }
 impl fmt::Debug for Expr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -452,8 +420,8 @@ impl TryFrom<ScalarExpr> for Expr {
     #[inline]
     fn try_from(expr: ScalarExpr) -> Result<Self, Self::Error> {
         match expr {
-            ScalarExpr::Const(spanned) => {
-                Ok(Self::Const(Span::new(spanned.span(), ConstantExpr::Scalar(spanned.item))))
+            ScalarExpr::Const(sty, spanned) => {
+                Ok(Self::Const(Span::new(spanned.span(), ConstantExpr::Scalar(sty, spanned.item))))
             },
             ScalarExpr::SymbolAccess(access) => Ok(Self::SymbolAccess(access)),
             ScalarExpr::Binary(expr) => Ok(Self::Binary(expr)),
@@ -479,6 +447,39 @@ impl TryFrom<Statement> for Expr {
         }
     }
 }
+impl Typed for Expr {
+    type Wrapper = Option<Type>;
+    fn ty(&self) -> Self::Wrapper {
+        match self {
+            Self::Const(constant) => Some(constant.ty()),
+            Self::Range(range) => range.ty(),
+            Self::Vector(vector) => match vector.first().and_then(|e| e.ty()) {
+                Some(Type::Scalar(sty)) => Some(Type::Vector(sty, vector.len())),
+                Some(Type::Vector(sty, n)) => Some(Type::Matrix(sty, vector.len(), n)),
+                Some(_) => None,
+                None => Some(Type::Vector(ScalarType::Felt, 0)),
+            },
+            Self::Matrix(matrix) => {
+                let rows = matrix.len();
+                let cols = matrix[0].len();
+                let sty = matrix
+                    .first()
+                    .and_then(|row| row.first().and_then(|e| e.ty().ok().flatten()))
+                    .scalar_ty();
+                Some(Type::Matrix(sty, rows, cols))
+            },
+            Self::SymbolAccess(access) => access.ty,
+            // TODO: Handle binary expressions with different types
+            Self::Binary(_) => Some(Type::Scalar(ScalarType::Felt)),
+            Self::Call(call) => call.ty,
+            Self::ListComprehension(lc) => lc.ty,
+            Self::Let(let_expr) => let_expr.ty(),
+            Self::BusOperation(_) | Self::Null(_) | Self::Unconstrained(_) => {
+                Some(Type::Scalar(ScalarType::Felt))
+            },
+        }
+    }
+}
 
 /// Scalar expressions are expressions which evaluate to a single scalar value,
 /// i.e. they have no vector or matrix elements. Only scalar expressions are valid
@@ -486,7 +487,7 @@ impl TryFrom<Statement> for Expr {
 #[derive(Clone, PartialEq, Eq, Spanned)]
 pub enum ScalarExpr {
     /// A constant scalar value, i.e. integer
-    Const(Span<u64>),
+    Const(ScalarType, #[span] Span<u64>),
     /// A reference to a named value
     ///
     /// NOTE: Symbol accesses in a `ScalarExpr` context must produce scalar values.
@@ -524,7 +525,7 @@ pub enum ScalarExpr {
 impl ScalarExpr {
     /// Returns true if this is a constant value
     pub fn is_constant(&self) -> bool {
-        matches!(self, Self::Const(_))
+        matches!(self, Self::Const(_, _))
     }
 
     /// Returns true if this scalar expression could expand to a block, e.g. due to a function call
@@ -546,7 +547,7 @@ impl ScalarExpr {
     pub fn ty(&self) -> Result<Option<Type>, SourceSpan> {
         match self {
             // TODO: Return the correct type for constant expressions
-            Self::Const(_) => Ok(Some(Type::Scalar(ScalarType::Felt))),
+            Self::Const(sty, _) => Ok(Some(Type::Scalar(*sty))),
             Self::SymbolAccess(sym) => Ok(sym.ty),
             Self::BoundedSymbolAccess(sym) => Ok(sym.column.ty),
             Self::Binary(expr) => match (expr.lhs.ty()?, expr.rhs.ty()?) {
@@ -570,7 +571,7 @@ impl TryFrom<Expr> for ScalarExpr {
             Expr::Const(constant) => {
                 let span = constant.span();
                 match constant.item {
-                    ConstantExpr::Scalar(v) => Ok(Self::Const(Span::new(span, v))),
+                    ConstantExpr::Scalar(sty, v) => Ok(Self::Const(sty, Span::new(span, v))),
                     _ => Err(InvalidExprError::InvalidScalarExpr(span)),
                 }
             },
@@ -601,13 +602,13 @@ impl TryFrom<Statement> for ScalarExpr {
 }
 impl From<u64> for ScalarExpr {
     fn from(value: u64) -> Self {
-        Self::Const(Span::new(SourceSpan::UNKNOWN, value))
+        Self::Const(ScalarType::Untyped, Span::new(SourceSpan::UNKNOWN, value))
     }
 }
 impl fmt::Debug for ScalarExpr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::Const(i) => f.debug_tuple("Const").field(&i.item).finish(),
+            Self::Const(sty, i) => f.debug_tuple("Const").field(sty).field(&i.item).finish(),
             Self::SymbolAccess(expr) => f.debug_tuple("SymbolAccess").field(expr).finish(),
             Self::BoundedSymbolAccess(expr) => {
                 f.debug_tuple("BoundedSymbolAccess").field(expr).finish()
@@ -624,7 +625,7 @@ impl fmt::Debug for ScalarExpr {
 impl fmt::Display for ScalarExpr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::Const(value) => write!(f, "{value}"),
+            Self::Const(_, value) => write!(f, "{value}"),
             Self::SymbolAccess(expr) => write!(f, "{expr}"),
             Self::BoundedSymbolAccess(expr) => write!(f, "{}.{}", &expr.column, &expr.boundary),
             Self::Binary(expr) => write!(f, "{expr}"),
@@ -710,15 +711,6 @@ impl RangeExpr {
         self.try_into()
             .expect("attempted to convert non-constant range expression to constant")
     }
-
-    pub fn ty(&self) -> Option<Type> {
-        match (&self.start, &self.end) {
-            (RangeBound::Const(start), RangeBound::Const(end)) => {
-                Some(Type::Vector(ScalarType::Uint, end.item.abs_diff(start.item)))
-            },
-            _ => None,
-        }
-    }
 }
 impl From<Range> for RangeExpr {
     fn from(range: Range) -> Self {
@@ -744,6 +736,17 @@ impl std::hash::Hash for RangeExpr {
 impl fmt::Display for RangeExpr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}..{}", &self.start, &self.end)
+    }
+}
+impl Typed for RangeExpr {
+    type Wrapper = Option<Type>;
+    fn ty(&self) -> Self::Wrapper {
+        match (&self.start, &self.end) {
+            (RangeBound::Const(start), RangeBound::Const(end)) => {
+                Some(Type::Vector(ScalarType::Uint, end.item.abs_diff(start.item)))
+            },
+            _ => None,
+        }
     }
 }
 
@@ -820,6 +823,17 @@ impl fmt::Debug for BinaryExpr {
 impl fmt::Display for BinaryExpr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{} {} {}", &self.lhs, &self.op, &self.rhs)
+    }
+}
+impl Typed for BinaryExpr {
+    type Wrapper = Result<Option<Type>, SourceSpan>;
+    fn ty(&self) -> Self::Wrapper {
+        match (self.lhs.ty(), self.rhs.ty()) {
+            (Err(span), _) | (_, Err(span)) => Err(span),
+            (Ok(None), other) | (other, Ok(None)) => other,
+            (Ok(Some(lty)), Ok(Some(rty))) if lty == rty => Ok(Some(lty)),
+            _ => Ok(None),
+        }
     }
 }
 

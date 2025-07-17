@@ -330,7 +330,7 @@ impl Module {
         }
 
         // Validate constant expression
-        if let ConstantExpr::Matrix(matrix) = &constant.value {
+        if let ConstantExpr::Matrix(_, matrix) = &constant.value {
             let expected_len =
                 matrix.first().expect("expected matrix to have at least one row").len();
             for vector in matrix.iter().skip(1) {

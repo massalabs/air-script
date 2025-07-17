@@ -629,7 +629,7 @@ where
     V: ?Sized + VisitMut<T>,
 {
     match expr {
-        ast::ScalarExpr::Const(_)
+        ast::ScalarExpr::Const(_, _)
         | ast::ScalarExpr::Null(_)
         | ast::ScalarExpr::Unconstrained(_) => ControlFlow::Continue(()),
         ast::ScalarExpr::SymbolAccess(expr) => visitor.visit_mut_symbol_access(expr),

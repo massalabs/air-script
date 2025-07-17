@@ -26,9 +26,18 @@ Comma<T>: Vec<T> = {
     }
 };
 
-// AST NODE
+// AST TYPES
 // ================================================================================================
 
+ScalarType: ScalarType = {
+    "_" => ScalarType::Untyped,
+    "felt" => ScalarType::Felt,
+    "uint" => ScalarType::Uint,
+    "bool" => ScalarType::Bool,
+}
+
+// AST NODE
+// ================================================================================================
 pub Source: Source = {
     <Program> => Source::Program(<>),
     <Module*> =>? Library::new(diagnostics, codemap.clone(), <>)
@@ -131,9 +140,9 @@ Constant: Constant = {
 }
 
 ConstExpr: ConstantExpr = {
-    <Num_u64> => ConstantExpr::Scalar(<>),
-    <Vector<Num_u64>> => ConstantExpr::Vector(<>),
-    <Matrix<Num_u64>> => ConstantExpr::Matrix(<>),
+    <Num_u64> => ConstantExpr::Scalar(ScalarType::Untyped, <>),
+    <Vector<Num_u64>> => ConstantExpr::Vector(ScalarType::Untyped, <>),
+    <Matrix<Num_u64>> => ConstantExpr::Matrix(ScalarType::Untyped, <>),
 }
 
 // PUBLIC INPUTS
@@ -241,9 +250,9 @@ FunctionBinding: (Identifier, Type) = {
 }
 
 FunctionBindingType: Type = {
-    <l:@L> "felt" <r:@R> => Type::Scalar(ScalarType::Felt),
-    <l:@L> "felt" <size: Size> <r:@R> => Type::Vector(ScalarType::Felt, size as usize),
-    <l:@L> "felt" "[" <row_size: Num_u64> "," <col_size: Num_u64> "]" <r:@R> => Type::Matrix(ScalarType::Felt, row_size as usize, col_size as usize),
+    <l:@L> <sty: ScalarType> <r:@R> => Type::Scalar(sty),
+    <l:@L> <sty: ScalarType> <size: Size> <r:@R> => Type::Vector(sty, size as usize),
+    <l:@L> <sty: ScalarType> "[" <row_size: Num_u64> "," <col_size: Num_u64> "]" <r:@R> => Type::Matrix(sty, row_size as usize, col_size as usize),
 }
 
 FunctionBody: Vec<Statement> = {
@@ -462,7 +471,7 @@ ScalarExpr: ScalarExpr = {
 ScalarExprBase: ScalarExpr = {
     #[precedence(level="0")]
     SymbolAccess,
-    <Int> => ScalarExpr::Const(<>),
+    <Int> => ScalarExpr::Const(ScalarType::Untyped, <>),
     <l:@L> "null" <r:@R> => ScalarExpr::Null(Span::new(span!(l, r), ())),
     <l:@L> "unconstrained" <r:@R> => ScalarExpr::Unconstrained(Span::new(span!(l, r), ())),
     "(" <ScalarExpr> ")",
@@ -472,7 +481,7 @@ ScalarExprBase: ScalarExpr = {
 
     #[precedence(level="2")]
     <l:@L> "!" <expr:ScalarExprBase> <r:@R>
-        => ScalarExpr::Binary(BinaryExpr::new(span!(l, r), BinaryOp::Sub, ScalarExpr::Const(Span::new(span!(l, r), 1)), expr)),
+        => ScalarExpr::Binary(BinaryExpr::new(span!(l, r), BinaryOp::Sub, ScalarExpr::Const(ScalarType::Bool, Span::new(span!(l, r), 1)), expr)),
 
     #[precedence(level="3")] #[assoc(side="left")]
     <l:@L> <lhs: ScalarExprBase> "^" <rhs: ScalarExprBase> <r:@R>
@@ -681,7 +690,10 @@ extern {
         "case" => Token::Case,
         "when" => Token::When,
         "with" => Token::With,
+        "_" => Token::Untyped,
         "felt" => Token::Felt,
+        "uint" => Token::Uint,
+        "bool" => Token::Bool,
         "'" => Token::Quote,
         "=" => Token::Equal,
         "+" => Token::Plus,
