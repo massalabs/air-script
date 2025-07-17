@@ -123,7 +123,7 @@ impl Pass for Inlining<'_> {
                     name: Some(segment.name),
                     offset: 0,
                     size: segment.size,
-                    ty: Type::Vector(segment.size),
+                    ty: Type::Vector(ScalarType::Felt, segment.size),
                 }),
             );
             for binding in segment.bindings.iter().copied() {
@@ -142,8 +142,10 @@ impl Pass for Inlining<'_> {
         }
         // Public inputs..
         for input in program.public_inputs.values() {
-            self.bindings
-                .insert(input.name(), BindingType::PublicInput(Type::Vector(input.size())));
+            self.bindings.insert(
+                input.name(),
+                BindingType::PublicInput(Type::Vector(ScalarType::Felt, input.size())),
+            );
         }
         // For periodic columns, we register the imported item, but do not add any to the local
         // bindings.
@@ -785,7 +787,7 @@ impl<'a> Inlining<'a> {
         }
 
         // Get the number of iterations in this comprehension
-        let Type::Vector(num_iterations) = expr.ty.unwrap() else {
+        let Type::Vector(_, num_iterations) = expr.ty.unwrap() else {
             panic!("invalid comprehension type");
         };
 
@@ -946,7 +948,7 @@ impl<'a> Inlining<'a> {
                 Expr::Range(range) => {
                     let span = range.span();
                     let range = range.to_slice_range();
-                    let binding_ty = BindingType::Constant(Type::Scalar);
+                    let binding_ty = BindingType::Constant(Type::Scalar(ScalarType::Uint));
                     self.bindings.insert(binding, binding_ty);
                     Expr::Const(Span::new(span, ConstantExpr::Scalar((range.start + index) as u64)))
                 },
@@ -1100,7 +1102,7 @@ impl<'a> Inlining<'a> {
                         name: Some(segment.name),
                         offset: 0,
                         size: segment.size,
-                        ty: Type::Vector(segment.size),
+                        ty: Type::Vector(ScalarType::Felt, segment.size),
                     }),
                 );
                 for binding in segment.bindings.iter().copied() {
@@ -1119,8 +1121,10 @@ impl<'a> Inlining<'a> {
             }
 
             for input in self.public_inputs.values() {
-                eval_bindings
-                    .insert(input.name(), BindingType::PublicInput(Type::Vector(input.size())));
+                eval_bindings.insert(
+                    input.name(),
+                    BindingType::PublicInput(Type::Vector(ScalarType::Felt, input.size())),
+                );
             }
         }
 
@@ -1205,7 +1209,7 @@ impl<'a> Inlining<'a> {
                         name: Some(segment.name),
                         offset: 0,
                         size: segment.size,
-                        ty: Type::Vector(segment.size),
+                        ty: Type::Vector(ScalarType::Felt, segment.size),
                     }),
                 );
                 for binding in segment.bindings.iter().copied() {
@@ -1224,8 +1228,10 @@ impl<'a> Inlining<'a> {
             }
 
             for input in self.public_inputs.values() {
-                function_bindings
-                    .insert(input.name(), BindingType::PublicInput(Type::Vector(input.size())));
+                function_bindings.insert(
+                    input.name(),
+                    BindingType::PublicInput(Type::Vector(ScalarType::Felt, input.size())),
+                );
             }
         }
 
@@ -1510,14 +1516,17 @@ impl<'a> Inlining<'a> {
                     let original_binding =
                         self.trace[tb.segment].bindings.iter().find(|b| b.name == tb.name).unwrap();
                     let (access_type, ty) = if original_binding.size == 1 {
-                        (AccessType::Default, Type::Scalar)
+                        (AccessType::Default, Type::Scalar(ScalarType::Felt))
                     } else if tb.size == 1 {
-                        (AccessType::Index(tb.offset - original_binding.offset), Type::Scalar)
+                        (
+                            AccessType::Index(tb.offset - original_binding.offset),
+                            Type::Scalar(ScalarType::Felt),
+                        )
                     } else {
                         let start = tb.offset - original_binding.offset;
                         (
                             AccessType::Slice(RangeExpr::from(start..(start + tb.size))),
-                            Type::Vector(tb.size),
+                            Type::Vector(ScalarType::Felt, tb.size),
                         )
                     };
                     Some(SymbolAccess {
@@ -1558,30 +1567,38 @@ fn eval_expr_binding_type(
 ) -> Result<BindingType, InvalidAccessError> {
     match expr {
         Expr::Const(constant) => Ok(BindingType::Local(constant.ty())),
-        Expr::Range(range) => Ok(BindingType::Local(Type::Vector(range.to_slice_range().len()))),
+        Expr::Range(range) => {
+            Ok(BindingType::Local(Type::Vector(ScalarType::Uint, range.to_slice_range().len())))
+        },
         Expr::Vector(elems) => match elems[0].ty() {
-            None | Some(Type::Scalar) => {
+            None | Some(Type::Scalar(_)) => {
+                // TODO: ensure [ScalarType] does not get erased
                 let mut binding_tys = Vec::with_capacity(elems.len());
                 for elem in elems.iter() {
                     binding_tys.push(eval_expr_binding_type(elem, bindings, imported)?);
                 }
                 Ok(BindingType::Vector(binding_tys))
             },
-            Some(Type::Vector(cols)) => {
+            Some(Type::Vector(sty, cols)) => {
                 let rows = elems.len();
-                Ok(BindingType::Local(Type::Matrix(rows, cols)))
+                Ok(BindingType::Local(Type::Matrix(sty, rows, cols)))
             },
             Some(_) => unreachable!(),
         },
         Expr::Matrix(expr) => {
             let rows = expr.len();
             let columns = expr[0].len();
-            Ok(BindingType::Local(Type::Matrix(rows, columns)))
+            let sty = expr[0].first().map_or(ScalarType::Felt, |e| e.ty().scalar_ty());
+            Ok(BindingType::Local(Type::Matrix(sty, rows, columns)))
         },
         Expr::SymbolAccess(access) => eval_access_binding_type(access, bindings, imported),
         Expr::Call(Call { ty: None, .. }) => Err(InvalidAccessError::InvalidBinding),
         Expr::Call(Call { ty: Some(ty), .. }) => Ok(BindingType::Local(*ty)),
-        Expr::Binary(_) => Ok(BindingType::Local(Type::Scalar)),
+        Expr::Binary(bin_expr) => {
+            // TODO: Infer the type of the binary expression based on BOTH lhs and rhs
+            let sty = bin_expr.lhs.ty().ok().scalar_ty();
+            Ok(BindingType::Local(Type::Scalar(sty)))
+        },
         Expr::ListComprehension(lc) => {
             // The types of all iterables must be the same, so the type of
             // the comprehension is given by the type of the iterables. We

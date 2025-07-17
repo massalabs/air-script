@@ -188,8 +188,9 @@ impl<'a> MirBuilder<'a> {
             let mut i = 0;
             for binding in trace_segment.bindings.iter() {
                 let name = binding.name.as_ref();
+                // TODO: Handle [ScalarType]
                 match &binding.ty {
-                    ast::Type::Vector(size) => {
+                    ast::Type::Vector(_, size) => {
                         let mut params_vec = Vec::new();
                         let mut span = SourceSpan::UNKNOWN;
                         for _ in 0..*size {
@@ -203,7 +204,7 @@ impl<'a> MirBuilder<'a> {
                         let vector_node = Vector::create(params_vec, span);
                         self.bindings.insert(name.unwrap(), vector_node.clone());
                     },
-                    ast::Type::Scalar => {
+                    ast::Type::Scalar(_) => {
                         let param = all_params_flatten_for_trace_segment[i].clone();
                         i += 1;
                         self.bindings.insert(name.unwrap(), param.clone());
@@ -276,21 +277,21 @@ impl<'a> MirBuilder<'a> {
         i: &mut usize,
     ) -> Result<Vec<Link<Op>>, CompileError> {
         match ty {
-            ast::Type::Scalar => {
-                let param = Parameter::create(*i, MirType::Felt, span);
+            ast::Type::Scalar(sty) => {
+                let param = Parameter::create(*i, MirType::Scalar(*sty), span);
                 *i += 1;
                 Ok(vec![param])
             },
-            ast::Type::Vector(size) => {
+            ast::Type::Vector(sty, size) => {
                 let mut params = Vec::new();
                 for _ in 0..*size {
-                    let param = Parameter::create(*i, MirType::Felt, span);
+                    let param = Parameter::create(*i, MirType::Scalar(*sty), span);
                     *i += 1;
                     params.push(param);
                 }
                 Ok(params)
             },
-            ast::Type::Matrix(_rows, _cols) => {
+            ast::Type::Matrix(_sty, _rows, _cols) => {
                 let span = if let Some(name) = name {
                     name.span()
                 } else {
@@ -314,17 +315,17 @@ impl<'a> MirBuilder<'a> {
         i: &mut usize,
     ) -> Result<Link<Op>, CompileError> {
         match ty {
-            ast::Type::Scalar => {
-                let param = Parameter::create(*i, MirType::Felt, span);
+            ast::Type::Scalar(sty) => {
+                let param = Parameter::create(*i, MirType::Scalar(*sty), span);
                 *i += 1;
                 Ok(param)
             },
-            ast::Type::Vector(size) => {
-                let param = Parameter::create(*i, MirType::Vector(*size), span);
+            ast::Type::Vector(sty, size) => {
+                let param = Parameter::create(*i, MirType::Vector(*sty, *size), span);
                 *i += 1;
                 Ok(param)
             },
-            ast::Type::Matrix(_rows, _cols) => {
+            ast::Type::Matrix(_sty, _rows, _cols) => {
                 let span = if let Some(name) = name {
                     name.span()
                 } else {
@@ -365,11 +366,7 @@ impl<'a> MirBuilder<'a> {
     }
 
     fn translate_type(&mut self, ty: &ast::Type) -> MirType {
-        match ty {
-            ast::Type::Scalar => MirType::Felt,
-            ast::Type::Vector(size) => MirType::Vector(*size),
-            ast::Type::Matrix(rows, cols) => MirType::Matrix(*rows, *cols),
-        }
+        (*ty).into()
     }
 
     fn translate_statement(&mut self, stmt: &'a ast::Statement) -> Result<Link<Op>, CompileError> {
@@ -443,7 +440,12 @@ impl<'a> MirBuilder<'a> {
 
         self.bindings.enter();
         for (index, binding) in list_comp.bindings.iter().enumerate() {
-            let binding_node = Parameter::create(index, ast::Type::Scalar.into(), binding.span());
+            // TODO: Handle other [ScalarType]
+            let binding_node = Parameter::create(
+                index,
+                ast::Type::Scalar(ast::ScalarType::Felt).into(),
+                binding.span(),
+            );
             params.push(binding_node.clone());
             self.bindings.insert(binding, binding_node);
         }
@@ -938,7 +940,12 @@ impl<'a> MirBuilder<'a> {
         self.bindings.enter();
         let mut params = Vec::new();
         for (index, binding) in list_comp.bindings.iter().enumerate() {
-            let binding_node = Parameter::create(index, ast::Type::Scalar.into(), binding.span());
+            // TODO: Handle other [ScalarType]
+            let binding_node = Parameter::create(
+                index,
+                ast::Type::Scalar(ast::ScalarType::Felt).into(),
+                binding.span(),
+            );
             params.push(binding_node.clone());
             self.bindings.insert(binding, binding_node);
         }

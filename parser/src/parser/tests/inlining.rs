@@ -88,25 +88,26 @@ fn test_inlining_with_evaluator_split_input_binding() {
     expected.constants.insert(ident!(lib, EXP), constant!(EXP = 2));
     // When constant propagation and inlining is done, the boundary constraints should look like:
     //     enf a.first = 1
-    expected
-        .boundary_constraints
-        .push(enforce!(eq!(bounded_access!(a, Boundary::First, Type::Scalar), int!(1))));
+    expected.boundary_constraints.push(enforce!(eq!(
+        bounded_access!(a, Boundary::First, Type::Scalar(ScalarType::Felt)),
+        int!(1)
+    )));
     // When constant propagation and inlining is done, the integrity constraints should look like:
     //     enf b[0] + 2 = b[1] + 4
     //     enf a + 4 = c + 5
     expected.integrity_constraints.push(enforce!(eq!(
-        add!(access!(b[0], Type::Scalar), int!(2)),
-        add!(access!(b[1], Type::Scalar), int!(4))
+        add!(access!(b[0], Type::Scalar(ScalarType::Felt)), int!(2)),
+        add!(access!(b[1], Type::Scalar(ScalarType::Felt)), int!(4))
     )));
     expected.integrity_constraints.push(enforce!(eq!(
-        add!(access!(a, Type::Scalar), int!(4)),
-        add!(access!(c, Type::Scalar), int!(5))
+        add!(access!(a, Type::Scalar(ScalarType::Felt)), int!(4)),
+        add!(access!(c, Type::Scalar(ScalarType::Felt)), int!(5))
     )));
     // The test_constraint function before inlining should look like:
     //     enf b0 + 2 = b1 + 4
     let body = vec![enforce!(eq!(
-        add!(access!(b0, Type::Scalar), int!(2)),
-        add!(access!(b1, Type::Scalar), int!(4))
+        add!(access!(b0, Type::Scalar(ScalarType::Felt)), int!(2)),
+        add!(access!(b1, Type::Scalar(ScalarType::Felt)), int!(4))
     ))];
     expected.evaluators.insert(
         function_ident!(lib, test_constraint),
@@ -188,20 +189,27 @@ fn test_inlining_with_vector_literal_binding_regrouped() {
         .public_inputs
         .insert(ident!(inputs), PublicInput::new_vector(SourceSpan::UNKNOWN, ident!(inputs), 0));
     // The sole boundary constraint is already minimal
-    expected
-        .boundary_constraints
-        .push(enforce!(eq!(bounded_access!(clk, Boundary::First, Type::Scalar), int!(0))));
+    expected.boundary_constraints.push(enforce!(eq!(
+        bounded_access!(clk, Boundary::First, Type::Scalar(ScalarType::Felt)),
+        int!(0)
+    )));
     // When constant propagation and inlining is done, integrity_constraints should look like:
     //     enf clk + b[0] = b[1]
     expected.integrity_constraints.push(enforce!(eq!(
-        add!(access!(clk, Type::Scalar), access!(b[0], Type::Scalar)),
-        access!(b[1], Type::Scalar)
+        add!(
+            access!(clk, Type::Scalar(ScalarType::Felt)),
+            access!(b[0], Type::Scalar(ScalarType::Felt))
+        ),
+        access!(b[1], Type::Scalar(ScalarType::Felt))
     )));
     // The test_constraint function before inlining should look like:
     //     enf pair[0] + pair[1] = b1
     let body = vec![enforce!(eq!(
-        add!(access!(pair[0], Type::Scalar), access!(pair[1], Type::Scalar)),
-        access!(b1, Type::Scalar)
+        add!(
+            access!(pair[0], Type::Scalar(ScalarType::Felt)),
+            access!(pair[1], Type::Scalar(ScalarType::Felt))
+        ),
+        access!(b1, Type::Scalar(ScalarType::Felt))
     ))];
     expected.evaluators.insert(
         function_ident!(lib, test_constraint),
@@ -273,20 +281,27 @@ fn test_inlining_with_vector_literal_binding_unordered() {
         .public_inputs
         .insert(ident!(inputs), PublicInput::new_vector(SourceSpan::UNKNOWN, ident!(inputs), 0));
     // The sole boundary constraint is already minimal
-    expected
-        .boundary_constraints
-        .push(enforce!(eq!(bounded_access!(clk, Boundary::First, Type::Scalar), int!(0))));
+    expected.boundary_constraints.push(enforce!(eq!(
+        bounded_access!(clk, Boundary::First, Type::Scalar(ScalarType::Felt)),
+        int!(0)
+    )));
     // When constant propagation and inlining is done, integrity_constraints should look like:
     //     enf clk + b[0] = b[1]
     expected.integrity_constraints.push(enforce!(eq!(
-        add!(access!(clk, Type::Scalar), access!(b[0], Type::Scalar)),
-        access!(b[1], Type::Scalar)
+        add!(
+            access!(clk, Type::Scalar(ScalarType::Felt)),
+            access!(b[0], Type::Scalar(ScalarType::Felt))
+        ),
+        access!(b[1], Type::Scalar(ScalarType::Felt))
     )));
     // The test_constraint function before inlining should look like:
     //     enf pair[1] + b0 = pair[0]
     let body = vec![enforce!(eq!(
-        add!(access!(pair[1], Type::Scalar), access!(b0, Type::Scalar)),
-        access!(pair[0], Type::Scalar)
+        add!(
+            access!(pair[1], Type::Scalar(ScalarType::Felt)),
+            access!(b0, Type::Scalar(ScalarType::Felt))
+        ),
+        access!(pair[0], Type::Scalar(ScalarType::Felt))
     ))];
     expected.evaluators.insert(
         function_ident!(lib, test_constraint),
@@ -358,20 +373,33 @@ fn test_inlining_with_vector_literal_binding_different_arity_many_to_few() {
         .public_inputs
         .insert(ident!(inputs), PublicInput::new_vector(SourceSpan::UNKNOWN, ident!(inputs), 0));
     // The sole boundary constraint is already minimal
-    expected
-        .boundary_constraints
-        .push(enforce!(eq!(bounded_access!(clk, Boundary::First, Type::Scalar), int!(0))));
+    expected.boundary_constraints.push(enforce!(eq!(
+        bounded_access!(clk, Boundary::First, Type::Scalar(ScalarType::Felt)),
+        int!(0)
+    )));
     // When constant propagation and inlining is done, integrity_constraints should look like:
     //     enf clk + b[0] = a + b[1]
     expected.integrity_constraints.push(enforce!(eq!(
-        add!(access!(clk, Type::Scalar), access!(b[0], Type::Scalar)),
-        add!(access!(a, Type::Scalar), access!(b[1], Type::Scalar))
+        add!(
+            access!(clk, Type::Scalar(ScalarType::Felt)),
+            access!(b[0], Type::Scalar(ScalarType::Felt))
+        ),
+        add!(
+            access!(a, Type::Scalar(ScalarType::Felt)),
+            access!(b[1], Type::Scalar(ScalarType::Felt))
+        )
     )));
     // The test_constraint function before inlining should look like:
     //     enf pair[0] + pair[1] = a + pair[2]
     let body = vec![enforce!(eq!(
-        add!(access!(pair[0], Type::Scalar), access!(pair[1], Type::Scalar)),
-        add!(access!(foo, Type::Scalar), access!(pair[2], Type::Scalar))
+        add!(
+            access!(pair[0], Type::Scalar(ScalarType::Felt)),
+            access!(pair[1], Type::Scalar(ScalarType::Felt))
+        ),
+        add!(
+            access!(foo, Type::Scalar(ScalarType::Felt)),
+            access!(pair[2], Type::Scalar(ScalarType::Felt))
+        )
     ))];
     expected.evaluators.insert(
         function_ident!(lib, test_constraint),
@@ -443,20 +471,27 @@ fn test_inlining_with_vector_literal_binding_different_arity_few_to_many() {
         .public_inputs
         .insert(ident!(inputs), PublicInput::new_vector(SourceSpan::UNKNOWN, ident!(inputs), 0));
     // The sole boundary constraint is already minimal
-    expected
-        .boundary_constraints
-        .push(enforce!(eq!(bounded_access!(clk, Boundary::First, Type::Scalar), int!(0))));
+    expected.boundary_constraints.push(enforce!(eq!(
+        bounded_access!(clk, Boundary::First, Type::Scalar(ScalarType::Felt)),
+        int!(0)
+    )));
     // When constant propagation and inlining is done, integrity_constraints should look like:
     //     enf b[0] + b[1] = a
     expected.integrity_constraints.push(enforce!(eq!(
-        add!(access!(b[0], Type::Scalar), access!(b[1], Type::Scalar)),
-        access!(a, Type::Scalar)
+        add!(
+            access!(b[0], Type::Scalar(ScalarType::Felt)),
+            access!(b[1], Type::Scalar(ScalarType::Felt))
+        ),
+        access!(a, Type::Scalar(ScalarType::Felt))
     )));
     // The test_constraint function before inlining should look like:
     //     enf x + y = z
     let body = vec![enforce!(eq!(
-        add!(access!(x, Type::Scalar), access!(y, Type::Scalar)),
-        access!(z, Type::Scalar)
+        add!(
+            access!(x, Type::Scalar(ScalarType::Felt)),
+            access!(y, Type::Scalar(ScalarType::Felt))
+        ),
+        access!(z, Type::Scalar(ScalarType::Felt))
     ))];
     expected.evaluators.insert(
         function_ident!(lib, test_constraint),
@@ -537,20 +572,24 @@ fn test_inlining_across_modules_with_nested_evaluators_variant1() {
         .public_inputs
         .insert(ident!(inputs), PublicInput::new_vector(SourceSpan::UNKNOWN, ident!(inputs), 0));
     // The sole boundary constraint is already minimal
-    expected
-        .boundary_constraints
-        .push(enforce!(eq!(bounded_access!(clk, Boundary::First, Type::Scalar), int!(0))));
+    expected.boundary_constraints.push(enforce!(eq!(
+        bounded_access!(clk, Boundary::First, Type::Scalar(ScalarType::Felt)),
+        int!(0)
+    )));
     // When constant propagation and inlining is done, integrity_constraints should look like:
     //     enf a + b[0] = b[1]
     expected.integrity_constraints.push(enforce!(eq!(
-        add!(access!(a, Type::Scalar), access!(b[0], Type::Scalar)),
-        access!(b[1], Type::Scalar)
+        add!(
+            access!(a, Type::Scalar(ScalarType::Felt)),
+            access!(b[0], Type::Scalar(ScalarType::Felt))
+        ),
+        access!(b[1], Type::Scalar(ScalarType::Felt))
     )));
     // The test_constraint function before inlining should look like:
     //     enf helper_constraint([z, tuple[1..3]])
     let body = vec![enforce!(call!(lib2::helper_constraint(vector!(
-        access!(z, Type::Scalar),
-        slice!(tuple, 1..3, Type::Vector(2))
+        access!(z, Type::Scalar(ScalarType::Felt)),
+        slice!(tuple, 1..3, Type::Vector(ScalarType::Felt, 2))
     ))))];
     expected.evaluators.insert(
         function_ident!(lib1, test_constraint),
@@ -564,8 +603,11 @@ fn test_inlining_across_modules_with_nested_evaluators_variant1() {
     // The helper_constraint function before inlining should look like:
     //     enf x[0] + x[1] = y
     let body = vec![enforce!(eq!(
-        add!(access!(x[0], Type::Scalar), access!(x[1], Type::Scalar)),
-        access!(y, Type::Scalar)
+        add!(
+            access!(x[0], Type::Scalar(ScalarType::Felt)),
+            access!(x[1], Type::Scalar(ScalarType::Felt))
+        ),
+        access!(y, Type::Scalar(ScalarType::Felt))
     ))];
     expected.evaluators.insert(
         function_ident!(lib2, helper_constraint),
@@ -645,21 +687,25 @@ fn test_inlining_across_modules_with_nested_evaluators_variant2() {
         .public_inputs
         .insert(ident!(inputs), PublicInput::new_vector(SourceSpan::UNKNOWN, ident!(inputs), 0));
     // The sole boundary constraint is already minimal
-    expected
-        .boundary_constraints
-        .push(enforce!(eq!(bounded_access!(clk, Boundary::First, Type::Scalar), int!(0))));
+    expected.boundary_constraints.push(enforce!(eq!(
+        bounded_access!(clk, Boundary::First, Type::Scalar(ScalarType::Felt)),
+        int!(0)
+    )));
     // When constant propagation and inlining is done, integrity_constraints should look like:
     //     enf a + b[0] = b[1]
     expected.integrity_constraints.push(enforce!(eq!(
-        add!(access!(a, Type::Scalar), access!(b[0], Type::Scalar)),
-        access!(b[1], Type::Scalar)
+        add!(
+            access!(a, Type::Scalar(ScalarType::Felt)),
+            access!(b[0], Type::Scalar(ScalarType::Felt))
+        ),
+        access!(b[1], Type::Scalar(ScalarType::Felt))
     )));
     // The test_constraint function before inlining should look like:
     //     enf helper_constraint([z, tuple[1..3]])
     let body = vec![enforce!(call!(lib2::helper_constraint(vector!(
-        access!(z, Type::Scalar),
-        access!(tuple[1], Type::Scalar),
-        slice!(tuple, 2..3, Type::Vector(1))
+        access!(z, Type::Scalar(ScalarType::Felt)),
+        access!(tuple[1], Type::Scalar(ScalarType::Felt)),
+        slice!(tuple, 2..3, Type::Vector(ScalarType::Felt, 1))
     ))))];
     expected.evaluators.insert(
         function_ident!(lib1, test_constraint),
@@ -673,8 +719,11 @@ fn test_inlining_across_modules_with_nested_evaluators_variant2() {
     // The helper_constraint function before inlining should look like:
     //     enf x[0] + x[1] = y
     let body = vec![enforce!(eq!(
-        add!(access!(x[0], Type::Scalar), access!(x[1], Type::Scalar)),
-        access!(y, Type::Scalar)
+        add!(
+            access!(x[0], Type::Scalar(ScalarType::Felt)),
+            access!(x[1], Type::Scalar(ScalarType::Felt))
+        ),
+        access!(y, Type::Scalar(ScalarType::Felt))
     ))];
     expected.evaluators.insert(
         function_ident!(lib2, helper_constraint),
@@ -746,18 +795,19 @@ fn test_inlining_constraint_comprehensions_no_selector() {
         .public_inputs
         .insert(ident!(inputs), PublicInput::new_vector(SourceSpan::UNKNOWN, ident!(inputs), 0));
     // The sole boundary constraint is already minimal
-    expected
-        .boundary_constraints
-        .push(enforce!(eq!(bounded_access!(clk, Boundary::First, Type::Scalar), int!(0))));
+    expected.boundary_constraints.push(enforce!(eq!(
+        bounded_access!(clk, Boundary::First, Type::Scalar(ScalarType::Felt)),
+        int!(0)
+    )));
     // When constant propagation and inlining is done, integrity_constraints should look like:
     //     enf b[0]' = 2
     //     enf b[1]' = 4
     expected
         .integrity_constraints
-        .push(enforce!(eq!(access!(b[0], 1, Type::Scalar), int!(2))));
+        .push(enforce!(eq!(access!(b[0], 1, Type::Scalar(ScalarType::Felt)), int!(2))));
     expected
         .integrity_constraints
-        .push(enforce!(eq!(access!(b[1], 1, Type::Scalar), int!(4))));
+        .push(enforce!(eq!(access!(b[1], 1, Type::Scalar(ScalarType::Felt)), int!(4))));
 
     assert_eq!(program, expected);
 }
@@ -819,18 +869,19 @@ fn test_inlining_constraint_comprehensions_with_selector() {
         .public_inputs
         .insert(ident!(inputs), PublicInput::new_vector(SourceSpan::UNKNOWN, ident!(inputs), 0));
     // The sole boundary constraint is already minimal
-    expected
-        .boundary_constraints
-        .push(enforce!(eq!(bounded_access!(clk, Boundary::First, Type::Scalar), int!(0))));
+    expected.boundary_constraints.push(enforce!(eq!(
+        bounded_access!(clk, Boundary::First, Type::Scalar(ScalarType::Felt)),
+        int!(0)
+    )));
     // When constant propagation and inlining is done, integrity_constraints should look like:
     //     enf b[0]' = 2 when c
     //     enf b[1]' = 4 when c
     expected
         .integrity_constraints
-        .push(enforce!(eq!(access!(b[0], 1, Type::Scalar), int!(2)), when access!(c, Type::Scalar)));
+        .push(enforce!(eq!(access!(b[0], 1, Type::Scalar(ScalarType::Felt)), int!(2)), when access!(c, Type::Scalar(ScalarType::Felt))));
     expected
         .integrity_constraints
-        .push(enforce!(eq!(access!(b[1], 1, Type::Scalar), int!(4)), when access!(c, Type::Scalar)));
+        .push(enforce!(eq!(access!(b[1], 1, Type::Scalar(ScalarType::Felt)), int!(4)), when access!(c, Type::Scalar(ScalarType::Felt))));
 
     assert_eq!(program, expected);
 }
@@ -894,18 +945,19 @@ fn test_inlining_constraint_comprehensions_with_constant_selector() {
         .public_inputs
         .insert(ident!(inputs), PublicInput::new_vector(SourceSpan::UNKNOWN, ident!(inputs), 0));
     // The sole boundary constraint is already minimal
-    expected
-        .boundary_constraints
-        .push(enforce!(eq!(bounded_access!(clk, Boundary::First, Type::Scalar), int!(0))));
+    expected.boundary_constraints.push(enforce!(eq!(
+        bounded_access!(clk, Boundary::First, Type::Scalar(ScalarType::Felt)),
+        int!(0)
+    )));
     // When constant propagation and inlining is done, integrity_constraints should look like:
     //     enf b[1]' = 4
     //     enf b[3]' = 8
     expected
         .integrity_constraints
-        .push(enforce!(eq!(access!(b[1], 1, Type::Scalar), int!(4))));
+        .push(enforce!(eq!(access!(b[1], 1, Type::Scalar(ScalarType::Felt)), int!(4))));
     expected
         .integrity_constraints
-        .push(enforce!(eq!(access!(b[3], 1, Type::Scalar), int!(8))));
+        .push(enforce!(eq!(access!(b[3], 1, Type::Scalar(ScalarType::Felt)), int!(8))));
 
     assert_eq!(program, expected);
 }
@@ -968,18 +1020,19 @@ fn test_inlining_constraint_comprehensions_in_evaluator() {
         .public_inputs
         .insert(ident!(inputs), PublicInput::new_vector(SourceSpan::UNKNOWN, ident!(inputs), 0));
     // The sole boundary constraint is already minimal
-    expected
-        .boundary_constraints
-        .push(enforce!(eq!(bounded_access!(clk, Boundary::First, Type::Scalar), int!(0))));
+    expected.boundary_constraints.push(enforce!(eq!(
+        bounded_access!(clk, Boundary::First, Type::Scalar(ScalarType::Felt)),
+        int!(0)
+    )));
     // When constant propagation and inlining is done, integrity_constraints should look like:
     //     enf b[1]' = 16
     //     enf b[3]' = 64
     expected
         .integrity_constraints
-        .push(enforce!(eq!(access!(b[1], 1, Type::Scalar), int!(16))));
+        .push(enforce!(eq!(access!(b[1], 1, Type::Scalar(ScalarType::Felt)), int!(16))));
     expected
         .integrity_constraints
-        .push(enforce!(eq!(access!(b[3], 1, Type::Scalar), int!(64))));
+        .push(enforce!(eq!(access!(b[3], 1, Type::Scalar(ScalarType::Felt)), int!(64))));
     // The evaluator definition is never modified by inlining, but is by constant propagation:
     //
     // ev test_constraint([i, j[2]]) {
@@ -988,11 +1041,11 @@ fn test_inlining_constraint_comprehensions_in_evaluator() {
     //     let xs = [i, k, l]
     //     enf x' = y for (x, y) in (xs, [16, 0, 64]) when y
     // }
-    let body = vec![let_!(k = expr!(access!(j[0], Type::Scalar))
-        => let_!(l = expr!(access!(j[1], Type::Scalar))
-            => let_!(xs = vector!(access!(i, Type::Scalar), access!(k, Type::Scalar), access!(l, Type::Scalar))
-                => enforce_all!(lc!(((x, expr!(access!(xs, Type::Vector(3)))), (y, vector!(16, 0, 64)))
-                    => eq!(access!(x, 1, Type::Scalar), access!(y, Type::Scalar)), when access!(y, Type::Scalar)))))
+    let body = vec![let_!(k = expr!(access!(j[0], Type::Scalar(ScalarType::Felt)))
+        => let_!(l = expr!(access!(j[1], Type::Scalar(ScalarType::Felt)))
+            => let_!(xs = vector!(access!(i, Type::Scalar(ScalarType::Felt)), access!(k, Type::Scalar(ScalarType::Felt)), access!(l, Type::Scalar(ScalarType::Felt)))
+                => enforce_all!(lc!(((x, expr!(access!(xs, Type::Vector(ScalarType::Felt, 3)))), (y, vector!(16, 0, 64)))
+                    => eq!(access!(x, 1, Type::Scalar(ScalarType::Felt)), access!(y, Type::Scalar(ScalarType::Felt))), when access!(y, Type::Scalar(ScalarType::Felt))))))
     )];
     expected.evaluators.insert(
         function_ident!(root, test_constraint),
@@ -1057,9 +1110,10 @@ fn test_inlining_constraints_with_folded_comprehensions_in_evaluator() {
         .public_inputs
         .insert(ident!(inputs), PublicInput::new_vector(SourceSpan::UNKNOWN, ident!(inputs), 0));
     // The sole boundary constraint is already minimal
-    expected
-        .boundary_constraints
-        .push(enforce!(eq!(bounded_access!(clk, Boundary::First, Type::Scalar), int!(0))));
+    expected.boundary_constraints.push(enforce!(eq!(
+        bounded_access!(clk, Boundary::First, Type::Scalar(ScalarType::Felt)),
+        int!(0)
+    )));
     // When constant propagation and inlining is done, integrity_constraints should look like:
     //     let y =
     //         let %lc0 = b[2]^7
@@ -1075,23 +1129,23 @@ fn test_inlining_constraints_with_folded_comprehensions_in_evaluator() {
     expected
         .integrity_constraints
         .push(let_!(y = expr!(
-            let_!("%lc0" = expr!(exp!(access!(b[2], Type::Scalar), int!(7)))
-            => let_!("%lc1" = expr!(exp!(access!(b[3], Type::Scalar), int!(7)))
-            => statement!(add!(access!("%lc0", Type::Scalar), access!("%lc1", Type::Scalar)))))
+            let_!("%lc0" = expr!(exp!(access!(b[2], Type::Scalar(ScalarType::Felt)), int!(7)))
+            => let_!("%lc1" = expr!(exp!(access!(b[3], Type::Scalar(ScalarType::Felt)), int!(7)))
+            => statement!(add!(access!("%lc0", Type::Scalar(ScalarType::Felt)), access!("%lc1", Type::Scalar(ScalarType::Felt))))))
         ) =>
             let_!(z = expr!(
-                let_!("%lc2" = expr!(exp!(access!(b[2], Type::Scalar), int!(7)))
-                => let_!("%lc3" = expr!(exp!(access!(b[3], Type::Scalar), int!(7)))
-                => statement!(mul!(access!("%lc2", Type::Scalar), access!("%lc3", Type::Scalar)))))
+                let_!("%lc2" = expr!(exp!(access!(b[2], Type::Scalar(ScalarType::Felt)), int!(7)))
+                => let_!("%lc3" = expr!(exp!(access!(b[3], Type::Scalar(ScalarType::Felt)), int!(7)))
+                => statement!(mul!(access!("%lc2", Type::Scalar(ScalarType::Felt)), access!("%lc3", Type::Scalar(ScalarType::Felt))))))
             ) =>
-              enforce!(eq!(access!(b[1], Type::Scalar), add!(access!(y, Type::Scalar), access!(z, Type::Scalar))))
+              enforce!(eq!(access!(b[1], Type::Scalar(ScalarType::Felt)), add!(access!(y, Type::Scalar(ScalarType::Felt)), access!(z, Type::Scalar(ScalarType::Felt)))))
             )
         ));
     // The evaluator definition is never modified by constant propagation or inlining
     let body = vec![
-        let_!(y = expr!(call!(sum(expr!(lc!(((col, expr!(access!(ys, Type::Vector(2))))) => exp!(access!(col, Type::Scalar), int!(7)))))))
-            => let_!(z = expr!(call!(prod(expr!(lc!(((col, expr!(access!(ys, Type::Vector(2))))) => exp!(access!(col, Type::Scalar), int!(7)))))))
-                => enforce!(eq!(access!(x, Type::Scalar), add!(access!(y, Type::Scalar), access!(z, Type::Scalar)))))),
+        let_!(y = expr!(call!(sum(expr!(lc!(((col, expr!(access!(ys, Type::Vector(ScalarType::Felt, 2))))) => exp!(access!(col, Type::Scalar(ScalarType::Felt)), int!(7)))))))
+            => let_!(z = expr!(call!(prod(expr!(lc!(((col, expr!(access!(ys, Type::Vector(ScalarType::Felt, 2))))) => exp!(access!(col, Type::Scalar(ScalarType::Felt)), int!(7)))))))
+                => enforce!(eq!(access!(x, Type::Scalar(ScalarType::Felt)), add!(access!(y, Type::Scalar(ScalarType::Felt)), access!(z, Type::Scalar(ScalarType::Felt))))))),
     ];
     expected.evaluators.insert(
         function_ident!(root, test_constraint),
@@ -1165,14 +1219,17 @@ fn test_inlining_with_function_call_as_binary_operand() {
         Function::new(
             SourceSpan::UNKNOWN,
             ident!(fold_sum),
-            vec![(ident!(a), Type::Vector(4))],
-            Type::Scalar,
+            vec![(ident!(a), Type::Vector(ScalarType::Felt, 4))],
+            Type::Scalar(ScalarType::Felt),
             vec![return_!(expr!(add!(
                 add!(
-                    add!(access!(a[0], Type::Scalar), access!(a[1], Type::Scalar)),
-                    access!(a[2], Type::Scalar)
+                    add!(
+                        access!(a[0], Type::Scalar(ScalarType::Felt)),
+                        access!(a[1], Type::Scalar(ScalarType::Felt))
+                    ),
+                    access!(a[2], Type::Scalar(ScalarType::Felt))
                 ),
-                access!(a[3], Type::Scalar)
+                access!(a[3], Type::Scalar(ScalarType::Felt))
             )))],
         ),
     );
@@ -1181,19 +1238,20 @@ fn test_inlining_with_function_call_as_binary_operand() {
         Function::new(
             SourceSpan::UNKNOWN,
             ident!(fold_vec),
-            vec![(ident!(a), Type::Vector(4))],
-            Type::Scalar,
-            vec![let_!("m" = expr!(mul!(access!(a[0], Type::Scalar), access!(a[1], Type::Scalar)))
-            => let_!("n" = expr!(mul!(access!(m, Type::Scalar), access!(a[2], Type::Scalar)))
-            => let_!("o" = expr!(mul!(access!(n, Type::Scalar), access!(a[3], Type::Scalar)))
-            => return_!(expr!(access!(o, Type::Scalar)))
+            vec![(ident!(a), Type::Vector(ScalarType::Felt, 4))],
+            Type::Scalar(ScalarType::Felt),
+            vec![let_!("m" = expr!(mul!(access!(a[0], Type::Scalar(ScalarType::Felt)), access!(a[1], Type::Scalar(ScalarType::Felt))))
+            => let_!("n" = expr!(mul!(access!(m, Type::Scalar(ScalarType::Felt)), access!(a[2], Type::Scalar(ScalarType::Felt))))
+            => let_!("o" = expr!(mul!(access!(n, Type::Scalar(ScalarType::Felt)), access!(a[3], Type::Scalar(ScalarType::Felt))))
+            => return_!(expr!(access!(o, Type::Scalar(ScalarType::Felt))))
             )))],
         ),
     );
     // The sole boundary constraint is already minimal
-    expected
-        .boundary_constraints
-        .push(enforce!(eq!(bounded_access!(clk, Boundary::First, Type::Scalar), int!(0))));
+    expected.boundary_constraints.push(enforce!(eq!(
+        bounded_access!(clk, Boundary::First, Type::Scalar(ScalarType::Felt)),
+        int!(0)
+    )));
     // With constant propagation and inlining done
     //
     // let complex_fold =
@@ -1204,11 +1262,11 @@ fn test_inlining_with_function_call_as_binary_operand() {
     // enf complex_fold = 1
     expected.integrity_constraints.push(
         let_!(complex_fold = expr!(mul!(
-            add!(add!(add!(access!(b[0], Type::Scalar), access!(b[1], Type::Scalar)), access!(b[2], Type::Scalar)), access!(b[3], Type::Scalar)),
-            scalar!(let_!(m = expr!(mul!(access!(b[0], Type::Scalar), access!(b[1], Type::Scalar)))
-            => let_!(n = expr!(mul!(access!(m, Type::Scalar), access!(b[2], Type::Scalar)))
-            => let_!(o = expr!(mul!(access!(n, Type::Scalar), access!(b[3], Type::Scalar))) => return_!(expr!(access!(o, Type::Scalar)))))))
-        )) => enforce!(eq!(access!(complex_fold, Type::Scalar), int!(1))))
+            add!(add!(add!(access!(b[0], Type::Scalar(ScalarType::Felt)), access!(b[1], Type::Scalar(ScalarType::Felt))), access!(b[2], Type::Scalar(ScalarType::Felt))), access!(b[3], Type::Scalar(ScalarType::Felt))),
+            scalar!(let_!(m = expr!(mul!(access!(b[0], Type::Scalar(ScalarType::Felt)), access!(b[1], Type::Scalar(ScalarType::Felt))))
+            => let_!(n = expr!(mul!(access!(m, Type::Scalar(ScalarType::Felt)), access!(b[2], Type::Scalar(ScalarType::Felt))))
+            => let_!(o = expr!(mul!(access!(n, Type::Scalar(ScalarType::Felt)), access!(b[3], Type::Scalar(ScalarType::Felt)))) => return_!(expr!(access!(o, Type::Scalar(ScalarType::Felt))))))))
+        )) => enforce!(eq!(access!(complex_fold, Type::Scalar(ScalarType::Felt)), int!(1))))
     );
 
     assert_eq!(program, expected);

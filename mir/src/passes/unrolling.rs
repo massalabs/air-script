@@ -1,6 +1,6 @@
 use std::{collections::HashMap, ops::Deref, rc::Rc};
 
-use air_parser::ast::AccessType;
+use air_parser::ast::{AccessType, ScalarType};
 use air_pass::Pass;
 use miden_diagnostics::{DiagnosticsHandler, Spanned};
 
@@ -728,9 +728,9 @@ impl UnrollingFirstPass<'_> {
                 AccessType::Matrix(..) => 1,
             },
             Op::Parameter(parameter) => match parameter.ty {
-                MirType::Felt => 1,
-                MirType::Vector(l) => l,
-                MirType::Matrix(l, _) => l,
+                MirType::Scalar(_) => 1,
+                MirType::Vector(_, l) => l,
+                MirType::Matrix(_, l, _) => l,
             },
             _ => 1,
         }
@@ -775,8 +775,13 @@ impl UnrollingFirstPass<'_> {
             let mut new_vec = vec![];
 
             for i in 0..iterator_expected_len {
-                let new_node =
-                    Parameter::create(i, MirType::Felt, for_node.as_for().unwrap().deref().span());
+                // TODO: Handle other [ScalarType]
+                let sty = ScalarType::Felt;
+                let new_node = Parameter::create(
+                    i,
+                    MirType::Scalar(sty),
+                    for_node.as_for().unwrap().deref().span(),
+                );
                 new_vec.push(new_node.clone());
 
                 let iterators_i = iterators

@@ -1,6 +1,8 @@
 use std::fmt;
 
-use crate::ast::{AccessType, BusType, FunctionType, InvalidAccessError, TraceBinding, Type};
+use crate::ast::{
+    AccessType, BusType, FunctionType, InvalidAccessError, ScalarType, TraceBinding, Type,
+};
 
 /// This type provides type and contextual information about a binding,
 /// i.e. not only does it tell us the type of a binding, but what type
@@ -35,15 +37,16 @@ pub enum BindingType {
 }
 impl BindingType {
     /// Get the value type of this binding, if applicable
+    /// TODO: handle other [ScalarType]s
     pub fn ty(&self) -> Option<Type> {
         match self {
             Self::TraceColumn(tb) | Self::TraceParam(tb) => Some(tb.ty()),
-            Self::Vector(elems) => Some(Type::Vector(elems.len())),
+            Self::Vector(elems) => Some(Type::Vector(ScalarType::Felt, elems.len())),
             Self::Alias(aliased) => aliased.ty(),
             Self::Local(ty) | Self::Constant(ty) | Self::PublicInput(ty) => Some(*ty),
-            Self::PeriodicColumn(_) => Some(Type::Scalar),
+            Self::PeriodicColumn(_) => Some(Type::Scalar(ScalarType::Felt)),
             Self::Function(ty) => ty.result(),
-            Self::Bus(_) => Some(Type::Scalar),
+            Self::Bus(_) => Some(Type::Scalar(ScalarType::Felt)),
         }
     }
 
@@ -137,14 +140,18 @@ impl BindingType {
             // if it is empty.
             Self::TraceColumn(tb) if tb.is_scalar() => (Self::TraceColumn(*tb), None),
             Self::TraceColumn(tb) => {
-                let first = Self::TraceColumn(TraceBinding { size: 1, ty: Type::Scalar, ..*tb });
+                let first = Self::TraceColumn(TraceBinding {
+                    size: 1,
+                    ty: Type::Scalar(ScalarType::Felt),
+                    ..*tb
+                });
                 let remaining = tb.size - 1;
                 if remaining == 0 {
                     (first, None)
                 } else {
                     let rest = Self::TraceColumn(TraceBinding {
                         size: remaining,
-                        ty: Type::Vector(remaining),
+                        ty: Type::Vector(ScalarType::Felt, remaining),
                         offset: tb.offset + 1,
                         ..*tb
                     });

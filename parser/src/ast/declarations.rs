@@ -171,13 +171,14 @@ pub enum ConstantExpr {
 impl ConstantExpr {
     /// Gets the type of this expression
     pub fn ty(&self) -> Type {
+        // TODO: Handle other [ScalarType]
         match self {
-            Self::Scalar(_) => Type::Scalar,
-            Self::Vector(elems) => Type::Vector(elems.len()),
+            Self::Scalar(_) => Type::Scalar(ScalarType::Felt),
+            Self::Vector(elems) => Type::Vector(ScalarType::Felt, elems.len()),
             Self::Matrix(rows) => {
                 let num_rows = rows.len();
                 let num_cols = rows.first().unwrap().len();
-                Type::Matrix(num_rows, num_cols)
+                Type::Matrix(ScalarType::Felt, num_rows, num_cols)
             },
         }
     }

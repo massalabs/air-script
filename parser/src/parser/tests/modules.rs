@@ -67,9 +67,9 @@ fn modules_integration_test() {
             ident!(bar_constraint),
             vec![trace_segment!(0, "%0", [(clk, 1)])],
             vec![enforce_all!(lc!((("%1", range!(0..1))) => eq!(
-                access!(clk, 1, Type::Scalar),
-                add!(access!(clk, Type::Scalar), access!(bar, k0, Type::Scalar))
-            ), when access!(bar, k0, Type::Scalar)))],
+                access!(clk, 1, Type::Scalar(ScalarType::Felt)),
+                add!(access!(clk, Type::Scalar(ScalarType::Felt)), access!(bar, k0, Type::Scalar(ScalarType::Felt)))
+            ), when access!(bar, k0, Type::Scalar(ScalarType::Felt))))],
         ),
     );
     // ev foo_constraint([clk]) {
@@ -81,7 +81,7 @@ fn modules_integration_test() {
             SourceSpan::UNKNOWN,
             ident!(foo_constraint),
             vec![trace_segment!(0, "%0", [(clk, 1)])],
-            vec![enforce_all!(lc!((("%1", range!(0..1))) => eq!(access!(clk, 1, Type::Scalar), add!(access!(clk, Type::Scalar), int!(1))), when access!(foo, k0, Type::Scalar)))],
+            vec![enforce_all!(lc!((("%1", range!(0..1))) => eq!(access!(clk, 1, Type::Scalar(ScalarType::Felt)), add!(access!(clk, Type::Scalar(ScalarType::Felt)), int!(1))), when access!(foo, k0, Type::Scalar(ScalarType::Felt))))],
         ),
     );
     expected
@@ -89,13 +89,20 @@ fn modules_integration_test() {
         .insert(ident!(inputs), PublicInput::new_vector(SourceSpan::UNKNOWN, ident!(inputs), 2));
     expected
         .integrity_constraints
-        .push(enforce!(call!(foo::foo_constraint(vector!(access!(clk, Type::Scalar))))));
+        .push(enforce!(call!(foo::foo_constraint(vector!(access!(
+            clk,
+            Type::Scalar(ScalarType::Felt)
+        ))))));
     expected
         .integrity_constraints
-        .push(enforce!(call!(bar::bar_constraint(vector!(access!(clk, Type::Scalar))))));
-    expected
-        .boundary_constraints
-        .push(enforce!(eq!(bounded_access!(clk, Boundary::First, Type::Scalar), int!(0))));
+        .push(enforce!(call!(bar::bar_constraint(vector!(access!(
+            clk,
+            Type::Scalar(ScalarType::Felt)
+        ))))));
+    expected.boundary_constraints.push(enforce!(eq!(
+        bounded_access!(clk, Boundary::First, Type::Scalar(ScalarType::Felt)),
+        int!(0)
+    )));
 
     ParseTest::new()
         .expect_program_ast_from_file("src/parser/tests/input/import_example.air", expected);

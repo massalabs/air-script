@@ -444,13 +444,14 @@ impl VisitMut<SemanticAnalysisError> for ConstantPropagation<'_> {
 
                 if is_constant {
                     let ty = match vector.first().and_then(|e| e.ty()).unwrap() {
-                        Type::Scalar => Type::Vector(vector.len()),
-                        Type::Vector(n) => Type::Matrix(vector.len(), n),
+                        Type::Scalar(sty) => Type::Vector(sty, vector.len()),
+                        Type::Vector(sty, n) => Type::Matrix(sty, vector.len(), n),
                         _ => unreachable!(),
                     };
 
                     let new_expr = match ty {
-                        Type::Vector(_) => ConstantExpr::Vector(
+                        // TODO: Support ScalarType in ConstantExpr
+                        Type::Vector(sty, _) => ConstantExpr::Vector(
                             vector
                                 .iter()
                                 .map(|expr| match expr {

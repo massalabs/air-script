@@ -314,7 +314,7 @@ impl AirBuilder<'_> {
                 Ok(MemoizedBinding::Vector(values))
             },
             ast::Expr::Vector(values) => match values[0].ty().unwrap() {
-                ast::Type::Scalar => {
+                ast::Type::Scalar(_) => {
                     let mut nodes = vec![];
                     for value in values.iter().cloned() {
                         let value = value.try_into().unwrap();
@@ -322,7 +322,7 @@ impl AirBuilder<'_> {
                     }
                     Ok(MemoizedBinding::Vector(nodes))
                 },
-                ast::Type::Vector(n) => {
+                ast::Type::Vector(_, n) => {
                     let mut nodes = vec![];
                     for row in values.iter().cloned() {
                         match row {

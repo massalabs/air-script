@@ -42,8 +42,8 @@ impl TraceSegment {
         for binding in raw_bindings.into_iter() {
             let (name, size) = binding.item;
             let ty = match size {
-                1 => Type::Scalar,
-                n => Type::Vector(n),
+                1 => Type::Scalar(ScalarType::Felt),
+                n => Type::Vector(ScalarType::Felt, n),
             };
             bindings.push(TraceBinding::new(binding.span(), name, id, offset, size, ty));
             offset += size;
@@ -254,7 +254,7 @@ impl TraceBinding {
                     Ok(Self {
                         offset,
                         size,
-                        ty: Type::Vector(size),
+                        ty: Type::Vector(ScalarType::Felt, size),
                         ..*self
                     })
                 }
@@ -266,7 +266,7 @@ impl TraceBinding {
                 Ok(Self {
                     offset,
                     size: 1,
-                    ty: Type::Scalar,
+                    ty: Type::Scalar(ScalarType::Felt),
                     ..*self
                 })
             },
