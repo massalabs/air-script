@@ -107,6 +107,15 @@ pub trait Typing {
     }
 }
 
+impl Typing for ScalarType {
+    fn ty(&self) -> Option<Type> {
+        Some(Type::Scalar(Some(*self)))
+    }
+    fn scalar_ty(&self) -> Option<ScalarType> {
+        Some(*self)
+    }
+}
+
 impl Typing for Type {
     fn ty(&self) -> Option<Type> {
         Some(*self)
@@ -120,14 +129,6 @@ impl Typing for Type {
     }
 }
 
-impl Typing for ScalarType {
-    fn ty(&self) -> Option<Type> {
-        Some(Type::Scalar(Some(*self)))
-    }
-    fn scalar_ty(&self) -> Option<ScalarType> {
-        Some(*self)
-    }
-}
 
 impl<T> Typing for Option<T>
 where
@@ -182,7 +183,7 @@ mod tests {
     }
 
     #[test]
-    fn test_subtype() {
+    fn test_typing_subtype() {
         assert!(ty!().is_subtype(&ty!()));
         assert!(ty!().is_subtype(&ty!(_)));
         assert!(ty!().is_subtype(&ty!(int)));
@@ -367,7 +368,7 @@ mod tests {
     }
 
     #[test]
-    fn test_compatible() {
+    fn test_typing_compatible() {
         assert!(ty!().is_compatible(&ty!()));
         assert!(ty!().is_compatible(&ty!(_)));
         assert!(ty!().is_compatible(&ty!(int)));

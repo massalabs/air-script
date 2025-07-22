@@ -119,7 +119,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_scalar_type() {
+    fn test_macro_scalar_type() {
         assert_eq!(sty!(), None::<ScalarType>);
         assert_eq!(sty!(_), None::<ScalarType>);
         assert_eq!(sty!(int), Some(ScalarType::Int));
@@ -128,7 +128,7 @@ mod tests {
     }
 
     #[test]
-    fn test_type() {
+    fn test_macro_type() {
         assert_eq!(ty!(), None::<Type>);
         assert_eq!(ty!(_), Some(Type::Scalar(None)));
         assert_eq!(ty!(int), Some(Type::Scalar(Some(ScalarType::Int))));
@@ -141,7 +141,7 @@ mod tests {
     }
 
     #[test]
-    fn test_trace_segment_type() {
+    fn test_macro_trace_segment_type() {
         assert_eq!(tty!(a), ty!(felt[1]));
         assert_eq!(tty!(a[5]), ty!(felt[5]));
         assert_eq!(tty!([]), Vec::<Option<Type>>::new());
@@ -151,7 +151,7 @@ mod tests {
     }
 
     #[test]
-    fn test_function_type() {
+    fn test_macro_function_type() {
         assert_eq!(fty!(ev([])), FunctionType::Evaluator(vec![]));
         assert_eq!(fty!(ev([a])), FunctionType::Evaluator(vec![ty!(felt[1])]));
         assert_eq!(fty!(ev([a[5]])), FunctionType::Evaluator(vec![ty!(felt[5])]));
