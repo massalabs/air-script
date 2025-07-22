@@ -58,7 +58,7 @@ impl core::fmt::Display for Type {
 #[macro_export]
 macro_rules! ty {
     () => {
-        None
+        None::<Type>
     };
     (_) => {
         Some(Type::Scalar(None))
