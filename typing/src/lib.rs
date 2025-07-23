@@ -114,11 +114,18 @@ pub trait Typing {
     fn is_subtype(&self, other: &impl Typing) -> bool {
         self.is_shape_compatible(other) && (other.ty().is_none() || self.is_scalar_subtype(other))
     }
-    fn is_scalar_compatible(&self, other: &impl Typing) -> bool {
-        todo!()
+    fn display_ty(&self) -> DisplayType {
+        DisplayType(self.ty())
     }
-    fn is_compatible(&self, other: &impl Typing) -> bool {
-        self.is_shape_compatible(other) && self.is_scalar_compatible(other)
+}
+
+pub struct DisplayType(Option<Type>);
+impl core::fmt::Display for DisplayType {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self.0 {
+            Some(ty) => write!(f, "{ty}"),
+            None => f.write_str(""),
+        }
     }
 }
 
