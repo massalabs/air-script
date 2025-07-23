@@ -129,6 +129,11 @@ impl Typing for Type {
     }
 }
 
+impl Typing for BinType {
+    fn ty(&self) -> Option<Type> {
+        todo!()
+    }
+}
 
 impl<T> Typing for Option<T>
 where

@@ -114,6 +114,64 @@ macro_rules! fty {
     };
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BinType {
+    Add(Option<Type>, Option<Type>),
+    Sub(Option<Type>, Option<Type>),
+    Mul(Option<Type>, Option<Type>),
+    Exp(Option<Type>, Option<Type>),
+    Eq(Option<Type>, Option<Type>),
+}
+
+#[macro_export]
+macro_rules! bty {
+    (+ $($rhs:tt)*) => {
+        BinType::Add(ty!(), ty!($($rhs)*))
+    };
+    (_$([$($spec:tt)+])? + $($rhs:tt)*) => {
+        BinType::Add(ty!(_$([$($spec)+])?), ty!($($rhs)*))
+    };
+    ($sty:ident$([$($spec:tt)+])? + $($rhs:tt)*) => {
+        BinType::Add(ty!($sty$([$($spec)+])?), ty!($($rhs)*))
+    };
+    (- $($rhs:tt)*) => {
+        BinType::Sub(ty!(), ty!($($rhs)*))
+    };
+    (_$([$($spec:tt)+])? - $($rhs:tt)*) => {
+        BinType::Sub(ty!(_$([$($spec)+])?), ty!($($rhs)*))
+    };
+    ($sty:ident$([$($spec:tt)+])? - $($rhs:tt)*) => {
+        BinType::Sub(ty!($sty$([$($spec)+])?), ty!($($rhs)*))
+    };
+    (* $($rhs:tt)*) => {
+        BinType::Mul(ty!(), ty!($($rhs)*))
+    };
+    (_$([$($spec:tt)+])? * $($rhs:tt)*) => {
+        BinType::Mul(ty!(_$([$($spec)+])?), ty!($($rhs)*))
+    };
+    ($sty:ident$([$($spec:tt)+])? * $($rhs:tt)*) => {
+        BinType::Mul(ty!($sty$([$($spec)+])?), ty!($($rhs)*))
+    };
+    (^ $($rhs:tt)*) => {
+        BinType::Exp(ty!(), ty!($($rhs)*))
+    };
+    (_$([$($spec:tt)+])? ^ $($rhs:tt)*) => {
+        BinType::Exp(ty!(_$([$($spec)+])?), ty!($($rhs)*))
+    };
+    ($sty:ident$([$($spec:tt)+])? ^ $($rhs:tt)*) => {
+        BinType::Exp(ty!($sty$([$($spec)+])?), ty!($($rhs)*))
+    };
+    (= $($rhs:tt)*) => {
+        BinType::Eq(ty!(), ty!($($rhs)*))
+    };
+    (_$([$($spec:tt)+])? = $($rhs:tt)*) => {
+        BinType::Eq(ty!(_$([$($spec)+])?), ty!($($rhs)*))
+    };
+    ($sty:ident$([$($spec:tt)+])? = $($rhs:tt)*) => {
+        BinType::Eq(ty!($sty$([$($spec)+])?), ty!($($rhs)*))
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -172,5 +230,14 @@ mod tests {
                 Some(Type::Scalar(Some(ScalarType::Felt)))
             )
         );
+    }
+
+    #[test]
+    fn test_macro_bin_type() {
+        assert_eq!(bty!(int + felt), BinType::Add(ty!(int), ty!(felt)));
+        assert_eq!(bty!(int - felt), BinType::Sub(ty!(int), ty!(felt)));
+        assert_eq!(bty!(int * felt), BinType::Mul(ty!(int), ty!(felt)));
+        assert_eq!(bty!(int ^ felt), BinType::Exp(ty!(int), ty!(felt)));
+        assert_eq!(bty!(int = felt), BinType::Eq(ty!(int), ty!(felt)));
     }
 }
