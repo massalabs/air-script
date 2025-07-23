@@ -112,7 +112,7 @@ pub trait Typing {
     /// = is_scalar_subtype(self, other) | other == ?
     /// [...] Denotes the result of the [Typing::is_scalar_subtype] method.
     fn is_subtype(&self, other: &impl Typing) -> bool {
-        self.is_shape_compatible(other) && self.is_scalar_subtype(other)
+        self.is_shape_compatible(other) && (other.ty().is_none() || self.is_scalar_subtype(other))
     }
     fn is_scalar_compatible(&self, other: &impl Typing) -> bool {
         todo!()
