@@ -24,17 +24,6 @@ pub trait Typing {
     fn is_matrix(&self) -> bool {
         matches!(self.ty(), Some(Type::Matrix(_, _, _)))
     }
-    /// Returns true if `self` is a subtype of `other`
-    /// _ >= felt > bool > int
-    /// self\\other || _ | felt | bool | int |
-    /// ============||===|======|======|=====|
-    /// _           || y |   n  |    n |   n |
-    /// felt        || y |   y  |    n |   n |
-    /// bool        || y |   y  |    y |   n |
-    /// int         || y |   y  |    y |   y |
-    fn is_scalar_subtype(&self, other: &impl Typing) -> bool {
-        todo!()
-    }
     fn is_shape_compatible(&self, other: &impl Typing) -> bool {
         match (self.ty(), other.ty()) {
             (None, _) | (_, None) => true,
@@ -50,6 +39,78 @@ pub trait Typing {
         }
     }
     /// Returns true if `self` is a subtype of `other`
+    /// Notation:
+    /// _ : ScalaType::Scalar(None)
+    ///   Unknown scalar type
+    /// felt: ScalarType::Felt
+    ///   Felt type
+    /// bool: ScalarType::Bool
+    ///   Boolean type
+    /// int: ScalarType::Int
+    ///   Integer type
+    /// Subtyping rules:
+    ///   _ > felt > bool
+    /// ... > felt > int
+    /// Which means:
+    /// - all types are subtypes of `_`
+    /// - `bool` is a subtype of `felt`:
+    ///   a `bool` is a `felt with a `is_bool` property
+    /// - `int` is a subtype of `felt`
+    ///   a `int` is a `felt` with the `constant` property
+    ///
+    /// self\\other || _ | felt | bool | int |
+    /// ============||===|======|======|=====|
+    /// _           || y |   n  |    n |   n |
+    /// felt        || y |   y  |    n |   n |
+    /// bool        || y |   y  |    y |   n |
+    /// int         || y |   y  |    n |   y |
+    fn is_scalar_subtype(&self, other: &impl Typing) -> bool {
+        !matches!(
+            (self.scalar_ty(), other.scalar_ty()),
+            (sty!(_), sty!(felt) | sty!(bool) | sty!(int))
+                | (sty!(felt), sty!(bool) | sty!(int))
+                | (sty!(bool), sty!(int))
+                | (sty!(int), sty!(bool))
+        )
+    }
+    /// Returns true if `self` is a subtype of `other`
+    /// Notation:
+    /// ?: None
+    ///   Unknown type
+    /// _: Type::Scalar(None)
+    ///   Unknown scalar type
+    /// felt: Type::Scalar(Some(ScalarType::Felt))
+    ///   Felt type
+    /// bool: Type::Scalar(Some(ScalarType::Bool))
+    ///   Boolean type
+    /// int: Type::Scalar(Some(ScalarType::Int))
+    ///   Integer type
+    /// sty[len]: Type::Vector(Some(sty), len)
+    ///   Vector of length `len` with scalar type `sty`
+    /// sty[rows, cols]: Type::Matrix(Some(sty), rows, cols)
+    ///   Matrix with `rows` and `cols` with scalar type `sty`
+    /// Subtyping rules:
+    /// ? > _       > felt       > bool
+    ///         ... > felt       > int
+    /// ? > _[l]    > felt[l]    > bool[l]
+    ///         ... > felt[l]    > int[l]
+    /// ? > _[r, c] > felt[r, c] > bool[r, c]
+    ///         ... > felt[r, c] > int[r, c]
+    /// Assuming shapes are compatible, this function checks if the scalar types,
+    /// with the added case of `?`, which all types are subtypes of.
+    /// See [Typing::is_scalar_subtype] for a more detailed explanation
+    /// of the subtyping rules of scalar types.
+    ///
+    /// self\\other || ? | _ | felt | bool | int |
+    /// ============||===|===|======|======|=====|
+    /// ?           || y | n |   n  |    n |   n |
+    /// _           || y |[y |   n  |    n |   n]|
+    /// felt        || y |[y |   y  |    n |   n]|
+    /// bool        || y |[y |   y  |    y |   n]|
+    /// int         || y |[y |   y  |    n |   y]|
+    ///
+    /// = is_scalar_subtype(self, other) | other == ?
+    /// [...] Denotes the result of the [Typing::is_scalar_subtype] method.
     fn is_subtype(&self, other: &impl Typing) -> bool {
         self.is_shape_compatible(other) && self.is_scalar_subtype(other)
     }
