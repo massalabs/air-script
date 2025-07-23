@@ -25,34 +25,15 @@ pub trait Typing {
         matches!(self.ty(), Some(Type::Matrix(_, _, _)))
     }
     /// Returns true if `self` is a subtype of `other`
-    /// _ <= bool < felt < int <= _
-    /// self\\other | _ | int | felt | bool |
-    /// ------------|---|-----|------|------|
-    /// _           | y |   y |    y |    y |
-    /// int         | y |   y |    n |    n |
-    /// felt        | y |   y |    y |    n |
-    /// bool        | y |   y |    y |    y |
+    /// _ >= felt > bool > int
+    /// self\\other || _ | felt | bool | int |
+    /// ============||===|======|======|=====|
+    /// _           || y |   n  |    n |   n |
+    /// felt        || y |   y  |    n |   n |
+    /// bool        || y |   y  |    y |   n |
+    /// int         || y |   y  |    y |   y |
     fn is_scalar_subtype(&self, other: &impl Typing) -> bool {
-        !matches!(
-            (self.scalar_ty(), other.scalar_ty()),
-            (sty!(int), sty!(felt) | sty!(bool)) | (sty!(felt), sty!(bool))
-        )
-    }
-    /// Returns true if `self` and `other` are compatible scalar types.
-    /// This means `self` is a subtype of `other` or they are convertible.
-    /// _ <= felt = bool < int <= _
-    /// self\\other | _ | int | bool | felt |
-    /// ------------|---|-----|------|------|
-    /// _           | y |   y |    y |    y |
-    /// int         | y |   y |    n |    n |
-    /// bool        | y |   y |    y |    y |
-    /// felt        | y |   y |    y |    y |
-    /// NOTE: Conversion from felt to bool is allowed,
-    /// but should raise a diagnostic if not associated with
-    /// a `enf x^2 = x` transition constraint.
-    fn is_scalar_compatible(&self, other: &impl Typing) -> bool {
-        self.is_scalar_subtype(other)
-            || matches!((self.scalar_ty(), other.scalar_ty()), (sty!(felt), sty!(bool)))
+        todo!()
     }
     fn is_shape_compatible(&self, other: &impl Typing) -> bool {
         match (self.ty(), other.ty()) {
@@ -68,43 +49,83 @@ pub trait Typing {
             _ => false,
         }
     }
-    /// WARNING: This check assumes covariance for container types.
-    /// If A is a subtype of B, then A[..] is a subtype of B[..]
-    /// This is only true for *immutable* containers!
-    /// If we ever support mutable containers, this will need to be revisited.
-    /// Conversion between from felt to bool is allowed,
-    /// but should raise a diagnostic if not associated with
-    /// a `enf x^2 = x` transition constraint.
-    ///
-    /// For example:
-    /// ```ignore
-    /// let a: int[5] = [1, 2, 3, 4, 5];
-    /// let b: felt[5] = a; // This is valid because felt is a subtype of int
-    /// let c: bool[5] = a; // This is valid because bool is a subtype of int
-    /// let d: int[5] = b; // Error: int is not a subtype of felt
-    /// let e: bool[5] = b; // Error: missing constraint `enf [x^2 = x for x in e]`
-    /// let f: felt[5] = c; // This is valid because felt is a subtype of bool
-    /// ```
-    /// Returns true if `self` is a subtype of `other`
-    fn is_compatible(&self, other: &impl Typing) -> bool {
-        if !self.is_shape_compatible(other) {
-            return false;
-        }
-        self.is_scalar_compatible(other)
-    }
-    /// WARNING: This check assumes covariance for container types.
-    /// If A is a subtype of B, then A[..] is a subtype of B[..]
-    /// This is only true for *immutable* containers!
-    /// If we ever support mutable containers, this will need to be revisited.
-    /// See the documentation for `is_compatible` for examples.
-    ///
     /// Returns true if `self` is a subtype of `other`
     fn is_subtype(&self, other: &impl Typing) -> bool {
-        if !self.is_shape_compatible(other) {
-            return false;
-        }
-        self.is_scalar_subtype(other)
+        self.is_shape_compatible(other) && self.is_scalar_subtype(other)
     }
+    fn is_scalar_compatible(&self, other: &impl Typing) -> bool {
+        todo!()
+    }
+    fn is_compatible(&self, other: &impl Typing) -> bool {
+        self.is_shape_compatible(other) && self.is_scalar_compatible(other)
+    }
+    // /// Returns true if `self` is a subtype of `other`
+    // /// _ >= int > bool > felt >= _
+    // /// self\\other | _ | int | bool | felt |
+    // /// ------------|---|-----|------|------|
+    // /// _           | y |   y |    y |    y |
+    // /// int         | y |   y |    n |    n |
+    // /// bool        | y |   y |    y |    n |
+    // /// felt        | y |   y |    y |    y |
+    // fn is_scalar_subtype(&self, other: &impl Typing) -> bool {
+    //     !matches!(
+    //         (self.scalar_ty(), other.scalar_ty()),
+    //         (sty!(int), sty!(felt) | sty!(bool)) | (sty!(felt), sty!(bool))
+    //     )
+    // }
+    // /// Returns true if `self` and `other` are compatible scalar types.
+    // /// This means `self` is a subtype of `other` or they are convertible.
+    // /// _ <= felt = bool < int <= _
+    // /// self\\other | _ | int | bool | felt |
+    // /// ------------|---|-----|------|------|
+    // /// _           | y |   y |    y |    y |
+    // /// int         | y |   y |    n |    n |
+    // /// bool        | y |   y |    y |    y |
+    // /// felt        | y |   y |    y |    y |
+    // /// NOTE: Conversion from felt to bool is allowed,
+    // /// but should raise a diagnostic if not associated with
+    // /// a `enf x^2 = x` transition constraint.
+    // fn is_scalar_compatible(&self, other: &impl Typing) -> bool {
+    //     self.is_scalar_subtype(other)
+    //         || matches!((self.scalar_ty(), other.scalar_ty()), (sty!(felt), sty!(bool)))
+    // }
+    // /// WARNING: This check assumes covariance for container types.
+    // /// If A is a subtype of B, then A[..] is a subtype of B[..]
+    // /// This is only true for *immutable* containers!
+    // /// If we ever support mutable containers, this will need to be revisited.
+    // /// Conversion between from felt to bool is allowed,
+    // /// but should raise a diagnostic if not associated with
+    // /// a `enf x^2 = x` transition constraint.
+    // ///
+    // /// For example:
+    // /// ```ignore
+    // /// let a: int[5] = [1, 2, 3, 4, 5];
+    // /// let b: felt[5] = a; // This is valid because felt is a subtype of int
+    // /// let c: bool[5] = a; // This is valid because bool is a subtype of int
+    // /// let d: int[5] = b; // Error: int is not a subtype of felt
+    // /// let e: bool[5] = b; // Error: missing constraint `enf [x^2 = x for x in e]`
+    // /// let f: felt[5] = c; // This is valid because felt is a subtype of bool
+    // /// ```
+    // /// Returns true if `self` is a subtype of `other`
+    // fn is_compatible(&self, other: &impl Typing) -> bool {
+    //     if !self.is_shape_compatible(other) {
+    //         return false;
+    //     }
+    //     self.is_scalar_compatible(other)
+    // }
+    // /// WARNING: This check assumes covariance for container types.
+    // /// If A is a subtype of B, then A[..] is a subtype of B[..]
+    // /// This is only true for *immutable* containers!
+    // /// If we ever support mutable containers, this will need to be revisited.
+    // /// See the documentation for `is_compatible` for examples.
+    // ///
+    // /// Returns true if `self` is a subtype of `other`
+    // fn is_subtype(&self, other: &impl Typing) -> bool {
+    //     if !self.is_shape_compatible(other) {
+    //         return false;
+    //     }
+    //     self.is_scalar_subtype(other)
+    // }
 }
 
 impl Typing for ScalarType {

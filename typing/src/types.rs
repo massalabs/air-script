@@ -1,16 +1,18 @@
+use std::fmt::Debug;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ScalarType {
-    Int,
     Felt,
     Bool,
+    Int,
 }
 
 impl core::fmt::Display for ScalarType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Int => f.write_str("int"),
             Self::Felt => f.write_str("felt"),
             Self::Bool => f.write_str("bool"),
+            Self::Int => f.write_str("int"),
         }
     }
 }
@@ -20,14 +22,14 @@ macro_rules! sty {
     ($(_)?) => {
         None
     };
-    (int) => {
-        Some(ScalarType::Int)
-    };
     (felt) => {
         Some(ScalarType::Felt)
     };
     (bool) => {
         Some(ScalarType::Bool)
+    };
+    (int) => {
+        Some(ScalarType::Int)
     };
 }
 
@@ -180,18 +182,18 @@ mod tests {
     fn test_macro_scalar_type() {
         assert_eq!(sty!(), None::<ScalarType>);
         assert_eq!(sty!(_), None::<ScalarType>);
-        assert_eq!(sty!(int), Some(ScalarType::Int));
         assert_eq!(sty!(felt), Some(ScalarType::Felt));
         assert_eq!(sty!(bool), Some(ScalarType::Bool));
+        assert_eq!(sty!(int), Some(ScalarType::Int));
     }
 
     #[test]
     fn test_macro_type() {
         assert_eq!(ty!(), None::<Type>);
         assert_eq!(ty!(_), Some(Type::Scalar(None)));
-        assert_eq!(ty!(int), Some(Type::Scalar(Some(ScalarType::Int))));
         assert_eq!(ty!(felt), Some(Type::Scalar(Some(ScalarType::Felt))));
         assert_eq!(ty!(bool), Some(Type::Scalar(Some(ScalarType::Bool))));
+        assert_eq!(ty!(int), Some(Type::Scalar(Some(ScalarType::Int))));
         assert_eq!(ty!(_[5]), Some(Type::Vector(None, 5)));
         assert_eq!(ty!(int[5]), Some(Type::Vector(Some(ScalarType::Int), 5)));
         assert_eq!(ty!(_[3, 4]), Some(Type::Matrix(None, 3, 4)));
