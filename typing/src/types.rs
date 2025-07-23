@@ -82,6 +82,34 @@ macro_rules! ty {
     };
 }
 
+pub struct Push(Vec<Option<Type>>);
+impl Push {
+    pub fn push(mut self, ty: Option<Type>) -> Self {
+        self.0.push(ty);
+        self
+    }
+}
+
+#[macro_export]
+macro_rules! tys {
+    ([$($args:tt)+]) => {{
+        println!("tys!({})", stringify!([$($args)+]));
+        tys!(RES: Push(vec![]); $($args)+).0
+    }};
+    (RES: $res:expr; ) => {{
+        println!("tys!({})", stringify!(RES: $res; ));
+        $res
+    }};
+    (RES: $res:expr; _$([$($spec:tt)+])? $(, $($rest:tt)+)?) => {{
+        println!("tys!({})", stringify!(RES: $res; _$([$($spec)+])? $(, $($rest)+)?));
+        tys!(RES: Push::push($res, ty!(_$([$($spec)+])?)); $($($rest)+)?)
+    }};
+    (RES: $res:expr; $name:ident$([$($spec:tt)+])? $(, $($rest:tt)+)?) => {{
+        println!("tys!({})", stringify!(RES: $res; $name$([$($spec)+])? $(, $($rest)+)?));
+        tys!(RES: Push::push($res, ty!($name$([$($spec)+])?)); $($($rest)+)?)
+    }};
+}
+
 #[macro_export]
 macro_rules! tty {
     ([$($n1:ident$([$l1:literal])?),*]) => {
@@ -111,8 +139,8 @@ macro_rules! fty {
     (ev ([$($tty:tt)+])) => {
         FunctionType::Evaluator(tty!([$($tty)+]))
     };
-    (fn ($($arg:tt),*) -> $ret:tt) => {
-        FunctionType::Function(vec![ty!($($arg),*)], ty!($ret))
+    (fn ($($arg:tt)*) -> $($ret:tt)*) => {
+        FunctionType::Function(tys!([$($arg)*]), ty!($($ret)*))
     };
 }
 
@@ -225,12 +253,18 @@ mod tests {
             FunctionType::Evaluator(vec![ty!(felt[1]), ty!(felt[3])])
         );
 
+        assert_eq!(fty!(fn(int) -> felt), FunctionType::Function(vec![ty!(int)], ty!(felt)));
         assert_eq!(
-            fty!(fn(int) -> felt),
-            FunctionType::Function(
-                vec![Some(Type::Scalar(Some(ScalarType::Int)))],
-                Some(Type::Scalar(Some(ScalarType::Felt)))
-            )
+            fty!(fn(int[5]) -> felt[3, 4]),
+            FunctionType::Function(vec![ty!(int[5])], ty!(felt[3, 4]),)
+        );
+        assert_eq!(
+            fty!(fn(int[5], felt) -> felt[3, 4]),
+            FunctionType::Function(vec![ty!(int[5]), ty!(felt)], ty!(felt[3, 4]),)
+        );
+        assert_eq!(
+            fty!(fn(int[5], felt, bool[3, 4]) -> felt[3, 4]),
+            FunctionType::Function(vec![ty!(int[5]), ty!(felt), ty!(bool[3, 4]),], ty!(felt[3, 4]),)
         );
     }
 
