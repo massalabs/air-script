@@ -177,6 +177,31 @@ pub struct Typed<T> {
 mod tests {
     use super::*;
     use crate::{sty, ty};
+    use pretty_assertions::assert_eq;
+    macro_rules! assert_subtype {
+        ($a:expr; !$b:expr) => {
+            let res = !$a.is_subtype(&$b);
+            assert!(
+                res,
+                "{}: !{}\nError: {} is a subtype of {}",
+                $a.display_ty(),
+                $b.display_ty(),
+                $a.display_ty(),
+                $b.display_ty(),
+            );
+        };
+        ($a:expr; $b:expr) => {
+            let res = $a.is_subtype(&$b);
+            assert!(
+                res,
+                "{}: {}\nError: {} is a not subtype of {}",
+                $a.display_ty(),
+                $b.display_ty(),
+                $a.display_ty(),
+                $b.display_ty(),
+            );
+        };
+    }
 
     #[test]
     fn test_typing() {
@@ -210,371 +235,186 @@ mod tests {
 
     #[test]
     fn test_typing_subtype() {
-        assert!(ty!().is_subtype(&ty!()));
-        assert!(ty!().is_subtype(&ty!(_)));
-        assert!(ty!().is_subtype(&ty!(int)));
-        assert!(ty!().is_subtype(&ty!(felt)));
-        assert!(ty!().is_subtype(&ty!(bool)));
-        assert!(ty!().is_subtype(&ty!(_[5])));
-        assert!(ty!().is_subtype(&ty!(int[5])));
-        assert!(ty!().is_subtype(&ty!(felt[5])));
-        assert!(ty!().is_subtype(&ty!(bool[5])));
-        assert!(ty!().is_subtype(&ty!(_[3, 4])));
-        assert!(ty!().is_subtype(&ty!(int[3, 4])));
-        assert!(ty!().is_subtype(&ty!(felt[3, 4])));
-        assert!(ty!().is_subtype(&ty!(bool[3, 4])));
+        assert_subtype!(ty!(); ty!());
+        assert_subtype!(ty!(); !ty!(_));
+        assert_subtype!(ty!(); !ty!(felt));
+        assert_subtype!(ty!(); !ty!(int));
+        assert_subtype!(ty!(); !ty!(bool));
+        assert_subtype!(ty!(); !ty!(_[5]));
+        assert_subtype!(ty!(); !ty!(felt[5]));
+        assert_subtype!(ty!(); !ty!(int[5]));
+        assert_subtype!(ty!(); !ty!(bool[5]));
+        assert_subtype!(ty!(); !ty!(_[3, 4]));
+        assert_subtype!(ty!(); !ty!(felt[3, 4]));
+        assert_subtype!(ty!(); !ty!(int[3, 4]));
+        assert_subtype!(ty!(); !ty!(bool[3, 4]));
 
-        assert!(ty!(_).is_subtype(&ty!()));
-        assert!(ty!(_).is_subtype(&ty!(_)));
-        assert!(ty!(_).is_subtype(&ty!(int)));
-        assert!(ty!(_).is_subtype(&ty!(felt)));
-        assert!(ty!(_).is_subtype(&ty!(bool)));
-        assert!(!ty!(_).is_subtype(&ty!(_[5])));
-        assert!(!ty!(_).is_subtype(&ty!(int[5])));
-        assert!(!ty!(_).is_subtype(&ty!(felt[5])));
-        assert!(!ty!(_).is_subtype(&ty!(bool[5])));
-        assert!(!ty!(_).is_subtype(&ty!(_[3, 4])));
-        assert!(!ty!(_).is_subtype(&ty!(int[3, 4])));
-        assert!(!ty!(_).is_subtype(&ty!(felt[3, 4])));
-        assert!(!ty!(_).is_subtype(&ty!(bool[3, 4])));
+        assert_subtype!(ty!(_); ty!());
+        assert_subtype!(ty!(_); ty!(_));
+        assert_subtype!(ty!(_); !ty!(felt));
+        assert_subtype!(ty!(_); !ty!(int));
+        assert_subtype!(ty!(_); !ty!(bool));
+        assert_subtype!(ty!(_); !ty!(_[5]));
+        assert_subtype!(ty!(_); !ty!(felt[5]));
+        assert_subtype!(ty!(_); !ty!(int[5]));
+        assert_subtype!(ty!(_); !ty!(bool[5]));
+        assert_subtype!(ty!(_); !ty!(_[3, 4]));
+        assert_subtype!(ty!(_); !ty!(felt[3, 4]));
+        assert_subtype!(ty!(_); !ty!(int[3, 4]));
+        assert_subtype!(ty!(_); !ty!(bool[3, 4]));
 
-        assert!(ty!(int).is_subtype(&ty!()));
-        assert!(ty!(int).is_subtype(&ty!(_)));
-        assert!(ty!(int).is_subtype(&ty!(int)));
-        assert!(!ty!(int).is_subtype(&ty!(felt)));
-        assert!(!ty!(int).is_subtype(&ty!(bool)));
-        assert!(!ty!(int).is_subtype(&ty!(_[5])));
-        assert!(!ty!(int).is_subtype(&ty!(int[5])));
-        assert!(!ty!(int).is_subtype(&ty!(felt[5])));
-        assert!(!ty!(int).is_subtype(&ty!(bool[5])));
-        assert!(!ty!(int).is_subtype(&ty!(_[3, 4])));
-        assert!(!ty!(int).is_subtype(&ty!(int[3, 4])));
-        assert!(!ty!(int).is_subtype(&ty!(felt[3, 4])));
-        assert!(!ty!(int).is_subtype(&ty!(bool[3, 4])));
+        assert_subtype!(ty!(int); ty!());
+        assert_subtype!(ty!(int); ty!(_));
+        assert_subtype!(ty!(int); ty!(felt));
+        assert_subtype!(ty!(int); ty!(int));
+        assert_subtype!(ty!(int); !ty!(bool));
+        assert_subtype!(ty!(int); !ty!(_[5]));
+        assert_subtype!(ty!(int); !ty!(felt[5]));
+        assert_subtype!(ty!(int); !ty!(int[5]));
+        assert_subtype!(ty!(int); !ty!(bool[5]));
+        assert_subtype!(ty!(int); !ty!(_[3, 4]));
+        assert_subtype!(ty!(int); !ty!(felt[3, 4]));
+        assert_subtype!(ty!(int); !ty!(int[3, 4]));
+        assert_subtype!(ty!(int); !ty!(bool[3, 4]));
 
-        assert!(ty!(felt).is_subtype(&ty!()));
-        assert!(ty!(felt).is_subtype(&ty!(_)));
-        assert!(ty!(felt).is_subtype(&ty!(int)));
-        assert!(ty!(felt).is_subtype(&ty!(felt)));
-        assert!(!ty!(felt).is_subtype(&ty!(bool)));
-        assert!(!ty!(felt).is_subtype(&ty!(_[5])));
-        assert!(!ty!(felt).is_subtype(&ty!(int[5])));
-        assert!(!ty!(felt).is_subtype(&ty!(felt[5])));
-        assert!(!ty!(felt).is_subtype(&ty!(bool[5])));
-        assert!(!ty!(felt).is_subtype(&ty!(_[3, 4])));
-        assert!(!ty!(felt).is_subtype(&ty!(int[3, 4])));
-        assert!(!ty!(felt).is_subtype(&ty!(felt[3, 4])));
-        assert!(!ty!(felt).is_subtype(&ty!(bool[3, 4])));
+        assert_subtype!(ty!(felt); ty!());
+        assert_subtype!(ty!(felt); ty!(_));
+        assert_subtype!(ty!(felt); ty!(felt));
+        assert_subtype!(ty!(felt); !ty!(int));
+        assert_subtype!(ty!(felt); !ty!(bool));
+        assert_subtype!(ty!(felt); !ty!(_[5]));
+        assert_subtype!(ty!(felt); !ty!(felt[5]));
+        assert_subtype!(ty!(felt); !ty!(int[5]));
+        assert_subtype!(ty!(felt); !ty!(bool[5]));
+        assert_subtype!(ty!(felt); !ty!(_[3, 4]));
+        assert_subtype!(ty!(felt); !ty!(felt[3, 4]));
+        assert_subtype!(ty!(felt); !ty!(int[3, 4]));
+        assert_subtype!(ty!(felt); !ty!(bool[3, 4]));
 
-        assert!(ty!(bool).is_subtype(&ty!()));
-        assert!(ty!(bool).is_subtype(&ty!(_)));
-        assert!(ty!(bool).is_subtype(&ty!(int)));
-        assert!(ty!(bool).is_subtype(&ty!(felt)));
-        assert!(ty!(bool).is_subtype(&ty!(bool)));
-        assert!(!ty!(bool).is_subtype(&ty!(_[5])));
-        assert!(!ty!(bool).is_subtype(&ty!(int[5])));
-        assert!(!ty!(bool).is_subtype(&ty!(felt[5])));
-        assert!(!ty!(bool).is_subtype(&ty!(bool[5])));
-        assert!(!ty!(bool).is_subtype(&ty!(_[3, 4])));
-        assert!(!ty!(bool).is_subtype(&ty!(int[3, 4])));
-        assert!(!ty!(bool).is_subtype(&ty!(felt[3, 4])));
-        assert!(!ty!(bool).is_subtype(&ty!(bool[3, 4])));
+        assert_subtype!(ty!(bool); ty!());
+        assert_subtype!(ty!(bool); ty!(_));
+        assert_subtype!(ty!(bool); ty!(felt));
+        assert_subtype!(ty!(bool); !ty!(int));
+        assert_subtype!(ty!(bool); ty!(bool));
+        assert_subtype!(ty!(bool); !ty!(_[5]));
+        assert_subtype!(ty!(bool); !ty!(felt[5]));
+        assert_subtype!(ty!(bool); !ty!(int[5]));
+        assert_subtype!(ty!(bool); !ty!(bool[5]));
+        assert_subtype!(ty!(bool); !ty!(_[3, 4]));
+        assert_subtype!(ty!(bool); !ty!(felt[3, 4]));
+        assert_subtype!(ty!(bool); !ty!(int[3, 4]));
+        assert_subtype!(ty!(bool); !ty!(bool[3, 4]));
 
-        assert!(ty!(_[5]).is_subtype(&ty!()));
-        assert!(!ty!(_[5]).is_subtype(&ty!(_)));
-        assert!(!ty!(_[5]).is_subtype(&ty!(int)));
-        assert!(!ty!(_[5]).is_subtype(&ty!(felt)));
-        assert!(!ty!(_[5]).is_subtype(&ty!(bool)));
-        assert!(ty!(_[5]).is_subtype(&ty!(_[5])));
-        assert!(ty!(_[5]).is_subtype(&ty!(int[5])));
-        assert!(ty!(_[5]).is_subtype(&ty!(felt[5])));
-        assert!(ty!(_[5]).is_subtype(&ty!(bool[5])));
-        assert!(!ty!(_[5]).is_subtype(&ty!(_[3, 4])));
-        assert!(!ty!(_[5]).is_subtype(&ty!(int[3, 4])));
-        assert!(!ty!(_[5]).is_subtype(&ty!(felt[3, 4])));
-        assert!(!ty!(_[5]).is_subtype(&ty!(bool[3, 4])));
+        assert_subtype!(ty!(_[5]); ty!());
+        assert_subtype!(ty!(_[5]); !ty!(_));
+        assert_subtype!(ty!(_[5]); !ty!(felt));
+        assert_subtype!(ty!(_[5]); !ty!(int));
+        assert_subtype!(ty!(_[5]); !ty!(bool));
+        assert_subtype!(ty!(_[5]); ty!(_[5]));
+        assert_subtype!(ty!(_[5]); !ty!(felt[5]));
+        assert_subtype!(ty!(_[5]); !ty!(int[5]));
+        assert_subtype!(ty!(_[5]); !ty!(bool[5]));
+        assert_subtype!(ty!(_[5]); !ty!(_[3, 4]));
+        assert_subtype!(ty!(_[5]); !ty!(felt[3, 4]));
+        assert_subtype!(ty!(_[5]); !ty!(int[3, 4]));
+        assert_subtype!(ty!(_[5]); !ty!(bool[3, 4]));
 
-        assert!(ty!(int[5]).is_subtype(&ty!()));
-        assert!(!ty!(int[5]).is_subtype(&ty!(_)));
-        assert!(!ty!(int[5]).is_subtype(&ty!(int)));
-        assert!(!ty!(int[5]).is_subtype(&ty!(felt)));
-        assert!(!ty!(int[5]).is_subtype(&ty!(bool)));
-        assert!(ty!(int[5]).is_subtype(&ty!(_[5])));
-        assert!(ty!(int[5]).is_subtype(&ty!(int[5])));
-        assert!(!ty!(int[5]).is_subtype(&ty!(felt[5])));
-        assert!(!ty!(int[5]).is_subtype(&ty!(bool[5])));
-        assert!(!ty!(int[5]).is_subtype(&ty!(_[3, 4])));
-        assert!(!ty!(int[5]).is_subtype(&ty!(int[3, 4])));
-        assert!(!ty!(int[5]).is_subtype(&ty!(felt[3, 4])));
-        assert!(!ty!(int[5]).is_subtype(&ty!(bool[3, 4])));
+        assert_subtype!(ty!(int[5]); ty!());
+        assert_subtype!(ty!(int[5]); !ty!(_));
+        assert_subtype!(ty!(int[5]); !ty!(felt));
+        assert_subtype!(ty!(int[5]); !ty!(int));
+        assert_subtype!(ty!(int[5]); !ty!(bool));
+        assert_subtype!(ty!(int[5]); ty!(_[5]));
+        assert_subtype!(ty!(int[5]); ty!(felt[5]));
+        assert_subtype!(ty!(int[5]); ty!(int[5]));
+        assert_subtype!(ty!(int[5]); !ty!(bool[5]));
+        assert_subtype!(ty!(int[5]); !ty!(_[3, 4]));
+        assert_subtype!(ty!(int[5]); !ty!(felt[3, 4]));
+        assert_subtype!(ty!(int[5]); !ty!(int[3, 4]));
+        assert_subtype!(ty!(int[5]); !ty!(bool[3, 4]));
 
-        assert!(ty!(felt[5]).is_subtype(&ty!()));
-        assert!(!ty!(felt[5]).is_subtype(&ty!(_)));
-        assert!(!ty!(felt[5]).is_subtype(&ty!(int)));
-        assert!(!ty!(felt[5]).is_subtype(&ty!(felt)));
-        assert!(!ty!(felt[5]).is_subtype(&ty!(bool)));
-        assert!(ty!(felt[5]).is_subtype(&ty!(_[5])));
-        assert!(ty!(felt[5]).is_subtype(&ty!(int[5])));
-        assert!(ty!(felt[5]).is_subtype(&ty!(felt[5])));
-        assert!(!ty!(felt[5]).is_subtype(&ty!(bool[5])));
-        assert!(!ty!(felt[5]).is_subtype(&ty!(_[3, 4])));
-        assert!(!ty!(felt[5]).is_subtype(&ty!(int[3, 4])));
-        assert!(!ty!(felt[5]).is_subtype(&ty!(felt[3, 4])));
-        assert!(!ty!(felt[5]).is_subtype(&ty!(bool[3, 4])));
+        assert_subtype!(ty!(felt[5]); ty!());
+        assert_subtype!(ty!(felt[5]); !ty!(_));
+        assert_subtype!(ty!(felt[5]); !ty!(felt));
+        assert_subtype!(ty!(felt[5]); !ty!(int));
+        assert_subtype!(ty!(felt[5]); !ty!(bool));
+        assert_subtype!(ty!(felt[5]); ty!(_[5]));
+        assert_subtype!(ty!(felt[5]); ty!(felt[5]));
+        assert_subtype!(ty!(felt[5]); !ty!(int[5]));
+        assert_subtype!(ty!(felt[5]); !ty!(bool[5]));
+        assert_subtype!(ty!(felt[5]); !ty!(_[3, 4]));
+        assert_subtype!(ty!(felt[5]); !ty!(felt[3, 4]));
+        assert_subtype!(ty!(felt[5]); !ty!(int[3, 4]));
+        assert_subtype!(ty!(felt[5]); !ty!(bool[3, 4]));
 
-        assert!(ty!(bool[5]).is_subtype(&ty!()));
-        assert!(!ty!(bool[5]).is_subtype(&ty!(_)));
-        assert!(!ty!(bool[5]).is_subtype(&ty!(int)));
-        assert!(!ty!(bool[5]).is_subtype(&ty!(felt)));
-        assert!(!ty!(bool[5]).is_subtype(&ty!(bool)));
-        assert!(ty!(bool[5]).is_subtype(&ty!(_[5])));
-        assert!(ty!(bool[5]).is_subtype(&ty!(int[5])));
-        assert!(ty!(bool[5]).is_subtype(&ty!(felt[5])));
-        assert!(ty!(bool[5]).is_subtype(&ty!(bool[5])));
-        assert!(!ty!(bool[5]).is_subtype(&ty!(_[3, 4])));
-        assert!(!ty!(bool[5]).is_subtype(&ty!(int[3, 4])));
-        assert!(!ty!(bool[5]).is_subtype(&ty!(felt[3, 4])));
-        assert!(!ty!(bool[5]).is_subtype(&ty!(bool[3, 4])));
+        assert_subtype!(ty!(bool[5]); ty!());
+        assert_subtype!(ty!(bool[5]); !ty!(_));
+        assert_subtype!(ty!(bool[5]); !ty!(felt));
+        assert_subtype!(ty!(bool[5]); !ty!(int));
+        assert_subtype!(ty!(bool[5]); !ty!(bool));
+        assert_subtype!(ty!(bool[5]); ty!(_[5]));
+        assert_subtype!(ty!(bool[5]); ty!(felt[5]));
+        assert_subtype!(ty!(bool[5]); !ty!(int[5]));
+        assert_subtype!(ty!(bool[5]); ty!(bool[5]));
+        assert_subtype!(ty!(bool[5]); !ty!(_[3, 4]));
+        assert_subtype!(ty!(bool[5]); !ty!(felt[3, 4]));
+        assert_subtype!(ty!(bool[5]); !ty!(int[3, 4]));
+        assert_subtype!(ty!(bool[5]); !ty!(bool[3, 4]));
 
-        assert!(ty!(_[3, 4]).is_subtype(&ty!()));
-        assert!(!ty!(_[3, 4]).is_subtype(&ty!(_)));
-        assert!(!ty!(_[3, 4]).is_subtype(&ty!(int)));
-        assert!(!ty!(_[3, 4]).is_subtype(&ty!(felt)));
-        assert!(!ty!(_[3, 4]).is_subtype(&ty!(bool)));
-        assert!(!ty!(_[3, 4]).is_subtype(&ty!(_[5])));
-        assert!(!ty!(_[3, 4]).is_subtype(&ty!(int[5])));
-        assert!(!ty!(_[3, 4]).is_subtype(&ty!(felt[5])));
-        assert!(!ty!(_[3, 4]).is_subtype(&ty!(bool[5])));
-        assert!(ty!(_[3, 4]).is_subtype(&ty!(_[3, 4])));
-        assert!(ty!(_[3, 4]).is_subtype(&ty!(int[3, 4])));
-        assert!(ty!(_[3, 4]).is_subtype(&ty!(felt[3, 4])));
-        assert!(ty!(_[3, 4]).is_subtype(&ty!(bool[3, 4])));
+        assert_subtype!(ty!(_[3, 4]); ty!());
+        assert_subtype!(ty!(_[3, 4]); !ty!(_));
+        assert_subtype!(ty!(_[3, 4]); !ty!(felt));
+        assert_subtype!(ty!(_[3, 4]); !ty!(int));
+        assert_subtype!(ty!(_[3, 4]); !ty!(bool));
+        assert_subtype!(ty!(_[3, 4]); !ty!(_[5]));
+        assert_subtype!(ty!(_[3, 4]); !ty!(felt[5]));
+        assert_subtype!(ty!(_[3, 4]); !ty!(int[5]));
+        assert_subtype!(ty!(_[3, 4]); !ty!(bool[5]));
+        assert_subtype!(ty!(_[3, 4]); ty!(_[3, 4]));
+        assert_subtype!(ty!(_[3, 4]); !ty!(felt[3, 4]));
+        assert_subtype!(ty!(_[3, 4]); !ty!(int[3, 4]));
+        assert_subtype!(ty!(_[3, 4]); !ty!(bool[3, 4]));
 
-        assert!(ty!(int[3, 4]).is_subtype(&ty!()));
-        assert!(!ty!(int[3, 4]).is_subtype(&ty!(_)));
-        assert!(!ty!(int[3, 4]).is_subtype(&ty!(int)));
-        assert!(!ty!(int[3, 4]).is_subtype(&ty!(felt)));
-        assert!(!ty!(int[3, 4]).is_subtype(&ty!(bool)));
-        assert!(!ty!(int[3, 4]).is_subtype(&ty!(_[5])));
-        assert!(!ty!(int[3, 4]).is_subtype(&ty!(int[5])));
-        assert!(!ty!(int[3, 4]).is_subtype(&ty!(felt[5])));
-        assert!(!ty!(int[3, 4]).is_subtype(&ty!(bool[5])));
-        assert!(ty!(int[3, 4]).is_subtype(&ty!(_[3, 4])));
-        assert!(ty!(int[3, 4]).is_subtype(&ty!(int[3, 4])));
-        assert!(!ty!(int[3, 4]).is_subtype(&ty!(felt[3, 4])));
-        assert!(!ty!(int[3, 4]).is_subtype(&ty!(bool[3, 4])));
+        assert_subtype!(ty!(int[3, 4]); ty!());
+        assert_subtype!(ty!(int[3, 4]); !ty!(_));
+        assert_subtype!(ty!(int[3, 4]); !ty!(felt));
+        assert_subtype!(ty!(int[3, 4]); !ty!(int));
+        assert_subtype!(ty!(int[3, 4]); !ty!(bool));
+        assert_subtype!(ty!(int[3, 4]); !ty!(_[5]));
+        assert_subtype!(ty!(int[3, 4]); !ty!(felt[5]));
+        assert_subtype!(ty!(int[3, 4]); !ty!(int[5]));
+        assert_subtype!(ty!(int[3, 4]); !ty!(bool[5]));
+        assert_subtype!(ty!(int[3, 4]); ty!(_[3, 4]));
+        assert_subtype!(ty!(int[3, 4]); ty!(felt[3, 4]));
+        assert_subtype!(ty!(int[3, 4]); ty!(int[3, 4]));
+        assert_subtype!(ty!(int[3, 4]); !ty!(bool[3, 4]));
 
-        assert!(ty!(felt[3, 4]).is_subtype(&ty!()));
-        assert!(!ty!(felt[3, 4]).is_subtype(&ty!(_)));
-        assert!(!ty!(felt[3, 4]).is_subtype(&ty!(int)));
-        assert!(!ty!(felt[3, 4]).is_subtype(&ty!(felt)));
-        assert!(!ty!(felt[3, 4]).is_subtype(&ty!(bool)));
-        assert!(!ty!(felt[3, 4]).is_subtype(&ty!(_[5])));
-        assert!(!ty!(felt[3, 4]).is_subtype(&ty!(int[5])));
-        assert!(!ty!(felt[3, 4]).is_subtype(&ty!(felt[5])));
-        assert!(!ty!(felt[3, 4]).is_subtype(&ty!(bool[5])));
-        assert!(ty!(felt[3, 4]).is_subtype(&ty!(_[3, 4])));
-        assert!(ty!(felt[3, 4]).is_subtype(&ty!(int[3, 4])));
-        assert!(ty!(felt[3, 4]).is_subtype(&ty!(felt[3, 4])));
-        assert!(!ty!(felt[3, 4]).is_subtype(&ty!(bool[3, 4])));
+        assert_subtype!(ty!(felt[3, 4]); ty!());
+        assert_subtype!(ty!(felt[3, 4]); !ty!(_));
+        assert_subtype!(ty!(felt[3, 4]); !ty!(felt));
+        assert_subtype!(ty!(felt[3, 4]); !ty!(int));
+        assert_subtype!(ty!(felt[3, 4]); !ty!(bool));
+        assert_subtype!(ty!(felt[3, 4]); !ty!(_[5]));
+        assert_subtype!(ty!(felt[3, 4]); !ty!(felt[5]));
+        assert_subtype!(ty!(felt[3, 4]); !ty!(int[5]));
+        assert_subtype!(ty!(felt[3, 4]); !ty!(bool[5]));
+        assert_subtype!(ty!(felt[3, 4]); ty!(_[3, 4]));
+        assert_subtype!(ty!(felt[3, 4]); ty!(felt[3, 4]));
+        assert_subtype!(ty!(felt[3, 4]); !ty!(int[3, 4]));
+        assert_subtype!(ty!(felt[3, 4]); !ty!(bool[3, 4]));
 
-        assert!(ty!(bool[3, 4]).is_subtype(&ty!()));
-        assert!(!ty!(bool[3, 4]).is_subtype(&ty!(_)));
-        assert!(!ty!(bool[3, 4]).is_subtype(&ty!(int)));
-        assert!(!ty!(bool[3, 4]).is_subtype(&ty!(felt)));
-        assert!(!ty!(bool[3, 4]).is_subtype(&ty!(bool)));
-        assert!(!ty!(bool[3, 4]).is_subtype(&ty!(_[5])));
-        assert!(!ty!(bool[3, 4]).is_subtype(&ty!(int[5])));
-        assert!(!ty!(bool[3, 4]).is_subtype(&ty!(felt[5])));
-        assert!(!ty!(bool[3, 4]).is_subtype(&ty!(bool[5])));
-        assert!(ty!(bool[3, 4]).is_subtype(&ty!(_[3, 4])));
-        assert!(ty!(bool[3, 4]).is_subtype(&ty!(int[3, 4])));
-        assert!(ty!(bool[3, 4]).is_subtype(&ty!(felt[3, 4])));
-        assert!(ty!(bool[3, 4]).is_subtype(&ty!(bool[3, 4])));
-    }
-
-    #[test]
-    fn test_typing_compatible() {
-        assert!(ty!().is_compatible(&ty!()));
-        assert!(ty!().is_compatible(&ty!(_)));
-        assert!(ty!().is_compatible(&ty!(int)));
-        assert!(ty!().is_compatible(&ty!(felt)));
-        assert!(ty!().is_compatible(&ty!(bool)));
-        assert!(ty!().is_compatible(&ty!(_[5])));
-        assert!(ty!().is_compatible(&ty!(int[5])));
-        assert!(ty!().is_compatible(&ty!(felt[5])));
-        assert!(ty!().is_compatible(&ty!(bool[5])));
-        assert!(ty!().is_compatible(&ty!(_[3, 4])));
-        assert!(ty!().is_compatible(&ty!(int[3, 4])));
-        assert!(ty!().is_compatible(&ty!(felt[3, 4])));
-        assert!(ty!().is_compatible(&ty!(bool[3, 4])));
-
-        assert!(ty!(_).is_compatible(&ty!()));
-        assert!(ty!(_).is_compatible(&ty!(_)));
-        assert!(ty!(_).is_compatible(&ty!(int)));
-        assert!(ty!(_).is_compatible(&ty!(felt)));
-        assert!(ty!(_).is_compatible(&ty!(bool)));
-        assert!(!ty!(_).is_compatible(&ty!(_[5])));
-        assert!(!ty!(_).is_compatible(&ty!(int[5])));
-        assert!(!ty!(_).is_compatible(&ty!(felt[5])));
-        assert!(!ty!(_).is_compatible(&ty!(bool[5])));
-        assert!(!ty!(_).is_compatible(&ty!(_[3, 4])));
-        assert!(!ty!(_).is_compatible(&ty!(int[3, 4])));
-        assert!(!ty!(_).is_compatible(&ty!(felt[3, 4])));
-        assert!(!ty!(_).is_compatible(&ty!(bool[3, 4])));
-
-        assert!(ty!(int).is_compatible(&ty!()));
-        assert!(ty!(int).is_compatible(&ty!(_)));
-        assert!(ty!(int).is_compatible(&ty!(int)));
-        assert!(!ty!(int).is_compatible(&ty!(felt)));
-        assert!(!ty!(int).is_compatible(&ty!(bool)));
-        assert!(!ty!(int).is_compatible(&ty!(_[5])));
-        assert!(!ty!(int).is_compatible(&ty!(int[5])));
-        assert!(!ty!(int).is_compatible(&ty!(felt[5])));
-        assert!(!ty!(int).is_compatible(&ty!(bool[5])));
-        assert!(!ty!(int).is_compatible(&ty!(_[3, 4])));
-        assert!(!ty!(int).is_compatible(&ty!(int[3, 4])));
-        assert!(!ty!(int).is_compatible(&ty!(felt[3, 4])));
-        assert!(!ty!(int).is_compatible(&ty!(bool[3, 4])));
-
-        assert!(ty!(felt).is_compatible(&ty!()));
-        assert!(ty!(felt).is_compatible(&ty!(_)));
-        assert!(ty!(felt).is_compatible(&ty!(int)));
-        assert!(ty!(felt).is_compatible(&ty!(felt)));
-        assert!(ty!(felt).is_compatible(&ty!(bool)));
-        assert!(!ty!(felt).is_compatible(&ty!(_[5])));
-        assert!(!ty!(felt).is_compatible(&ty!(int[5])));
-        assert!(!ty!(felt).is_compatible(&ty!(felt[5])));
-        assert!(!ty!(felt).is_compatible(&ty!(bool[5])));
-        assert!(!ty!(felt).is_compatible(&ty!(_[3, 4])));
-        assert!(!ty!(felt).is_compatible(&ty!(int[3, 4])));
-        assert!(!ty!(felt).is_compatible(&ty!(felt[3, 4])));
-        assert!(!ty!(felt).is_compatible(&ty!(bool[3, 4])));
-
-        assert!(ty!(bool).is_compatible(&ty!()));
-        assert!(ty!(bool).is_compatible(&ty!(_)));
-        assert!(ty!(bool).is_compatible(&ty!(int)));
-        assert!(ty!(bool).is_compatible(&ty!(felt)));
-        assert!(ty!(bool).is_compatible(&ty!(bool)));
-        assert!(!ty!(bool).is_compatible(&ty!(_[5])));
-        assert!(!ty!(bool).is_compatible(&ty!(int[5])));
-        assert!(!ty!(bool).is_compatible(&ty!(felt[5])));
-        assert!(!ty!(bool).is_compatible(&ty!(bool[5])));
-        assert!(!ty!(bool).is_compatible(&ty!(_[3, 4])));
-        assert!(!ty!(bool).is_compatible(&ty!(int[3, 4])));
-        assert!(!ty!(bool).is_compatible(&ty!(felt[3, 4])));
-        assert!(!ty!(bool).is_compatible(&ty!(bool[3, 4])));
-
-        assert!(ty!(_[5]).is_compatible(&ty!()));
-        assert!(!ty!(_[5]).is_compatible(&ty!(_)));
-        assert!(!ty!(_[5]).is_compatible(&ty!(int)));
-        assert!(!ty!(_[5]).is_compatible(&ty!(felt)));
-        assert!(!ty!(_[5]).is_compatible(&ty!(bool)));
-        assert!(ty!(_[5]).is_compatible(&ty!(_[5])));
-        assert!(ty!(_[5]).is_compatible(&ty!(int[5])));
-        assert!(ty!(_[5]).is_compatible(&ty!(felt[5])));
-        assert!(ty!(_[5]).is_compatible(&ty!(bool[5])));
-        assert!(!ty!(_[5]).is_compatible(&ty!(_[3, 4])));
-        assert!(!ty!(_[5]).is_compatible(&ty!(int[3, 4])));
-        assert!(!ty!(_[5]).is_compatible(&ty!(felt[3, 4])));
-        assert!(!ty!(_[5]).is_compatible(&ty!(bool[3, 4])));
-
-        assert!(ty!(int[5]).is_compatible(&ty!()));
-        assert!(!ty!(int[5]).is_compatible(&ty!(_)));
-        assert!(!ty!(int[5]).is_compatible(&ty!(int)));
-        assert!(!ty!(int[5]).is_compatible(&ty!(felt)));
-        assert!(!ty!(int[5]).is_compatible(&ty!(bool)));
-        assert!(ty!(int[5]).is_compatible(&ty!(_[5])));
-        assert!(ty!(int[5]).is_compatible(&ty!(int[5])));
-        assert!(!ty!(int[5]).is_compatible(&ty!(felt[5])));
-        assert!(!ty!(int[5]).is_compatible(&ty!(bool[5])));
-        assert!(!ty!(int[5]).is_compatible(&ty!(_[3, 4])));
-        assert!(!ty!(int[5]).is_compatible(&ty!(int[3, 4])));
-        assert!(!ty!(int[5]).is_compatible(&ty!(felt[3, 4])));
-        assert!(!ty!(int[5]).is_compatible(&ty!(bool[3, 4])));
-
-        assert!(ty!(felt[5]).is_compatible(&ty!()));
-        assert!(!ty!(felt[5]).is_compatible(&ty!(_)));
-        assert!(!ty!(felt[5]).is_compatible(&ty!(int)));
-        assert!(!ty!(felt[5]).is_compatible(&ty!(felt)));
-        assert!(!ty!(felt[5]).is_compatible(&ty!(bool)));
-        assert!(ty!(felt[5]).is_compatible(&ty!(_[5])));
-        assert!(ty!(felt[5]).is_compatible(&ty!(int[5])));
-        assert!(ty!(felt[5]).is_compatible(&ty!(felt[5])));
-        assert!(ty!(felt[5]).is_compatible(&ty!(bool[5])));
-        assert!(!ty!(felt[5]).is_compatible(&ty!(_[3, 4])));
-        assert!(!ty!(felt[5]).is_compatible(&ty!(int[3, 4])));
-        assert!(!ty!(felt[5]).is_compatible(&ty!(felt[3, 4])));
-        assert!(!ty!(felt[5]).is_compatible(&ty!(bool[3, 4])));
-
-        assert!(ty!(bool[5]).is_compatible(&ty!()));
-        assert!(!ty!(bool[5]).is_compatible(&ty!(_)));
-        assert!(!ty!(bool[5]).is_compatible(&ty!(int)));
-        assert!(!ty!(bool[5]).is_compatible(&ty!(felt)));
-        assert!(!ty!(bool[5]).is_compatible(&ty!(bool)));
-        assert!(ty!(bool[5]).is_compatible(&ty!(_[5])));
-        assert!(ty!(bool[5]).is_compatible(&ty!(int[5])));
-        assert!(ty!(bool[5]).is_compatible(&ty!(felt[5])));
-        assert!(ty!(bool[5]).is_compatible(&ty!(bool[5])));
-        assert!(!ty!(bool[5]).is_compatible(&ty!(_[3, 4])));
-        assert!(!ty!(bool[5]).is_compatible(&ty!(int[3, 4])));
-        assert!(!ty!(bool[5]).is_compatible(&ty!(felt[3, 4])));
-        assert!(!ty!(bool[5]).is_compatible(&ty!(bool[3, 4])));
-
-        assert!(ty!(_[3, 4]).is_compatible(&ty!()));
-        assert!(!ty!(_[3, 4]).is_compatible(&ty!(_)));
-        assert!(!ty!(_[3, 4]).is_compatible(&ty!(int)));
-        assert!(!ty!(_[3, 4]).is_compatible(&ty!(felt)));
-        assert!(!ty!(_[3, 4]).is_compatible(&ty!(bool)));
-        assert!(!ty!(_[3, 4]).is_compatible(&ty!(_[5])));
-        assert!(!ty!(_[3, 4]).is_compatible(&ty!(int[5])));
-        assert!(!ty!(_[3, 4]).is_compatible(&ty!(felt[5])));
-        assert!(!ty!(_[3, 4]).is_compatible(&ty!(bool[5])));
-        assert!(ty!(_[3, 4]).is_compatible(&ty!(_[3, 4])));
-        assert!(ty!(_[3, 4]).is_compatible(&ty!(int[3, 4])));
-        assert!(ty!(_[3, 4]).is_compatible(&ty!(felt[3, 4])));
-        assert!(ty!(_[3, 4]).is_compatible(&ty!(bool[3, 4])));
-
-        assert!(ty!(int[3, 4]).is_compatible(&ty!()));
-        assert!(!ty!(int[3, 4]).is_compatible(&ty!(_)));
-        assert!(!ty!(int[3, 4]).is_compatible(&ty!(int)));
-        assert!(!ty!(int[3, 4]).is_compatible(&ty!(felt)));
-        assert!(!ty!(int[3, 4]).is_compatible(&ty!(bool)));
-        assert!(!ty!(int[3, 4]).is_compatible(&ty!(_[5])));
-        assert!(!ty!(int[3, 4]).is_compatible(&ty!(int[5])));
-        assert!(!ty!(int[3, 4]).is_compatible(&ty!(felt[5])));
-        assert!(!ty!(int[3, 4]).is_compatible(&ty!(bool[5])));
-        assert!(ty!(int[3, 4]).is_compatible(&ty!(_[3, 4])));
-        assert!(ty!(int[3, 4]).is_compatible(&ty!(int[3, 4])));
-        assert!(!ty!(int[3, 4]).is_compatible(&ty!(felt[3, 4])));
-        assert!(!ty!(int[3, 4]).is_compatible(&ty!(bool[3, 4])));
-
-        assert!(ty!(felt[3, 4]).is_compatible(&ty!()));
-        assert!(!ty!(felt[3, 4]).is_compatible(&ty!(_)));
-        assert!(!ty!(felt[3, 4]).is_compatible(&ty!(int)));
-        assert!(!ty!(felt[3, 4]).is_compatible(&ty!(felt)));
-        assert!(!ty!(felt[3, 4]).is_compatible(&ty!(bool)));
-        assert!(!ty!(felt[3, 4]).is_compatible(&ty!(_[5])));
-        assert!(!ty!(felt[3, 4]).is_compatible(&ty!(int[5])));
-        assert!(!ty!(felt[3, 4]).is_compatible(&ty!(felt[5])));
-        assert!(!ty!(felt[3, 4]).is_compatible(&ty!(bool[5])));
-        assert!(ty!(felt[3, 4]).is_compatible(&ty!(_[3, 4])));
-        assert!(ty!(felt[3, 4]).is_compatible(&ty!(int[3, 4])));
-        assert!(ty!(felt[3, 4]).is_compatible(&ty!(felt[3, 4])));
-        assert!(ty!(felt[3, 4]).is_compatible(&ty!(bool[3, 4])));
-
-        assert!(ty!(bool[3, 4]).is_compatible(&ty!()));
-        assert!(!ty!(bool[3, 4]).is_compatible(&ty!(_)));
-        assert!(!ty!(bool[3, 4]).is_compatible(&ty!(int)));
-        assert!(!ty!(bool[3, 4]).is_compatible(&ty!(felt)));
-        assert!(!ty!(bool[3, 4]).is_compatible(&ty!(bool)));
-        assert!(!ty!(bool[3, 4]).is_compatible(&ty!(_[5])));
-        assert!(!ty!(bool[3, 4]).is_compatible(&ty!(int[5])));
-        assert!(!ty!(bool[3, 4]).is_compatible(&ty!(felt[5])));
-        assert!(!ty!(bool[3, 4]).is_compatible(&ty!(bool[5])));
-        assert!(ty!(bool[3, 4]).is_compatible(&ty!(_[3, 4])));
-        assert!(ty!(bool[3, 4]).is_compatible(&ty!(int[3, 4])));
-        assert!(ty!(bool[3, 4]).is_compatible(&ty!(felt[3, 4])));
-        assert!(ty!(bool[3, 4]).is_compatible(&ty!(bool[3, 4])));
+        assert_subtype!(ty!(bool[3, 4]); ty!());
+        assert_subtype!(ty!(bool[3, 4]); !ty!(_));
+        assert_subtype!(ty!(bool[3, 4]); !ty!(felt));
+        assert_subtype!(ty!(bool[3, 4]); !ty!(int));
+        assert_subtype!(ty!(bool[3, 4]); !ty!(bool));
+        assert_subtype!(ty!(bool[3, 4]); !ty!(_[5]));
+        assert_subtype!(ty!(bool[3, 4]); !ty!(felt[5]));
+        assert_subtype!(ty!(bool[3, 4]); !ty!(int[5]));
+        assert_subtype!(ty!(bool[3, 4]); !ty!(bool[5]));
+        assert_subtype!(ty!(bool[3, 4]); ty!(_[3, 4]));
+        assert_subtype!(ty!(bool[3, 4]); ty!(felt[3, 4]));
+        assert_subtype!(ty!(bool[3, 4]); !ty!(int[3, 4]));
+        assert_subtype!(ty!(bool[3, 4]); ty!(bool[3, 4]));
     }
 }

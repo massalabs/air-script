@@ -7,4 +7,5 @@ repository.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 
-[dependencies]
+[dev-dependencies]
+pretty_assertions = "1.4.1"
