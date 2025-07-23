@@ -26,7 +26,7 @@ pub trait Typing {
     }
     fn is_shape_compatible(&self, other: &impl Typing) -> bool {
         match (self.ty(), other.ty()) {
-            (None, _) | (_, None) => true,
+            (_, None) => true,
             (Some(Type::Scalar(_)), Some(Type::Scalar(_))) => true,
             (Some(Type::Vector(_, len1)), Some(Type::Vector(_, len2))) => {
                 len1 == len2 || len1 == u32::MAX as usize || len2 == u32::MAX as usize
