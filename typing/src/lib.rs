@@ -2,6 +2,7 @@ mod types;
 pub use types::*;
 
 pub trait Typing {
+    fn kind(&self) -> Option<Kind>;
     fn ty(&self) -> Option<Type>;
     fn scalar_ty(&self) -> Option<ScalarType> {
         self.ty().scalar_ty()
@@ -130,6 +131,9 @@ impl core::fmt::Display for DisplayType {
 }
 
 impl Typing for ScalarType {
+    fn kind(&self) -> Option<Kind> {
+        Some(Kind::Value(self.ty()))
+    }
     fn ty(&self) -> Option<Type> {
         Some(Type::Scalar(Some(*self)))
     }
@@ -139,6 +143,9 @@ impl Typing for ScalarType {
 }
 
 impl Typing for Type {
+    fn kind(&self) -> Option<Kind> {
+        Some(Kind::Value(self.ty()))
+    }
     fn ty(&self) -> Option<Type> {
         Some(*self)
     }
@@ -152,6 +159,11 @@ impl Typing for Type {
 }
 
 impl Typing for BinType {
+    fn kind(&self) -> Option<Kind> {
+        // SAFETY: This is safe to unwrap because `BinType` is guaranteed to be a callable
+        // type
+        Some(Kind::Callable(self.try_as_fn().unwrap()))
+    }
     fn ty(&self) -> Option<Type> {
         todo!()
     }
@@ -161,6 +173,9 @@ impl<T> Typing for Option<T>
 where
     T: Typing,
 {
+    fn kind(&self) -> Option<Kind> {
+        self.as_ref().and_then(|t| t.kind())
+    }
     fn ty(&self) -> Option<Type> {
         self.as_ref().and_then(|t| t.ty())
     }

@@ -298,6 +298,34 @@ macro_rules! bty {
     };
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Kind {
+    Value(Option<Type>),
+    Callable(FunctionType),
+}
+
+impl core::fmt::Display for Kind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Value(ty) => write!(f, "{}", ty.display_ty()),
+            Self::Callable(fty) => write!(f, "{}", fty),
+        }
+    }
+}
+
+#[macro_export]
+macro_rules! kind {
+    (ev $($spec:tt)+) => {
+        Kind::Callable(fty!(ev $($spec)+))
+    };
+    (fn ($($args:tt)*) -> $($ret:tt)*) => {
+        Kind::Callable(fty!(fn ($($args)*) -> $($ret)*))
+    };
+    ($($spec:tt)*) => {
+        Kind::Value(ty!($($spec)*))
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -371,5 +399,15 @@ mod tests {
         assert_eq!(bty!(int * felt), BinType::Mul(ty!(int), ty!(felt)));
         assert_eq!(bty!(int ^ felt), BinType::Exp(ty!(int), ty!(felt)));
         assert_eq!(bty!(int = felt), BinType::Eq(ty!(int), ty!(felt)));
+    }
+
+    #[test]
+    fn test_macro_kind() {
+        assert_eq!(kind!(ev([])), Kind::Callable(fty!(ev([]))));
+        assert_eq!(kind!(ev([a])), Kind::Callable(fty!(ev([a]))));
+        assert_eq!(kind!(fn(int) -> felt), Kind::Callable(fty!(fn(int) -> felt)));
+        assert_eq!(kind!(int), Kind::Value(ty!(int)));
+        assert_eq!(kind!(_), Kind::Value(ty!(_)));
+        assert_eq!(kind!(bool[3, 4]), Kind::Value(ty!(bool[3, 4])));
     }
 }
