@@ -151,6 +151,42 @@ pub trait Typing {
     }
 }
 
+pub trait ScalarTypeMut: Typing {
+    fn scalar_ty_mut(&mut self) -> &mut Option<ScalarType>;
+    fn update_scalar_ty(&mut self, new_ty: Option<ScalarType>) -> Result<(), TypeError> {
+        let ty = self.scalar_ty();
+        if ty.is_none() {
+            // WARN: This should only be true before type inference
+            // Any None type should raise a diagnostic after type inference
+            *self.scalar_ty_mut() = new_ty;
+        } else if ty.is_scalar_subtype(&new_ty) {
+            // Allow widening of types
+            *self.scalar_ty_mut() = new_ty;
+        } else {
+            return Err(TypeError::IncompatibleScalarTypes { ty, new_ty });
+        }
+        Ok(())
+    }
+}
+
+pub trait TypeMut: Typing + ScalarTypeMut {
+    fn ty_mut(&mut self) -> &mut Option<Type>;
+    fn update_ty(&mut self, new_ty: Option<Type>) -> Result<(), TypeError> {
+        let ty = self.ty();
+        if ty.is_none() {
+            // WARN: This should only be true before type inference
+            // Any None type should raise a diagnostic after type inference
+            *self.ty_mut() = new_ty;
+        } else if ty.is_subtype(&new_ty) {
+            // Allow widening of types
+            *self.ty_mut() = new_ty;
+        } else {
+            return Err(TypeError::NotASubtype { ty, new_ty });
+        }
+        Ok(())
+    }
+}
+
 pub struct ShowKind(Option<Kind>);
 
 impl core::fmt::Display for ShowKind {
@@ -190,6 +226,40 @@ impl Typing for Type {
     }
 }
 
+impl ScalarTypeMut for Type {
+    fn scalar_ty_mut(&mut self) -> &mut Option<ScalarType> {
+        match self {
+            Type::Scalar(st) => st,
+            Type::Vector(st, _) => st,
+            Type::Matrix(st, _, _) => st,
+        }
+    }
+}
+
+impl Typing for FunctionType {
+    fn kind(&self) -> Option<Kind> {
+        Some(Kind::Callable(self.clone()))
+    }
+    fn ty(&self) -> Option<Type> {
+        panic!("FunctionType does not have a concrete type")
+    }
+    fn scalar_ty(&self) -> Option<ScalarType> {
+        panic!("FunctionType does not have a concrete scalar type")
+    }
+}
+
+impl ScalarTypeMut for BinType {
+    fn scalar_ty_mut(&mut self) -> &mut Option<ScalarType> {
+        self.ret_mut().scalar_ty_mut()
+    }
+}
+
+impl TypeMut for BinType {
+    fn ty_mut(&mut self) -> &mut Option<Type> {
+        self.ret_mut()
+    }
+}
+
 impl Typing for BinType {
     fn kind(&self) -> Option<Kind> {
         self.as_fn().kind()
@@ -202,10 +272,60 @@ impl Typing for BinType {
     }
 }
 
-impl<T> Typing for Option<T>
-where
-    T: Typing,
-{
+impl ScalarTypeMut for Kind {
+    fn scalar_ty_mut(&mut self) -> &mut Option<ScalarType> {
+        match self {
+            Kind::Value(ty) => ty.scalar_ty_mut(),
+            Kind::Callable(_) => panic!("Cannot mutate scalar type of a callable kind"),
+        }
+    }
+}
+
+impl TypeMut for Kind {
+    fn ty_mut(&mut self) -> &mut Option<Type> {
+        match self {
+            Kind::Value(ty) => ty,
+            Kind::Callable(_) => panic!("Cannot mutate type of a callable kind"),
+        }
+    }
+}
+
+impl Typing for Kind {
+    fn kind(&self) -> Option<Kind> {
+        Some(self.clone())
+    }
+    fn ty(&self) -> Option<Type> {
+        let Kind::Value(ty) = self else {
+            return None;
+        };
+        *ty
+    }
+}
+
+impl ScalarTypeMut for Option<ScalarType> {
+    fn scalar_ty_mut(&mut self) -> &mut Option<ScalarType> {
+        self
+    }
+}
+
+impl ScalarTypeMut for Option<Type> {
+    fn scalar_ty_mut(&mut self) -> &mut Option<ScalarType> {
+        match self {
+            Some(Type::Scalar(st)) => st,
+            Some(Type::Vector(st, _)) => st,
+            Some(Type::Matrix(st, _, _)) => st,
+            None => panic!("Cannot mutate scalar type of None"),
+        }
+    }
+}
+
+impl TypeMut for Option<Type> {
+    fn ty_mut(&mut self) -> &mut Option<Type> {
+        self
+    }
+}
+
+impl<T: Typing> Typing for Option<T> {
     fn kind(&self) -> Option<Kind> {
         self.as_ref().and_then(|t| t.kind())
     }
