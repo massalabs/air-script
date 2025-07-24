@@ -35,12 +35,16 @@ macro_rules! sty {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Type {
+    // annotation: sty
+    // where sty is the scalar type
     Scalar(Option<ScalarType>),
     // annotation: `sty[len]`
-    // where len is the number of elements in the vector
+    // where len is the number of elements in the vector,
+    // and sty is the scalar type
     Vector(Option<ScalarType>, usize),
     // annotation: `sty[rows, cols]`
-    // where rows and cols are the dimensions of the matrix
+    // where rows and cols are the dimensions of the matrix,
+    // and sty is the scalar type
     Matrix(Option<ScalarType>, usize, usize),
 }
 
