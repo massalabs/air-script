@@ -337,11 +337,6 @@ impl<T: Typing> Typing for Option<T> {
     }
 }
 
-pub struct Typed<T> {
-    pub value: T,
-    pub ty: Type,
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
