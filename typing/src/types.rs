@@ -190,104 +190,163 @@ macro_rules! fty {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BinType {
-    Add(Option<Type>, Option<Type>),
-    Sub(Option<Type>, Option<Type>),
-    Mul(Option<Type>, Option<Type>),
-    Exp(Option<Type>, Option<Type>),
-    Eq(Option<Type>, Option<Type>),
+    Add(Option<Type>, Option<Type>, Option<Type>),
+    Sub(Option<Type>, Option<Type>, Option<Type>),
+    Mul(Option<Type>, Option<Type>, Option<Type>),
+    Exp(Option<Type>, Option<Type>, Option<Type>),
+    Eq(Option<Type>, Option<Type>, Option<Type>),
 }
 
 impl BinType {
     pub fn lhs(&self) -> Option<Type> {
         match self {
-            Self::Add(lhs, _)
-            | Self::Sub(lhs, _)
-            | Self::Mul(lhs, _)
-            | Self::Exp(lhs, _)
-            | Self::Eq(lhs, _) => *lhs,
+            Self::Add(lhs, _, _)
+            | Self::Sub(lhs, _, _)
+            | Self::Mul(lhs, _, _)
+            | Self::Exp(lhs, _, _)
+            | Self::Eq(lhs, _, _) => *lhs,
+        }
+    }
+
+    pub fn lhs_mut(&mut self) -> &mut Option<Type> {
+        match self {
+            Self::Add(lhs, _, _)
+            | Self::Sub(lhs, _, _)
+            | Self::Mul(lhs, _, _)
+            | Self::Exp(lhs, _, _)
+            | Self::Eq(lhs, _, _) => lhs,
         }
     }
 
     pub fn rhs(&self) -> Option<Type> {
         match self {
-            Self::Add(_, rhs)
-            | Self::Sub(_, rhs)
-            | Self::Mul(_, rhs)
-            | Self::Exp(_, rhs)
-            | Self::Eq(_, rhs) => *rhs,
+            Self::Add(_, rhs, _)
+            | Self::Sub(_, rhs, _)
+            | Self::Mul(_, rhs, _)
+            | Self::Exp(_, rhs, _)
+            | Self::Eq(_, rhs, _) => *rhs,
         }
     }
-    pub fn try_as_fn(&self) -> Option<FunctionType> {
-        let args = match self {
-            Self::Add(lhs, rhs)
-            | Self::Sub(lhs, rhs)
-            | Self::Mul(lhs, rhs)
-            | Self::Exp(lhs, rhs)
-            | Self::Eq(lhs, rhs) => vec![*lhs, *rhs],
-        };
-        let ret = self.ty();
-        Some(FunctionType::Function(args, ret))
+
+    pub fn rhs_mut(&mut self) -> &mut Option<Type> {
+        match self {
+            Self::Add(_, rhs, _)
+            | Self::Sub(_, rhs, _)
+            | Self::Mul(_, rhs, _)
+            | Self::Exp(_, rhs, _)
+            | Self::Eq(_, rhs, _) => rhs,
+        }
+    }
+
+    pub fn ret(&self) -> Option<Type> {
+        match self {
+            Self::Add(_, _, ret)
+            | Self::Sub(_, _, ret)
+            | Self::Mul(_, _, ret)
+            | Self::Exp(_, _, ret)
+            | Self::Eq(_, _, ret) => *ret,
+        }
+    }
+
+    pub fn ret_mut(&mut self) -> &mut Option<Type> {
+        match self {
+            Self::Add(_, _, ret)
+            | Self::Sub(_, _, ret)
+            | Self::Mul(_, _, ret)
+            | Self::Exp(_, _, ret)
+            | Self::Eq(_, _, ret) => ret,
+        }
+    }
+
+    pub fn as_fn(&self) -> FunctionType {
+        match self {
+            Self::Add(lhs, rhs, ret)
+            | Self::Sub(lhs, rhs, ret)
+            | Self::Mul(lhs, rhs, ret)
+            | Self::Exp(lhs, rhs, ret)
+            | Self::Eq(lhs, rhs, ret) => FunctionType::Function(vec![*lhs, *rhs], *ret),
+        }
     }
 }
 
 impl core::fmt::Display for BinType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Add(lhs, rhs) => write!(f, "{} + {}", lhs.show_ty(), rhs.show_ty()),
-            Self::Sub(lhs, rhs) => write!(f, "{} - {}", lhs.show_ty(), rhs.show_ty()),
-            Self::Mul(lhs, rhs) => write!(f, "{} * {}", lhs.show_ty(), rhs.show_ty()),
-            Self::Exp(lhs, rhs) => write!(f, "{} ^ {}", lhs.show_ty(), rhs.show_ty()),
-            Self::Eq(lhs, rhs) => write!(f, "{} = {}", lhs.show_ty(), rhs.show_ty()),
+            Self::Add(lhs, rhs, None) => write!(f, "{} + {}", lhs.show_ty(), rhs.show_ty()),
+            Self::Sub(lhs, rhs, None) => write!(f, "{} - {}", lhs.show_ty(), rhs.show_ty()),
+            Self::Mul(lhs, rhs, None) => write!(f, "{} * {}", lhs.show_ty(), rhs.show_ty()),
+            Self::Exp(lhs, rhs, None) => write!(f, "{} ^ {}", lhs.show_ty(), rhs.show_ty()),
+            Self::Eq(lhs, rhs, None) => write!(f, "{} = {}", lhs.show_ty(), rhs.show_ty()),
+            Self::Add(lhs, rhs, ret) => {
+                write!(f, "{} + {} -> {}", lhs.show_ty(), rhs.show_ty(), ret.show_ty())
+            },
+            Self::Sub(lhs, rhs, ret) => {
+                write!(f, "{} - {} -> {}", lhs.show_ty(), rhs.show_ty(), ret.show_ty())
+            },
+            Self::Mul(lhs, rhs, ret) => {
+                write!(f, "{} * {} -> {}", lhs.show_ty(), rhs.show_ty(), ret.show_ty())
+            },
+            Self::Exp(lhs, rhs, ret) => {
+                write!(f, "{} ^ {} -> {}", lhs.show_ty(), rhs.show_ty(), ret.show_ty())
+            },
+            Self::Eq(lhs, rhs, ret) => {
+                write!(f, "{} = {} -> {}", lhs.show_ty(), rhs.show_ty(), ret.show_ty())
+            },
         }
     }
 }
 
 #[macro_export]
 macro_rules! bty {
+    ($($bty:tt)+ -> $($ret:tt)+) => {{
+        let b = bty!($($bty)+);
+        b.ret_mut().replace(ty!($($ret)+));
+        b
+    }};
     (+ $($rhs:tt)*) => {
-        BinType::Add(ty!(), ty!($($rhs)*))
+        BinType::Add(ty!(), ty!($($rhs)*), ty!())
     };
     (_$([$($spec:tt)+])? + $($rhs:tt)*) => {
-        BinType::Add(ty!(_$([$($spec)+])?), ty!($($rhs)*))
+        BinType::Add(ty!(_$([$($spec)+])?), ty!($($rhs)*), ty!())
     };
     ($sty:ident$([$($spec:tt)+])? + $($rhs:tt)*) => {
-        BinType::Add(ty!($sty$([$($spec)+])?), ty!($($rhs)*))
+        BinType::Add(ty!($sty$([$($spec)+])?), ty!($($rhs)*), ty!())
     };
     (- $($rhs:tt)*) => {
-        BinType::Sub(ty!(), ty!($($rhs)*))
+        BinType::Sub(ty!(), ty!($($rhs)*), ty!())
     };
     (_$([$($spec:tt)+])? - $($rhs:tt)*) => {
-        BinType::Sub(ty!(_$([$($spec)+])?), ty!($($rhs)*))
+        BinType::Sub(ty!(_$([$($spec)+])?), ty!($($rhs)*), ty!())
     };
     ($sty:ident$([$($spec:tt)+])? - $($rhs:tt)*) => {
-        BinType::Sub(ty!($sty$([$($spec)+])?), ty!($($rhs)*))
+        BinType::Sub(ty!($sty$([$($spec)+])?), ty!($($rhs)*), ty!())
     };
     (* $($rhs:tt)*) => {
-        BinType::Mul(ty!(), ty!($($rhs)*))
+        BinType::Mul(ty!(), ty!($($rhs)*), ty!())
     };
     (_$([$($spec:tt)+])? * $($rhs:tt)*) => {
-        BinType::Mul(ty!(_$([$($spec)+])?), ty!($($rhs)*))
+        BinType::Mul(ty!(_$([$($spec)+])?), ty!($($rhs)*), ty!())
     };
     ($sty:ident$([$($spec:tt)+])? * $($rhs:tt)*) => {
-        BinType::Mul(ty!($sty$([$($spec)+])?), ty!($($rhs)*))
+        BinType::Mul(ty!($sty$([$($spec)+])?), ty!($($rhs)*), ty!())
     };
     (^ $($rhs:tt)*) => {
-        BinType::Exp(ty!(), ty!($($rhs)*))
+        BinType::Exp(ty!(), ty!($($rhs)*), ty!())
     };
     (_$([$($spec:tt)+])? ^ $($rhs:tt)*) => {
-        BinType::Exp(ty!(_$([$($spec)+])?), ty!($($rhs)*))
+        BinType::Exp(ty!(_$([$($spec)+])?), ty!($($rhs)*), ty!())
     };
     ($sty:ident$([$($spec:tt)+])? ^ $($rhs:tt)*) => {
-        BinType::Exp(ty!($sty$([$($spec)+])?), ty!($($rhs)*))
+        BinType::Exp(ty!($sty$([$($spec)+])?), ty!($($rhs)*), ty!())
     };
     (= $($rhs:tt)*) => {
-        BinType::Eq(ty!(), ty!($($rhs)*))
+        BinType::Eq(ty!(), ty!($($rhs)*), ty!())
     };
     (_$([$($spec:tt)+])? = $($rhs:tt)*) => {
-        BinType::Eq(ty!(_$([$($spec)+])?), ty!($($rhs)*))
+        BinType::Eq(ty!(_$([$($spec)+])?), ty!($($rhs)*), ty!())
     };
     ($sty:ident$([$($spec:tt)+])? = $($rhs:tt)*) => {
-        BinType::Eq(ty!($sty$([$($spec)+])?), ty!($($rhs)*))
+        BinType::Eq(ty!($sty$([$($spec)+])?), ty!($($rhs)*), ty!())
     };
 }
 
@@ -387,11 +446,14 @@ mod tests {
 
     #[test]
     fn test_macro_bin_type() {
-        assert_eq!(bty!(int + felt), BinType::Add(ty!(int), ty!(felt)));
-        assert_eq!(bty!(int - felt), BinType::Sub(ty!(int), ty!(felt)));
-        assert_eq!(bty!(int * felt), BinType::Mul(ty!(int), ty!(felt)));
-        assert_eq!(bty!(int ^ felt), BinType::Exp(ty!(int), ty!(felt)));
-        assert_eq!(bty!(int = felt), BinType::Eq(ty!(int), ty!(felt)));
+        assert_eq!(bty!(int + felt), BinType::Add(ty!(int), ty!(felt), ty!()));
+        assert_eq!(bty!(_ - felt), BinType::Sub(ty!(_), ty!(felt), ty!()));
+        assert_eq!(bty!( = felt), BinType::Eq(ty!(), ty!(felt), ty!()));
+        assert_eq!(bty!(int+), BinType::Add(ty!(int), ty!(), ty!()));
+        assert_eq!(bty!(int - felt), BinType::Sub(ty!(int), ty!(felt), ty!()));
+        assert_eq!(bty!(int[2] * felt[2]), BinType::Mul(ty!(int[2]), ty!(felt[2]), ty!()));
+        assert_eq!(bty!(int[2, 3] ^ _), BinType::Exp(ty!(int[2, 3]), ty!(_), ty!()));
+        assert_eq!(bty!(bool[5] = _[5]), BinType::Eq(ty!(bool[5]), ty!(_[5]), ty!()));
     }
 
     #[test]
