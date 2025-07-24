@@ -1,5 +1,29 @@
 mod types;
+
 pub use types::*;
+
+pub enum TypeError {
+    IncompatibleScalarTypes {
+        ty: Option<ScalarType>,
+        new_ty: Option<ScalarType>,
+    },
+    IncompatibleShapes {
+        ty: Option<Type>,
+        new_ty: Option<Type>,
+    },
+    IncompatibleType {
+        ty: Option<Type>,
+        new_ty: Option<Type>,
+    },
+    TypeAlreadySet {
+        ty: Option<Type>,
+        new_ty: Option<Type>,
+    },
+    NotASubtype {
+        ty: Option<Type>,
+        new_ty: Option<Type>,
+    },
+}
 
 pub trait Typing {
     fn kind(&self) -> Option<Kind>;
@@ -118,9 +142,17 @@ pub trait Typing {
     fn show_ty(&self) -> ShowKind {
         ShowKind(self.kind())
     }
+    /// Returns the type of the current object, if it is known or can be inferred.
+    /// If the type is not known, it returns `None`.
+    /// If the type can be inferred, it returns the inferred type.
+    /// If the type cannot be inferred, it returns an appropriate error.
+    fn infer_ty(&self) -> Result<Option<Type>, TypeError> {
+        Ok(self.ty())
+    }
 }
 
 pub struct ShowKind(Option<Kind>);
+
 impl core::fmt::Display for ShowKind {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match &self.0 {
@@ -160,11 +192,12 @@ impl Typing for Type {
 
 impl Typing for BinType {
     fn kind(&self) -> Option<Kind> {
-        // SAFETY: This is safe to unwrap because `BinType` is guaranteed to be a callable
-        // type
-        Some(Kind::Callable(self.try_as_fn().unwrap()))
+        self.as_fn().kind()
     }
     fn ty(&self) -> Option<Type> {
+        self.infer_ty().ok()?
+    }
+    fn infer_ty(&self) -> Result<Option<Type>, TypeError> {
         todo!()
     }
 }
