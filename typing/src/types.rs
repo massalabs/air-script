@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use crate::{DisplayType, Typing};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ScalarType {
@@ -131,6 +131,57 @@ pub enum FunctionType {
     Function(Vec<Option<Type>>, Option<Type>),
 }
 
+impl FunctionType {
+    pub fn args(&self) -> &[Option<Type>] {
+        match self {
+            Self::Evaluator(args) => args,
+            Self::Function(args, _) => args,
+        }
+    }
+
+    pub fn ret(&self) -> Option<Type> {
+        match self {
+            Self::Evaluator(_) => None,
+            Self::Function(_, ret) => *ret,
+        }
+    }
+}
+
+impl core::fmt::Display for FunctionType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Evaluator(args) => {
+                f.write_str("ev(")?;
+                write!(
+                    f,
+                    "[{}]",
+                    args.iter()
+                        .map(|ty| DisplayType(*ty).to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )?;
+                f.write_str(")")
+            },
+            Self::Function(args, ret) => {
+                f.write_str("fn(")?;
+                f.write_str(
+                    &args
+                        .iter()
+                        .map(|ty| DisplayType(*ty).to_string())
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                )?;
+                f.write_str(") -> ")?;
+                if let Some(ret_type) = ret {
+                    write!(f, "{}", ret_type)
+                } else {
+                    f.write_str("?")
+                }
+            },
+        }
+    }
+}
+
 #[macro_export]
 macro_rules! fty {
     (ev ([])) => {
@@ -151,6 +202,51 @@ pub enum BinType {
     Mul(Option<Type>, Option<Type>),
     Exp(Option<Type>, Option<Type>),
     Eq(Option<Type>, Option<Type>),
+}
+
+impl BinType {
+    pub fn lhs(&self) -> Option<Type> {
+        match self {
+            Self::Add(lhs, _)
+            | Self::Sub(lhs, _)
+            | Self::Mul(lhs, _)
+            | Self::Exp(lhs, _)
+            | Self::Eq(lhs, _) => *lhs,
+        }
+    }
+
+    pub fn rhs(&self) -> Option<Type> {
+        match self {
+            Self::Add(_, rhs)
+            | Self::Sub(_, rhs)
+            | Self::Mul(_, rhs)
+            | Self::Exp(_, rhs)
+            | Self::Eq(_, rhs) => *rhs,
+        }
+    }
+    pub fn try_as_fn(&self) -> Option<FunctionType> {
+        let args = match self {
+            Self::Add(lhs, rhs)
+            | Self::Sub(lhs, rhs)
+            | Self::Mul(lhs, rhs)
+            | Self::Exp(lhs, rhs)
+            | Self::Eq(lhs, rhs) => vec![*lhs, *rhs],
+        };
+        let ret = self.ty();
+        Some(FunctionType::Function(args, ret))
+    }
+}
+
+impl core::fmt::Display for BinType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Add(lhs, rhs) => write!(f, "{} + {}", DisplayType(*lhs), DisplayType(*rhs)),
+            Self::Sub(lhs, rhs) => write!(f, "{} - {}", DisplayType(*lhs), DisplayType(*rhs)),
+            Self::Mul(lhs, rhs) => write!(f, "{} * {}", DisplayType(*lhs), DisplayType(*rhs)),
+            Self::Exp(lhs, rhs) => write!(f, "{} ^ {}", DisplayType(*lhs), DisplayType(*rhs)),
+            Self::Eq(lhs, rhs) => write!(f, "{} = {}", DisplayType(*lhs), DisplayType(*rhs)),
+        }
+    }
 }
 
 #[macro_export]
