@@ -115,15 +115,15 @@ pub trait Typing {
     fn is_subtype(&self, other: &impl Typing) -> bool {
         self.is_shape_compatible(other) && (other.ty().is_none() || self.is_scalar_subtype(other))
     }
-    fn display_ty(&self) -> DisplayType {
-        DisplayType(self.ty())
+    fn show_ty(&self) -> ShowKind {
+        ShowKind(self.kind())
     }
 }
 
-pub struct DisplayType(Option<Type>);
-impl core::fmt::Display for DisplayType {
+pub struct ShowKind(Option<Kind>);
+impl core::fmt::Display for ShowKind {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self.0 {
+        match &self.0 {
             Some(ty) => write!(f, "{ty}"),
             None => f.write_str(""),
         }
@@ -200,10 +200,10 @@ mod tests {
             assert!(
                 res,
                 "{}: !{}\nError: {} is a subtype of {}",
-                $a.display_ty(),
-                $b.display_ty(),
-                $a.display_ty(),
-                $b.display_ty(),
+                $a.show_ty(),
+                $b.show_ty(),
+                $a.show_ty(),
+                $b.show_ty(),
             );
         };
         ($a:expr; $b:expr) => {
@@ -211,10 +211,10 @@ mod tests {
             assert!(
                 res,
                 "{}: {}\nError: {} is a not subtype of {}",
-                $a.display_ty(),
-                $b.display_ty(),
-                $a.display_ty(),
-                $b.display_ty(),
+                $a.show_ty(),
+                $b.show_ty(),
+                $a.show_ty(),
+                $b.show_ty(),
             );
         };
     }

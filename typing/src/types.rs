@@ -1,4 +1,4 @@
-use crate::{DisplayType, Typing};
+use crate::Typing;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ScalarType {
@@ -155,21 +155,14 @@ impl core::fmt::Display for FunctionType {
                 write!(
                     f,
                     "[{}]",
-                    args.iter()
-                        .map(|ty| DisplayType(*ty).to_string())
-                        .collect::<Vec<_>>()
-                        .join(", ")
+                    args.iter().map(|ty| ty.show_ty().to_string()).collect::<Vec<_>>().join(", ")
                 )?;
                 f.write_str(")")
             },
             Self::Function(args, ret) => {
                 f.write_str("fn(")?;
                 f.write_str(
-                    &args
-                        .iter()
-                        .map(|ty| DisplayType(*ty).to_string())
-                        .collect::<Vec<_>>()
-                        .join(", "),
+                    &args.iter().map(|ty| ty.show_ty().to_string()).collect::<Vec<_>>().join(", "),
                 )?;
                 f.write_str(") -> ")?;
                 if let Some(ret_type) = ret {
@@ -240,11 +233,11 @@ impl BinType {
 impl core::fmt::Display for BinType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Add(lhs, rhs) => write!(f, "{} + {}", DisplayType(*lhs), DisplayType(*rhs)),
-            Self::Sub(lhs, rhs) => write!(f, "{} - {}", DisplayType(*lhs), DisplayType(*rhs)),
-            Self::Mul(lhs, rhs) => write!(f, "{} * {}", DisplayType(*lhs), DisplayType(*rhs)),
-            Self::Exp(lhs, rhs) => write!(f, "{} ^ {}", DisplayType(*lhs), DisplayType(*rhs)),
-            Self::Eq(lhs, rhs) => write!(f, "{} = {}", DisplayType(*lhs), DisplayType(*rhs)),
+            Self::Add(lhs, rhs) => write!(f, "{} + {}", lhs.show_ty(), rhs.show_ty()),
+            Self::Sub(lhs, rhs) => write!(f, "{} - {}", lhs.show_ty(), rhs.show_ty()),
+            Self::Mul(lhs, rhs) => write!(f, "{} * {}", lhs.show_ty(), rhs.show_ty()),
+            Self::Exp(lhs, rhs) => write!(f, "{} ^ {}", lhs.show_ty(), rhs.show_ty()),
+            Self::Eq(lhs, rhs) => write!(f, "{} = {}", lhs.show_ty(), rhs.show_ty()),
         }
     }
 }
@@ -307,7 +300,7 @@ pub enum Kind {
 impl core::fmt::Display for Kind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Value(ty) => write!(f, "{}", ty.display_ty()),
+            Self::Value(ty) => write!(f, "{}", ty.show_ty()),
             Self::Callable(fty) => write!(f, "{}", fty),
         }
     }
