@@ -538,9 +538,8 @@ impl BinType {
             return Err(TypeError::IncompatibleBinOp { bin_ty: *self });
         }
         // a bool to any power is still a bool:
-        //   - 0^(n) = 0
-        //   - 1^(n*2) = 1
-        //   - 1^(n*2+1) = 0
+        //   - 0^n = 0
+        //   - 1^n = 1
         // a felt to any power is still a felt
         // an int to any power is still an int
         // a ? to any power is still a ?
