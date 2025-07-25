@@ -428,167 +428,198 @@ macro_rules! bty {
 }
 
 impl BinType {
+    /// Returns the type of the result of an equality based on the types
+    /// of the left-hand side and right-hand side operands.
+    /// If the types are not compatible, it returns a [TypeError::IncompatibleBinOp].
+    ///
+    /// Assuming shapes are compatible, the following table shows the result type
+    /// based on the scalar types of the operands:
+    /// ? == ?   || felt | bool | int  | _    | ?
+    /// =========||======|======|======|======|=====
+    /// felt     || bool | bool | bool | bool |    ?
+    /// bool     || bool | bool | bool | bool |    ?
+    /// int      || bool | bool | bool | bool |    ?
+    /// _        || bool | bool | bool | bool |    ?
+    /// ?        ||    ? |    ? |    ? |    ? |    ?
+    ///
+    /// So, the result type of an equality is:
+    /// - an error if lhs or rhs don't have a compatible shape,
+    /// - symmetric over the operands,
+    /// - any == ? -> ?,
+    /// - always `bool` otherwise
     pub fn infer_bin_ty_eq(&self) -> Result<Option<Type>, TypeError> {
         if let Some(ret) = self.ret() {
             return Ok(Some(ret));
         }
         let lhs = self.lhs();
         let rhs = self.rhs();
-        if !lhs.is_shape_compatible(&rhs) {
-            return Err(TypeError::IncompatibleShapes { ty: lhs, new_ty: rhs });
+        if lhs.is_none() || rhs.is_none() {
+            return Ok(ty!(?));
         }
-        match self.without_shape() {
-            bty!(? = ?) => Ok(ty!(bool)),
-            bty!(? = _) => Ok(ty!(bool)),
-            bty!(? = felt) => Ok(ty!(bool)),
-            bty!(? = int) => Ok(ty!(bool)),
-            bty!(? = bool) => Ok(ty!(bool)),
-            bty!(_ = ?) => Ok(ty!(bool)),
-            bty!(_ = _) => Ok(ty!(bool)),
-            bty!(_ = felt) => Ok(ty!(bool)),
-            bty!(_ = int) => Ok(ty!(bool)),
-            bty!(_ = bool) => Ok(ty!(bool)),
-            bty!(felt = ?) => Ok(ty!(bool)),
-            bty!(felt = _) => Ok(ty!(bool)),
-            bty!(felt = felt) => Ok(ty!(bool)),
-            bty!(felt = int) => Ok(ty!(bool)),
-            bty!(felt = bool) => Ok(ty!(bool)),
-            bty!(int = ?) => Ok(ty!(bool)),
-            bty!(int = _) => Ok(ty!(bool)),
-            bty!(int = felt) => Ok(ty!(bool)),
-            bty!(int = int) => Ok(ty!(bool)),
-            bty!(int = bool) => Ok(ty!(bool)),
-            bty!(bool = ?) => Ok(ty!(bool)),
-            bty!(bool = _) => Ok(ty!(bool)),
-            bty!(bool = felt) => Ok(ty!(bool)),
-            bty!(bool = int) => Ok(ty!(bool)),
-            bty!(bool = bool) => Ok(ty!(bool)),
-            _ => Err(TypeError::IncompatibleBinOp { bin_ty: *self }),
+        if self.lhs().is_shape_compatible(&self.rhs()) {
+            Ok(ty!(bool))
+        } else {
+            Err(TypeError::IncompatibleBinOp { bin_ty: *self })
         }
     }
 
+    /// Returns the type of the result of an addition based on the types
+    /// of the left-hand side and right-hand side operands.
+    /// If lhs or rhs is not a scalar type or `?`, it returns a [TypeError::IncompatibleShapes].
+    ///
+    /// based on the scalar types of the operands:
+    /// ? + ?    || felt | bool |  int |    _ |    ?
+    /// =========||======|======|======|======|=====
+    /// felt     || felt | felt | felt | felt | felt
+    /// bool     || felt | felt | felt | felt | felt
+    /// int      || felt | felt |  int |    _ |    ?
+    /// _        || felt | felt |    _ |    _ |    ?
+    /// ?        || felt | felt |    ? |    ? |    ?
+    ///
+    /// So, the result type of an addition is:
+    /// - an error if lhs or rhs is not a scalar type or `?`,
+    /// - symmetric over the operands,
+    /// - felt + any -> felt
+    /// - bool + any -> felt
+    /// - ?    + any -> ?
+    /// - int  + int -> int
+    /// - everything else is an unknown scalar type `_`
     pub fn infer_bin_ty_add(&self) -> Result<Option<Type>, TypeError> {
         if let Some(ret) = self.ret() {
             return Ok(Some(ret));
         }
-        if !self.lhs().is_scalar() || !self.rhs().is_scalar() {
-            return Err(TypeError::IncompatibleBinOp { bin_ty: *self });
+        let lhs = self.lhs();
+        let rhs = self.rhs();
+        if !((lhs.is_scalar() | lhs.is_none()) && (rhs.is_scalar() | rhs.is_none())) {
+            return Err(TypeError::IncompatibleShapes { lhs, rhs });
         }
         match self {
-            bty!(? + ?) => Ok(ty!(?)),
-            bty!(? + _) => Ok(ty!(?)),
-            bty!(? + felt) => Ok(ty!(?)),
-            bty!(? + int) => Ok(ty!(?)),
-            bty!(? + bool) => Ok(ty!(?)),
-            bty!(_ + ?) => Ok(ty!(?)),
-            bty!(_ + _) => Ok(ty!(?)),
-            bty!(_ + felt) => Ok(ty!(?)),
-            bty!(_ + int) => Ok(ty!(?)),
-            bty!(_ + bool) => Ok(ty!(?)),
-            bty!(felt + ?) => Ok(ty!(?)),
-            bty!(felt + _) => Ok(ty!(?)),
-            bty!(felt + felt) => Ok(ty!(?)),
-            bty!(felt + int) => Ok(ty!(?)),
-            bty!(felt + bool) => Ok(ty!(?)),
-            bty!(int + ?) => Ok(ty!(?)),
-            bty!(int + _) => Ok(ty!(?)),
-            bty!(int + felt) => Ok(ty!(?)),
-            bty!(int + int) => Ok(ty!(?)),
-            bty!(int + bool) => Ok(ty!(?)),
-            bty!(bool + ?) => Ok(ty!(?)),
-            bty!(bool + _) => Ok(ty!(?)),
-            bty!(bool + felt) => Ok(ty!(?)),
-            bty!(bool + int) => Ok(ty!(?)),
-            bty!(bool + bool) => Ok(ty!(?)),
-            _ => Err(TypeError::IncompatibleBinOp { bin_ty: *self }),
+            bty!(felt + any) | bty!(any + felt) => Ok(ty!(felt)),
+            bty!(bool + any) | bty!(any + bool) => Ok(ty!(felt)),
+            bty!(? + any) | bty!(any + ?) => Ok(ty!(?)),
+            bty!(int + int) => Ok(ty!(int)),
+            _ => Ok(ty!(_)),
         }
     }
 
+    /// Returns the type of the result of a substraction based on the types
+    /// of the left-hand side and right-hand side operands.
+    /// If lhs or rhs is not a scalar type or `?`, it returns a [TypeError::IncompatibleShapes].
+    ///
+    /// based on the scalar types of the operands:
+    /// ? - ?    || felt | bool |  int |    _ |    ?
+    /// =========||======|======|======|======|=====
+    /// felt     || felt | felt | felt | felt | felt
+    /// bool     || felt | felt | felt | felt | felt
+    /// int      || felt | felt |  int |    _ |    ?
+    /// _        || felt | felt |    _ |    _ |    ?
+    /// ?        || felt | felt |    ? |    ? |    ?
+    ///
+    /// So, the result type of a substraction is:
+    /// - an error if either lhs or rhs is not a scalar type or `?`,
+    /// - symmetric over the operands,
+    /// - felt - any -> felt
+    /// - bool - any -> felt
+    /// - ?    - any -> ?
+    /// - int  - int -> int
+    /// - everything else is an unknown scalar type `_`
+    ///
+    /// This is the same as `infer_bin_ty_add`, so it reuses that method.
     pub fn infer_bin_ty_sub(&self) -> Result<Option<Type>, TypeError> {
-        if let Some(ret) = self.ret() {
-            return Ok(Some(ret));
-        }
-        if !self.lhs().is_scalar() || !self.rhs().is_scalar() {
-            return Err(TypeError::IncompatibleBinOp { bin_ty: *self });
-        }
-        match self {
-            bty!(? - ?) => Ok(ty!(?)),
-            bty!(? - _) => Ok(ty!(?)),
-            bty!(? - felt) => Ok(ty!(?)),
-            bty!(? - int) => Ok(ty!(?)),
-            bty!(? - bool) => Ok(ty!(?)),
-            bty!(_ - ?) => Ok(ty!(?)),
-            bty!(_ - _) => Ok(ty!(?)),
-            bty!(_ - felt) => Ok(ty!(?)),
-            bty!(_ - int) => Ok(ty!(?)),
-            bty!(_ - bool) => Ok(ty!(?)),
-            bty!(felt - ?) => Ok(ty!(?)),
-            bty!(felt - _) => Ok(ty!(?)),
-            bty!(felt - felt) => Ok(ty!(?)),
-            bty!(felt - int) => Ok(ty!(?)),
-            bty!(felt - bool) => Ok(ty!(?)),
-            bty!(int - ?) => Ok(ty!(?)),
-            bty!(int - _) => Ok(ty!(?)),
-            bty!(int - felt) => Ok(ty!(?)),
-            bty!(int - int) => Ok(ty!(?)),
-            bty!(int - bool) => Ok(ty!(?)),
-            bty!(bool - ?) => Ok(ty!(?)),
-            bty!(bool - _) => Ok(ty!(?)),
-            bty!(bool - felt) => Ok(ty!(?)),
-            bty!(bool - int) => Ok(ty!(?)),
-            bty!(bool - bool) => Ok(ty!(?)),
-            _ => Err(TypeError::IncompatibleBinOp { bin_ty: *self }),
-        }
+        self.infer_bin_ty_add()
     }
 
+    /// Returns the type of the result of a multiplication based on the types
+    /// of the left-hand side and right-hand side operands.
+    /// If lhs or rhs is not a scalar type or `?`, it returns a [TypeError::IncompatibleShapes].
+    ///
+    /// based on the scalar types of the operands:
+    /// ? * ?    || felt | bool |  int |    _ |    ?
+    /// =========||======|======|======|======|=====
+    /// felt     || felt | felt | felt | felt | felt
+    /// bool     || felt | bool |  int |    _ |    ?
+    /// int      || felt |  int |  int |    _ |    ?
+    /// _        || felt |    _ |    _ |    _ |    ?
+    /// ?        || felt |    ? |    ? |    ? |    ?
+    ///
+    /// So, the result type of a multiplication is:
+    /// - an error if either lhs or rhs is not a scalar type or `?`,
+    /// - symmetric over the operands,
+    /// - felt * any -> felt
+    /// - ?    * any -> ?
+    /// - _    * any -> _
+    /// - int  * int -> int
+    /// - bool * x -> x
+    /// - everything else is an unknown scalar type `_`
     pub fn infer_bin_ty_mul(&self) -> Result<Option<Type>, TypeError> {
         if let Some(ret) = self.ret() {
             return Ok(Some(ret));
         }
-        if !self.lhs().is_scalar() || !self.rhs().is_scalar() {
-            return Err(TypeError::IncompatibleBinOp { bin_ty: *self });
+        let lhs = self.lhs();
+        let rhs = self.rhs();
+        if !((lhs.is_scalar() | lhs.is_none()) && (rhs.is_scalar() | rhs.is_none())) {
+            return Err(TypeError::IncompatibleShapes { lhs, rhs });
         }
         match self {
-            bty!(? * ?) => Ok(ty!(?)),
-            bty!(? * _) => Ok(ty!(?)),
-            bty!(? * felt) => Ok(ty!(?)),
-            bty!(? * int) => Ok(ty!(?)),
-            bty!(? * bool) => Ok(ty!(?)),
-            bty!(_ * ?) => Ok(ty!(?)),
-            bty!(_ * _) => Ok(ty!(?)),
-            bty!(_ * felt) => Ok(ty!(?)),
-            bty!(_ * int) => Ok(ty!(?)),
-            bty!(_ * bool) => Ok(ty!(?)),
-            bty!(felt * ?) => Ok(ty!(?)),
-            bty!(felt * _) => Ok(ty!(?)),
-            bty!(felt * felt) => Ok(ty!(?)),
-            bty!(felt * int) => Ok(ty!(?)),
-            bty!(felt * bool) => Ok(ty!(?)),
-            bty!(int * ?) => Ok(ty!(?)),
-            bty!(int * _) => Ok(ty!(?)),
-            bty!(int * felt) => Ok(ty!(?)),
-            bty!(int * int) => Ok(ty!(?)),
-            bty!(int * bool) => Ok(ty!(?)),
-            bty!(bool * ?) => Ok(ty!(?)),
-            bty!(bool * _) => Ok(ty!(?)),
-            bty!(bool * felt) => Ok(ty!(?)),
-            bty!(bool * int) => Ok(ty!(?)),
-            bty!(bool * bool) => Ok(ty!(?)),
-            _ => Err(TypeError::IncompatibleBinOp { bin_ty: *self }),
+            bty!(felt * any) | bty!(any * felt) => Ok(ty!(felt)),
+            bty!(? * any) | bty!(any * ?) => Ok(ty!(?)),
+            bty!(_ * any) | bty!(any * _) => Ok(ty!(_)),
+            bty!(int * int) => Ok(ty!(int)),
+            bty!(bool * any:x) | bty!(any:x * bool) => Ok(*x),
+            _ => Ok(ty!(_)),
         }
     }
 
+    /// Returns the type of the result of an exponentiation based on the types
+    /// of the left-hand side and right-hand side operands.
+    /// If lhs or rhs is not a scalar type or `?`, it returns a [TypeError::IncompatibleBinOp].
+    ///
+    /// based on the scalar types of the operands:
+    /// ? ^ ?    || felt | bool |  int |    _ |    ?
+    /// =========||======|======|======|======|=====
+    /// felt     ||  err |  err | felt |    _ |    ?
+    /// bool     ||  err |  err | bool |    _ |    ?
+    /// int      ||  err |  err |  int |    _ |    ?
+    /// _        ||  err |  err |    _ |    _ |    ?
+    /// ?        ||  err |  err |    ? |    ? |    ?
+    ///
+    ///
+    /// So, the result type of an exponentiation is:
+    /// - an error if either lhs or rhs is not a scalar type or `?`,
+    /// - an error if the rhs is not an int or `?`,
+    /// - any   ^ ?   -> ?,
+    /// - ?     ^ any -> ?,
+    /// - any   ^ _   -> _,
+    /// - any:x ^ int -> lhs,
+    ///
+    /// Because:
+    /// - it is an error if either lhs or rhs is not a scalar type or `?`,
+    /// - it is an error if rhs is not an int or `?`,
+    /// - a bool to any power is still a bool:
+    ///   - 0^n = 0
+    ///   - 1^n = 1
+    /// - a felt to any power is still a felt
+    /// - an int to any power is still an int
+    /// - a _ to any power is still a _
+    /// - a ? to any power is still a ?
     pub fn infer_bin_ty_exp(&self) -> Result<Option<Type>, TypeError> {
-        if !self.lhs().is_scalar() || !self.rhs().is_scalar_int() {
+        if let Some(ret) = self.ret() {
+            return Ok(Some(ret));
+        }
+        let lhs = self.lhs();
+        let rhs = self.rhs();
+        if !((lhs.is_scalar() | lhs.is_none()) && (rhs.is_scalar() | rhs.is_none())) {
             return Err(TypeError::IncompatibleBinOp { bin_ty: *self });
         }
-        // a bool to any power is still a bool:
-        //   - 0^n = 0
-        //   - 1^n = 1
-        // a felt to any power is still a felt
-        // an int to any power is still an int
-        // a ? to any power is still a ?
-        Ok(self.lhs())
+        match self {
+            bty!(any ^ felt) | bty!(any ^ bool) => {
+                Err(TypeError::IncompatibleBinOp { bin_ty: *self })
+            },
+            bty!(any ^ ?) | bty!(? ^ any) => Ok(ty!(?)),
+            bty!(any ^ _) => Ok(ty!(_)),
+            bty!(any:lhs ^ int) => Ok(*lhs),
+            _ => unreachable!("Undefined case for infer_bin_ty_exp: {self}"),
+        }
     }
 }
 
