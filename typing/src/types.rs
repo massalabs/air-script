@@ -63,26 +63,26 @@ impl core::fmt::Display for Type {
 
 #[macro_export]
 macro_rules! ty {
-    () => {
+    (?) => {
         None::<Type>
     };
     (_) => {
         Some(Type::Scalar(None))
     };
-    ($($sty:ident)?) => {
-        Some(Type::Scalar(sty!($($sty)?)))
+    ($sty:ident) => {
+        Some(Type::Scalar(sty!($sty)))
     };
     (_[$len:expr]) => {
         Some(Type::Vector(sty!(_), $len))
     };
-    ($($sty:ident)?[$len:expr]) => {
-        Some(Type::Vector(sty!($($sty)?), $len))
+    ($sty:ident[$len:expr]) => {
+        Some(Type::Vector(sty!($sty), $len))
     };
     (_[$rows:expr, $cols:expr]) => {
         Some(Type::Matrix(sty!(_), $rows, $cols))
     };
-    ($($sty:ident)?[$rows:expr, $cols:expr]) => {
-        Some(Type::Matrix(sty!($($sty)?), $rows, $cols))
+    ($sty:ident[$rows:expr, $cols:expr]) => {
+        Some(Type::Matrix(sty!($sty), $rows, $cols))
     };
 }
 
@@ -101,6 +101,10 @@ macro_rules! tys {
     };
     (RES: $res:expr; ) => {
         $res
+    };
+    (RES: $res:expr; ?) => {
+        tys!(RES: Push::push($res, ty!(?));)
+    };
     (RES: $res:expr; _$([$($spec:tt)+])? $(, $($rest:tt)+)?) => {
         tys!(RES: Push::push($res, ty!(_$([$($spec)+])?)); $($($rest)+)?)
     };
@@ -182,8 +186,8 @@ macro_rules! fty {
     (ev ([$($tty:tt)+])) => {
         FunctionType::Evaluator(tty!([$($tty)+]))
     };
-    (fn ($($arg:tt)*) -> $($ret:tt)*) => {
-        FunctionType::Function(tys!([$($arg)*]), ty!($($ret)*))
+    (fn ($($arg:tt)*) -> $($ret:tt)+) => {
+        FunctionType::Function(tys!([$($arg)*]), ty!($($ret)+))
     };
 }
 
@@ -302,50 +306,50 @@ macro_rules! bty {
         b.ret_mut().replace(ty!($($ret)+));
         b
     }};
-    (= $($rhs:tt)*) => {
-        BinType::Eq(ty!(), ty!($($rhs)*), ty!())
+    (? = $($rhs:tt)+) => {
+        BinType::Eq(ty!(?), ty!($($rhs)+), ty!(?))
     };
-    (_$([$($spec:tt)+])? = $($rhs:tt)*) => {
-        BinType::Eq(ty!(_$([$($spec)+])?), ty!($($rhs)*), ty!())
+    (_$([$($spec:tt)+])? = $($rhs:tt)+) => {
+        BinType::Eq(ty!(_$([$($spec)+])?), ty!($($rhs)+), ty!(?))
     };
-    ($sty:ident$([$($spec:tt)+])? = $($rhs:tt)*) => {
-        BinType::Eq(ty!($sty$([$($spec)+])?), ty!($($rhs)*), ty!())
+    ($sty:ident$([$($spec:tt)+])? = $($rhs:tt)+) => {
+        BinType::Eq(ty!($sty$([$($spec)+])?), ty!($($rhs)+), ty!(?))
     };
-    (+ $($rhs:tt)*) => {
-        BinType::Add(ty!(), ty!($($rhs)*), ty!())
+    (? + $($rhs:tt)+) => {
+        BinType::Add(ty!(?), ty!($($rhs)+), ty!(?))
     };
-    (_$([$($spec:tt)+])? + $($rhs:tt)*) => {
-        BinType::Add(ty!(_$([$($spec)+])?), ty!($($rhs)*), ty!())
+    (_$([$($spec:tt)+])? + $($rhs:tt)+) => {
+        BinType::Add(ty!(_$([$($spec)+])?), ty!($($rhs)+), ty!(?))
     };
-    ($sty:ident$([$($spec:tt)+])? + $($rhs:tt)*) => {
-        BinType::Add(ty!($sty$([$($spec)+])?), ty!($($rhs)*), ty!())
+    ($sty:ident$([$($spec:tt)+])? + $($rhs:tt)+) => {
+        BinType::Add(ty!($sty$([$($spec)+])?), ty!($($rhs)+), ty!(?))
     };
-    (- $($rhs:tt)*) => {
-        BinType::Sub(ty!(), ty!($($rhs)*), ty!())
+    (? - $($rhs:tt)+) => {
+        BinType::Sub(ty!(?), ty!($($rhs)+), ty!(?))
     };
-    (_$([$($spec:tt)+])? - $($rhs:tt)*) => {
-        BinType::Sub(ty!(_$([$($spec)+])?), ty!($($rhs)*), ty!())
+    (_$([$($spec:tt)+])? - $($rhs:tt)+) => {
+        BinType::Sub(ty!(_$([$($spec)+])?), ty!($($rhs)+), ty!(?))
     };
-    ($sty:ident$([$($spec:tt)+])? - $($rhs:tt)*) => {
-        BinType::Sub(ty!($sty$([$($spec)+])?), ty!($($rhs)*), ty!())
+    ($sty:ident$([$($spec:tt)+])? - $($rhs:tt)+) => {
+        BinType::Sub(ty!($sty$([$($spec)+])?), ty!($($rhs)+), ty!(?))
     };
-    (* $($rhs:tt)*) => {
-        BinType::Mul(ty!(), ty!($($rhs)*), ty!())
+    (? * $($rhs:tt)+) => {
+        BinType::Mul(ty!(?), ty!($($rhs)+), ty!(?))
     };
-    (_$([$($spec:tt)+])? * $($rhs:tt)*) => {
-        BinType::Mul(ty!(_$([$($spec)+])?), ty!($($rhs)*), ty!())
+    (_$([$($spec:tt)+])? * $($rhs:tt)+) => {
+        BinType::Mul(ty!(_$([$($spec)+])?), ty!($($rhs)+), ty!(?))
     };
-    ($sty:ident$([$($spec:tt)+])? * $($rhs:tt)*) => {
-        BinType::Mul(ty!($sty$([$($spec)+])?), ty!($($rhs)*), ty!())
+    ($sty:ident$([$($spec:tt)+])? * $($rhs:tt)+) => {
+        BinType::Mul(ty!($sty$([$($spec)+])?), ty!($($rhs)+), ty!(?))
     };
-    (^ $($rhs:tt)*) => {
-        BinType::Exp(ty!(), ty!($($rhs)*), ty!())
+    (? ^ $($rhs:tt)+) => {
+        BinType::Exp(ty!(?), ty!($($rhs)+), ty!(?))
     };
-    (_$([$($spec:tt)+])? ^ $($rhs:tt)*) => {
-        BinType::Exp(ty!(_$([$($spec)+])?), ty!($($rhs)*), ty!())
+    (_$([$($spec:tt)+])? ^ $($rhs:tt)+) => {
+        BinType::Exp(ty!(_$([$($spec)+])?), ty!($($rhs)+), ty!(?))
     };
-    ($sty:ident$([$($spec:tt)+])? ^ $($rhs:tt)*) => {
-        BinType::Exp(ty!($sty$([$($spec)+])?), ty!($($rhs)*), ty!())
+    ($sty:ident$([$($spec:tt)+])? ^ $($rhs:tt)+) => {
+        BinType::Exp(ty!($sty$([$($spec)+])?), ty!($($rhs)+), ty!(?))
     };
 }
 
@@ -369,11 +373,11 @@ macro_rules! kind {
     (ev $($spec:tt)+) => {
         Kind::Callable(fty!(ev $($spec)+))
     };
-    (fn ($($args:tt)*) -> $($ret:tt)*) => {
-        Kind::Callable(fty!(fn ($($args)*) -> $($ret)*))
+    (fn ($($args:tt)*) -> $($ret:tt)+) => {
+        Kind::Callable(fty!(fn ($($args)*) -> $($ret)+))
     };
-    ($($spec:tt)*) => {
-        Kind::Value(ty!($($spec)*))
+    ($($spec:tt)+) => {
+        Kind::Value(ty!($($spec)+))
     };
 }
 
@@ -391,7 +395,7 @@ mod tests {
 
     #[test]
     fn test_macro_type() {
-        assert_eq!(ty!(), None::<Type>);
+        assert_eq!(ty!(?), None::<Type>);
         assert_eq!(ty!(_), Some(Type::Scalar(None)));
         assert_eq!(ty!(felt), Some(Type::Scalar(Some(ScalarType::Felt))));
         assert_eq!(ty!(bool), Some(Type::Scalar(Some(ScalarType::Bool))));
@@ -444,14 +448,14 @@ mod tests {
 
     #[test]
     fn test_macro_bin_type() {
-        assert_eq!(bty!(int + felt), BinType::Add(ty!(int), ty!(felt), ty!()));
-        assert_eq!(bty!(_ - felt), BinType::Sub(ty!(_), ty!(felt), ty!()));
-        assert_eq!(bty!( = felt), BinType::Eq(ty!(), ty!(felt), ty!()));
-        assert_eq!(bty!(int+), BinType::Add(ty!(int), ty!(), ty!()));
-        assert_eq!(bty!(int - felt), BinType::Sub(ty!(int), ty!(felt), ty!()));
-        assert_eq!(bty!(int[2] * felt[2]), BinType::Mul(ty!(int[2]), ty!(felt[2]), ty!()));
-        assert_eq!(bty!(int[2, 3] ^ _), BinType::Exp(ty!(int[2, 3]), ty!(_), ty!()));
-        assert_eq!(bty!(bool[5] = _[5]), BinType::Eq(ty!(bool[5]), ty!(_[5]), ty!()));
+        assert_eq!(bty!(int + felt), BinType::Add(ty!(int), ty!(felt), ty!(?)));
+        assert_eq!(bty!(_ - felt), BinType::Sub(ty!(_), ty!(felt), ty!(?)));
+        assert_eq!(bty!(? = felt), BinType::Eq(ty!(?), ty!(felt), ty!(?)));
+        assert_eq!(bty!(int + ?), BinType::Add(ty!(int), ty!(?), ty!(?)));
+        assert_eq!(bty!(int - felt), BinType::Sub(ty!(int), ty!(felt), ty!(?)));
+        assert_eq!(bty!(int[2] * felt[2]), BinType::Mul(ty!(int[2]), ty!(felt[2]), ty!(?)));
+        assert_eq!(bty!(int[2, 3] ^ _), BinType::Exp(ty!(int[2, 3]), ty!(_), ty!(?)));
+        assert_eq!(bty!(bool[5] = _[5]), BinType::Eq(ty!(bool[5]), ty!(_[5]), ty!(?)));
     }
 
     #[test]

@@ -287,27 +287,27 @@ impl Typing for BinType {
                 // If the shapes are not compatible, return an error
                 Err(TypeError::IncompatibleShapes { ty: lhs.ty(), new_ty: rhs.ty() })
             },
-            bty!(=) => Ok(ty!(bool)),
-            bty!(=_) => Ok(ty!(bool)),
-            bty!(=felt) => Ok(ty!(bool)),
-            bty!(=int) => Ok(ty!(bool)),
-            bty!(=bool) => Ok(ty!(bool)),
-            bty!(_=) => Ok(ty!(bool)),
+            bty!(? = ?) => Ok(ty!(bool)),
+            bty!(? = _) => Ok(ty!(bool)),
+            bty!(? = felt) => Ok(ty!(bool)),
+            bty!(? = int) => Ok(ty!(bool)),
+            bty!(? = bool) => Ok(ty!(bool)),
+            bty!(_ = ?) => Ok(ty!(bool)),
             bty!(_ = _) => Ok(ty!(bool)),
             bty!(_ = felt) => Ok(ty!(bool)),
             bty!(_ = int) => Ok(ty!(bool)),
             bty!(_ = bool) => Ok(ty!(bool)),
-            bty!(felt=) => Ok(ty!(bool)),
+            bty!(felt = ?) => Ok(ty!(bool)),
             bty!(felt = _) => Ok(ty!(bool)),
             bty!(felt = felt) => Ok(ty!(bool)),
             bty!(felt = int) => Ok(ty!(bool)),
             bty!(felt = bool) => Ok(ty!(bool)),
-            bty!(int=) => Ok(ty!(bool)),
+            bty!(int = ?) => Ok(ty!(bool)),
             bty!(int = _) => Ok(ty!(bool)),
             bty!(int = felt) => Ok(ty!(bool)),
             bty!(int = int) => Ok(ty!(bool)),
             bty!(int = bool) => Ok(ty!(bool)),
-            bty!(bool=) => Ok(ty!(bool)),
+            bty!(bool = ?) => Ok(ty!(bool)),
             bty!(bool = _) => Ok(ty!(bool)),
             bty!(bool = felt) => Ok(ty!(bool)),
             bty!(bool = int) => Ok(ty!(bool)),
@@ -414,8 +414,8 @@ mod tests {
 
     #[test]
     fn test_typing() {
-        assert_eq!(ty!().ty(), None);
-        assert_eq!(ty!().scalar_ty(), sty!(_));
+        assert_eq!(ty!(?).ty(), None);
+        assert_eq!(ty!(?).scalar_ty(), sty!(_));
         assert_eq!(ty!(_).ty(), Some(Type::Scalar(sty!(_))));
         assert_eq!(ty!(_).scalar_ty(), sty!(_));
         assert_eq!(ty!(felt).ty(), Some(Type::Scalar(sty!(felt))));
@@ -444,21 +444,21 @@ mod tests {
 
     #[test]
     fn test_typing_subtype() {
-        assert_subtype!(ty!(); ty!());
-        assert_subtype!(ty!(); !ty!(_));
-        assert_subtype!(ty!(); !ty!(felt));
-        assert_subtype!(ty!(); !ty!(int));
-        assert_subtype!(ty!(); !ty!(bool));
-        assert_subtype!(ty!(); !ty!(_[5]));
-        assert_subtype!(ty!(); !ty!(felt[5]));
-        assert_subtype!(ty!(); !ty!(int[5]));
-        assert_subtype!(ty!(); !ty!(bool[5]));
-        assert_subtype!(ty!(); !ty!(_[3, 4]));
-        assert_subtype!(ty!(); !ty!(felt[3, 4]));
-        assert_subtype!(ty!(); !ty!(int[3, 4]));
-        assert_subtype!(ty!(); !ty!(bool[3, 4]));
+        assert_subtype!(ty!(?); ty!(?));
+        assert_subtype!(ty!(?); !ty!(_));
+        assert_subtype!(ty!(?); !ty!(felt));
+        assert_subtype!(ty!(?); !ty!(int));
+        assert_subtype!(ty!(?); !ty!(bool));
+        assert_subtype!(ty!(?); !ty!(_[5]));
+        assert_subtype!(ty!(?); !ty!(felt[5]));
+        assert_subtype!(ty!(?); !ty!(int[5]));
+        assert_subtype!(ty!(?); !ty!(bool[5]));
+        assert_subtype!(ty!(?); !ty!(_[3, 4]));
+        assert_subtype!(ty!(?); !ty!(felt[3, 4]));
+        assert_subtype!(ty!(?); !ty!(int[3, 4]));
+        assert_subtype!(ty!(?); !ty!(bool[3, 4]));
 
-        assert_subtype!(ty!(_); ty!());
+        assert_subtype!(ty!(_); ty!(?));
         assert_subtype!(ty!(_); ty!(_));
         assert_subtype!(ty!(_); !ty!(felt));
         assert_subtype!(ty!(_); !ty!(int));
@@ -472,7 +472,7 @@ mod tests {
         assert_subtype!(ty!(_); !ty!(int[3, 4]));
         assert_subtype!(ty!(_); !ty!(bool[3, 4]));
 
-        assert_subtype!(ty!(felt); ty!());
+        assert_subtype!(ty!(felt); ty!(?));
         assert_subtype!(ty!(felt); ty!(_));
         assert_subtype!(ty!(felt); ty!(felt));
         assert_subtype!(ty!(felt); !ty!(int));
@@ -486,7 +486,7 @@ mod tests {
         assert_subtype!(ty!(felt); !ty!(int[3, 4]));
         assert_subtype!(ty!(felt); !ty!(bool[3, 4]));
 
-        assert_subtype!(ty!(int); ty!());
+        assert_subtype!(ty!(int); ty!(?));
         assert_subtype!(ty!(int); ty!(_));
         assert_subtype!(ty!(int); ty!(felt));
         assert_subtype!(ty!(int); ty!(int));
@@ -500,7 +500,7 @@ mod tests {
         assert_subtype!(ty!(int); !ty!(int[3, 4]));
         assert_subtype!(ty!(int); !ty!(bool[3, 4]));
 
-        assert_subtype!(ty!(bool); ty!());
+        assert_subtype!(ty!(bool); ty!(?));
         assert_subtype!(ty!(bool); ty!(_));
         assert_subtype!(ty!(bool); ty!(felt));
         assert_subtype!(ty!(bool); !ty!(int));
@@ -514,7 +514,7 @@ mod tests {
         assert_subtype!(ty!(bool); !ty!(int[3, 4]));
         assert_subtype!(ty!(bool); !ty!(bool[3, 4]));
 
-        assert_subtype!(ty!(_[5]); ty!());
+        assert_subtype!(ty!(_[5]); ty!(?));
         assert_subtype!(ty!(_[5]); !ty!(_));
         assert_subtype!(ty!(_[5]); !ty!(felt));
         assert_subtype!(ty!(_[5]); !ty!(int));
@@ -528,7 +528,7 @@ mod tests {
         assert_subtype!(ty!(_[5]); !ty!(int[3, 4]));
         assert_subtype!(ty!(_[5]); !ty!(bool[3, 4]));
 
-        assert_subtype!(ty!(felt[5]); ty!());
+        assert_subtype!(ty!(felt[5]); ty!(?));
         assert_subtype!(ty!(felt[5]); !ty!(_));
         assert_subtype!(ty!(felt[5]); !ty!(felt));
         assert_subtype!(ty!(felt[5]); !ty!(int));
@@ -542,7 +542,7 @@ mod tests {
         assert_subtype!(ty!(felt[5]); !ty!(int[3, 4]));
         assert_subtype!(ty!(felt[5]); !ty!(bool[3, 4]));
 
-        assert_subtype!(ty!(int[5]); ty!());
+        assert_subtype!(ty!(int[5]); ty!(?));
         assert_subtype!(ty!(int[5]); !ty!(_));
         assert_subtype!(ty!(int[5]); !ty!(felt));
         assert_subtype!(ty!(int[5]); !ty!(int));
@@ -556,7 +556,7 @@ mod tests {
         assert_subtype!(ty!(int[5]); !ty!(int[3, 4]));
         assert_subtype!(ty!(int[5]); !ty!(bool[3, 4]));
 
-        assert_subtype!(ty!(bool[5]); ty!());
+        assert_subtype!(ty!(bool[5]); ty!(?));
         assert_subtype!(ty!(bool[5]); !ty!(_));
         assert_subtype!(ty!(bool[5]); !ty!(felt));
         assert_subtype!(ty!(bool[5]); !ty!(int));
@@ -570,7 +570,7 @@ mod tests {
         assert_subtype!(ty!(bool[5]); !ty!(int[3, 4]));
         assert_subtype!(ty!(bool[5]); !ty!(bool[3, 4]));
 
-        assert_subtype!(ty!(_[3, 4]); ty!());
+        assert_subtype!(ty!(_[3, 4]); ty!(?));
         assert_subtype!(ty!(_[3, 4]); !ty!(_));
         assert_subtype!(ty!(_[3, 4]); !ty!(felt));
         assert_subtype!(ty!(_[3, 4]); !ty!(int));
@@ -584,7 +584,7 @@ mod tests {
         assert_subtype!(ty!(_[3, 4]); !ty!(int[3, 4]));
         assert_subtype!(ty!(_[3, 4]); !ty!(bool[3, 4]));
 
-        assert_subtype!(ty!(felt[3, 4]); ty!());
+        assert_subtype!(ty!(felt[3, 4]); ty!(?));
         assert_subtype!(ty!(felt[3, 4]); !ty!(_));
         assert_subtype!(ty!(felt[3, 4]); !ty!(felt));
         assert_subtype!(ty!(felt[3, 4]); !ty!(int));
@@ -598,7 +598,7 @@ mod tests {
         assert_subtype!(ty!(felt[3, 4]); !ty!(int[3, 4]));
         assert_subtype!(ty!(felt[3, 4]); !ty!(bool[3, 4]));
 
-        assert_subtype!(ty!(int[3, 4]); ty!());
+        assert_subtype!(ty!(int[3, 4]); ty!(?));
         assert_subtype!(ty!(int[3, 4]); !ty!(_));
         assert_subtype!(ty!(int[3, 4]); !ty!(felt));
         assert_subtype!(ty!(int[3, 4]); !ty!(int));
@@ -612,7 +612,7 @@ mod tests {
         assert_subtype!(ty!(int[3, 4]); ty!(int[3, 4]));
         assert_subtype!(ty!(int[3, 4]); !ty!(bool[3, 4]));
 
-        assert_subtype!(ty!(bool[3, 4]); ty!());
+        assert_subtype!(ty!(bool[3, 4]); ty!(?));
         assert_subtype!(ty!(bool[3, 4]); !ty!(_));
         assert_subtype!(ty!(bool[3, 4]); !ty!(felt));
         assert_subtype!(ty!(bool[3, 4]); !ty!(int));
