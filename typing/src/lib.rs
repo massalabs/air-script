@@ -268,7 +268,52 @@ impl Typing for BinType {
         self.infer_ty().ok()?
     }
     fn infer_ty(&self) -> Result<Option<Type>, TypeError> {
-        todo!()
+        match self {
+            BinType::Eq(_, _, Some(ret))
+            | BinType::Add(_, _, Some(ret))
+            | BinType::Sub(_, _, Some(ret))
+            | BinType::Mul(_, _, Some(ret))
+            | BinType::Exp(_, _, Some(ret)) => {
+                // If the return type is already set, return it
+                Ok(Some(ret.clone()))
+            },
+            BinType::Eq(lhs, rhs, None)
+            | BinType::Add(lhs, rhs, None)
+            | BinType::Sub(lhs, rhs, None)
+            | BinType::Mul(lhs, rhs, None)
+            | BinType::Exp(lhs, rhs, None)
+                if !lhs.is_shape_compatible(rhs) =>
+            {
+                // If the shapes are not compatible, return an error
+                Err(TypeError::IncompatibleShapes { ty: lhs.ty(), new_ty: rhs.ty() })
+            },
+            bty!(=) => Ok(ty!(bool)),
+            bty!(=_) => Ok(ty!(bool)),
+            bty!(=felt) => Ok(ty!(bool)),
+            bty!(=int) => Ok(ty!(bool)),
+            bty!(=bool) => Ok(ty!(bool)),
+            bty!(_=) => Ok(ty!(bool)),
+            bty!(_ = _) => Ok(ty!(bool)),
+            bty!(_ = felt) => Ok(ty!(bool)),
+            bty!(_ = int) => Ok(ty!(bool)),
+            bty!(_ = bool) => Ok(ty!(bool)),
+            bty!(felt=) => Ok(ty!(bool)),
+            bty!(felt = _) => Ok(ty!(bool)),
+            bty!(felt = felt) => Ok(ty!(bool)),
+            bty!(felt = int) => Ok(ty!(bool)),
+            bty!(felt = bool) => Ok(ty!(bool)),
+            bty!(int=) => Ok(ty!(bool)),
+            bty!(int = _) => Ok(ty!(bool)),
+            bty!(int = felt) => Ok(ty!(bool)),
+            bty!(int = int) => Ok(ty!(bool)),
+            bty!(int = bool) => Ok(ty!(bool)),
+            bty!(bool=) => Ok(ty!(bool)),
+            bty!(bool = _) => Ok(ty!(bool)),
+            bty!(bool = felt) => Ok(ty!(bool)),
+            bty!(bool = int) => Ok(ty!(bool)),
+            bty!(bool = bool) => Ok(ty!(bool)),
+            _ => todo!("Implement type inference for BinType: {self}"),
+        }
     }
 }
 
