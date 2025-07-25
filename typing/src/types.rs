@@ -115,12 +115,12 @@ macro_rules! tys {
 
 #[macro_export]
 macro_rules! tty {
-    ([$($n1:ident$([$l1:literal])?),*]) => {
+    ([$($n1:ident$([$l1:expr])?),*]) => {
         Vec::<Option<Type>>::from([
             $(tty!($n1$([$l1])?)),*
         ])
     };
-    ($name:ident[$len:literal]) => {
+    ($name:ident[$len:expr]) => {
         ty!(felt[$len])
     };
     ($name:ident) => {
