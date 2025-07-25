@@ -19,6 +19,16 @@ impl core::fmt::Display for ScalarType {
 
 #[macro_export]
 macro_rules! sty {
+    // for pattern matching
+    // equivalent to a `_` in a match or let expression
+    (any) => {
+        _
+    };
+    // for pattern matching
+    // equivalent to a `$name` in a match or let expression
+    (any: $name:ident) => {
+        $name
+    };
     (_) => {
         None
     };
@@ -63,6 +73,16 @@ impl core::fmt::Display for Type {
 
 #[macro_export]
 macro_rules! ty {
+    // for pattern matching
+    // equivalent to a `_` in a match or let expression
+    (any) => {
+        _
+    };
+    // for pattern matching
+    // equivalent to a `$name` in a match or let expression
+    (any: $name:ident) => {
+        $name
+    };
     (?) => {
         None::<Type>
     };
@@ -335,6 +355,11 @@ macro_rules! bty {
         b.ret_mut().replace(ty!($($ret)+));
         b
     }};
+    // for pattern matching
+    // equivalent to a `$name` in a match or let expression
+    (any:$name:ident = $($rhs:tt)+) => {
+        BinType::Eq(ty!(any:$name), ty!($($rhs)+), ty!(?))
+    };
     (? = $($rhs:tt)+) => {
         BinType::Eq(ty!(?), ty!($($rhs)+), ty!(?))
     };
@@ -343,6 +368,11 @@ macro_rules! bty {
     };
     ($sty:ident$([$($spec:tt)+])? = $($rhs:tt)+) => {
         BinType::Eq(ty!($sty$([$($spec)+])?), ty!($($rhs)+), ty!(?))
+    };
+    // for pattern matching
+    // equivalent to a `$name` in a match or let expression
+    (any:$name:ident + $($rhs:tt)+) => {
+        BinType::Add(ty!(any:$name), ty!($($rhs)+), ty!(?))
     };
     (? + $($rhs:tt)+) => {
         BinType::Add(ty!(?), ty!($($rhs)+), ty!(?))
@@ -353,6 +383,11 @@ macro_rules! bty {
     ($sty:ident$([$($spec:tt)+])? + $($rhs:tt)+) => {
         BinType::Add(ty!($sty$([$($spec)+])?), ty!($($rhs)+), ty!(?))
     };
+    // for pattern matching
+    // equivalent to a `$name` in a match or let expression
+    (any:$name:ident - $($rhs:tt)+) => {
+        BinType::Sub(ty!(any:$name), ty!($($rhs)+), ty!(?))
+    };
     (? - $($rhs:tt)+) => {
         BinType::Sub(ty!(?), ty!($($rhs)+), ty!(?))
     };
@@ -362,6 +397,11 @@ macro_rules! bty {
     ($sty:ident$([$($spec:tt)+])? - $($rhs:tt)+) => {
         BinType::Sub(ty!($sty$([$($spec)+])?), ty!($($rhs)+), ty!(?))
     };
+    // for pattern matching
+    // equivalent to a `$name` in a match or let expression
+    (any:$name:ident * $($rhs:tt)+) => {
+        BinType::Mul(ty!(any:$name), ty!($($rhs)+), ty!(?))
+    };
     (? * $($rhs:tt)+) => {
         BinType::Mul(ty!(?), ty!($($rhs)+), ty!(?))
     };
@@ -370,6 +410,11 @@ macro_rules! bty {
     };
     ($sty:ident$([$($spec:tt)+])? * $($rhs:tt)+) => {
         BinType::Mul(ty!($sty$([$($spec)+])?), ty!($($rhs)+), ty!(?))
+    };
+    // for pattern matching
+    // equivalent to a `$name` in a match or let expression
+    (any:$name:ident ^ $($rhs:tt)+) => {
+        BinType::Exp(ty!(any:$name), ty!($($rhs)+), ty!(?))
     };
     (? ^ $($rhs:tt)+) => {
         BinType::Exp(ty!(?), ty!($($rhs)+), ty!(?))
