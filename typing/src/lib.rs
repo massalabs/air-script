@@ -28,6 +28,13 @@ pub enum TypeError {
 pub trait Typing {
     fn kind(&self) -> Option<Kind>;
     fn ty(&self) -> Option<Type>;
+    fn shape(&self) -> Option<Type> {
+        self.ty().and_then(|t| match t {
+            Type::Scalar(_) => ty!(_),
+            Type::Vector(_, len) => ty!(_[len]),
+            Type::Matrix(_, rows, cols) => ty!(_[rows, cols]),
+        })
+    }
     fn scalar_ty(&self) -> Option<ScalarType> {
         self.ty().scalar_ty()
     }
