@@ -23,6 +23,9 @@ pub enum TypeError {
         ty: Option<Type>,
         new_ty: Option<Type>,
     },
+    IncompatibleBinOp {
+        bin_ty: BinType,
+    },
 }
 
 pub trait Typing {
@@ -37,6 +40,18 @@ pub trait Typing {
     }
     fn scalar_ty(&self) -> Option<ScalarType> {
         self.ty().scalar_ty()
+    }
+    fn ty_with_shape(&self, shape: impl Typing) -> Option<Type> {
+        let sty = self.scalar_ty();
+        let shape = shape.shape();
+        if sty.is_none() {
+            return shape;
+        }
+        match (self.scalar_ty().unwrap(), shape) {
+            (sty, None | Some(Type::Scalar(_))) => Some(Type::Scalar(Some(sty))),
+            (sty, Some(Type::Vector(_, len))) => Some(Type::Vector(Some(sty), len)),
+            (sty, Some(Type::Matrix(_, rows, cols))) => Some(Type::Matrix(Some(sty), rows, cols)),
+        }
     }
     fn is_scalar_int(&self) -> bool {
         matches!(self.scalar_ty(), sty!(int))
@@ -276,50 +291,16 @@ impl Typing for BinType {
     }
     fn infer_ty(&self) -> Result<Option<Type>, TypeError> {
         match self {
-            BinType::Eq(_, _, Some(ret))
-            | BinType::Add(_, _, Some(ret))
-            | BinType::Sub(_, _, Some(ret))
-            | BinType::Mul(_, _, Some(ret))
-            | BinType::Exp(_, _, Some(ret)) => {
-                // If the return type is already set, return it
-                Ok(Some(ret.clone()))
-            },
-            BinType::Eq(lhs, rhs, None)
-            | BinType::Add(lhs, rhs, None)
-            | BinType::Sub(lhs, rhs, None)
-            | BinType::Mul(lhs, rhs, None)
-            | BinType::Exp(lhs, rhs, None)
-                if !lhs.is_shape_compatible(rhs) =>
-            {
-                // If the shapes are not compatible, return an error
-                Err(TypeError::IncompatibleShapes { ty: lhs.ty(), new_ty: rhs.ty() })
-            },
-            bty!(? = ?) => Ok(ty!(bool)),
-            bty!(? = _) => Ok(ty!(bool)),
-            bty!(? = felt) => Ok(ty!(bool)),
-            bty!(? = int) => Ok(ty!(bool)),
-            bty!(? = bool) => Ok(ty!(bool)),
-            bty!(_ = ?) => Ok(ty!(bool)),
-            bty!(_ = _) => Ok(ty!(bool)),
-            bty!(_ = felt) => Ok(ty!(bool)),
-            bty!(_ = int) => Ok(ty!(bool)),
-            bty!(_ = bool) => Ok(ty!(bool)),
-            bty!(felt = ?) => Ok(ty!(bool)),
-            bty!(felt = _) => Ok(ty!(bool)),
-            bty!(felt = felt) => Ok(ty!(bool)),
-            bty!(felt = int) => Ok(ty!(bool)),
-            bty!(felt = bool) => Ok(ty!(bool)),
-            bty!(int = ?) => Ok(ty!(bool)),
-            bty!(int = _) => Ok(ty!(bool)),
-            bty!(int = felt) => Ok(ty!(bool)),
-            bty!(int = int) => Ok(ty!(bool)),
-            bty!(int = bool) => Ok(ty!(bool)),
-            bty!(bool = ?) => Ok(ty!(bool)),
-            bty!(bool = _) => Ok(ty!(bool)),
-            bty!(bool = felt) => Ok(ty!(bool)),
-            bty!(bool = int) => Ok(ty!(bool)),
-            bty!(bool = bool) => Ok(ty!(bool)),
-            _ => todo!("Implement type inference for BinType: {self}"),
+            BinType::Eq(.., Some(ret))
+            | BinType::Add(.., Some(ret))
+            | BinType::Sub(.., Some(ret))
+            | BinType::Mul(.., Some(ret))
+            | BinType::Exp(.., Some(ret)) => Ok(Some(*ret)),
+            BinType::Eq(.., None) => self.infer_bin_ty_eq(),
+            BinType::Add(.., None) => self.infer_bin_ty_add(),
+            BinType::Sub(.., None) => self.infer_bin_ty_sub(),
+            BinType::Mul(.., None) => self.infer_bin_ty_mul(),
+            BinType::Exp(.., None) => self.infer_bin_ty_exp(),
         }
     }
 }

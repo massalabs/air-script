@@ -1,4 +1,4 @@
-use crate::Typing;
+use crate::{TypeError, Typing};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ScalarType {
@@ -270,6 +270,35 @@ impl BinType {
             | Self::Exp(lhs, rhs, ret) => FunctionType::Function(vec![*lhs, *rhs], *ret),
         }
     }
+    pub fn without_shape(&self) -> Self {
+        match self {
+            Self::Eq(lhs, rhs, ret) => Self::Eq(
+                (*lhs).and_then(|ty| ty.ty_with_shape(ty!(_))),
+                (*rhs).and_then(|ty| ty.ty_with_shape(ty!(_))),
+                (*ret).and_then(|ty| ty.ty_with_shape(ty!(_))),
+            ),
+            Self::Add(lhs, rhs, ret) => Self::Add(
+                (*lhs).and_then(|ty| ty.ty_with_shape(ty!(_))),
+                (*rhs).and_then(|ty| ty.ty_with_shape(ty!(_))),
+                (*ret).and_then(|ty| ty.ty_with_shape(ty!(_))),
+            ),
+            Self::Sub(lhs, rhs, ret) => Self::Sub(
+                (*lhs).and_then(|ty| ty.ty_with_shape(ty!(_))),
+                (*rhs).and_then(|ty| ty.ty_with_shape(ty!(_))),
+                (*ret).and_then(|ty| ty.ty_with_shape(ty!(_))),
+            ),
+            Self::Mul(lhs, rhs, ret) => Self::Mul(
+                (*lhs).and_then(|ty| ty.ty_with_shape(ty!(_))),
+                (*rhs).and_then(|ty| ty.ty_with_shape(ty!(_))),
+                (*ret).and_then(|ty| ty.ty_with_shape(ty!(_))),
+            ),
+            Self::Exp(lhs, rhs, ret) => Self::Exp(
+                (*lhs).and_then(|ty| ty.ty_with_shape(ty!(_))),
+                (*rhs).and_then(|ty| ty.ty_with_shape(ty!(_))),
+                (*ret).and_then(|ty| ty.ty_with_shape(ty!(_))),
+            ),
+        }
+    }
 }
 
 impl core::fmt::Display for BinType {
@@ -351,6 +380,172 @@ macro_rules! bty {
     ($sty:ident$([$($spec:tt)+])? ^ $($rhs:tt)+) => {
         BinType::Exp(ty!($sty$([$($spec)+])?), ty!($($rhs)+), ty!(?))
     };
+}
+
+impl BinType {
+    pub fn infer_bin_ty_eq(&self) -> Result<Option<Type>, TypeError> {
+        if let Some(ret) = self.ret() {
+            return Ok(Some(ret));
+        }
+        let lhs = self.lhs();
+        let rhs = self.rhs();
+        if !lhs.is_shape_compatible(&rhs) {
+            return Err(TypeError::IncompatibleShapes { ty: lhs, new_ty: rhs });
+        }
+        match self.without_shape() {
+            bty!(? = ?) => Ok(ty!(bool)),
+            bty!(? = _) => Ok(ty!(bool)),
+            bty!(? = felt) => Ok(ty!(bool)),
+            bty!(? = int) => Ok(ty!(bool)),
+            bty!(? = bool) => Ok(ty!(bool)),
+            bty!(_ = ?) => Ok(ty!(bool)),
+            bty!(_ = _) => Ok(ty!(bool)),
+            bty!(_ = felt) => Ok(ty!(bool)),
+            bty!(_ = int) => Ok(ty!(bool)),
+            bty!(_ = bool) => Ok(ty!(bool)),
+            bty!(felt = ?) => Ok(ty!(bool)),
+            bty!(felt = _) => Ok(ty!(bool)),
+            bty!(felt = felt) => Ok(ty!(bool)),
+            bty!(felt = int) => Ok(ty!(bool)),
+            bty!(felt = bool) => Ok(ty!(bool)),
+            bty!(int = ?) => Ok(ty!(bool)),
+            bty!(int = _) => Ok(ty!(bool)),
+            bty!(int = felt) => Ok(ty!(bool)),
+            bty!(int = int) => Ok(ty!(bool)),
+            bty!(int = bool) => Ok(ty!(bool)),
+            bty!(bool = ?) => Ok(ty!(bool)),
+            bty!(bool = _) => Ok(ty!(bool)),
+            bty!(bool = felt) => Ok(ty!(bool)),
+            bty!(bool = int) => Ok(ty!(bool)),
+            bty!(bool = bool) => Ok(ty!(bool)),
+            _ => Err(TypeError::IncompatibleBinOp { bin_ty: *self }),
+        }
+    }
+
+    pub fn infer_bin_ty_add(&self) -> Result<Option<Type>, TypeError> {
+        if let Some(ret) = self.ret() {
+            return Ok(Some(ret));
+        }
+        if !self.lhs().is_scalar() || !self.rhs().is_scalar() {
+            return Err(TypeError::IncompatibleBinOp { bin_ty: *self });
+        }
+        match self {
+            bty!(? + ?) => Ok(ty!(?)),
+            bty!(? + _) => Ok(ty!(?)),
+            bty!(? + felt) => Ok(ty!(?)),
+            bty!(? + int) => Ok(ty!(?)),
+            bty!(? + bool) => Ok(ty!(?)),
+            bty!(_ + ?) => Ok(ty!(?)),
+            bty!(_ + _) => Ok(ty!(?)),
+            bty!(_ + felt) => Ok(ty!(?)),
+            bty!(_ + int) => Ok(ty!(?)),
+            bty!(_ + bool) => Ok(ty!(?)),
+            bty!(felt + ?) => Ok(ty!(?)),
+            bty!(felt + _) => Ok(ty!(?)),
+            bty!(felt + felt) => Ok(ty!(?)),
+            bty!(felt + int) => Ok(ty!(?)),
+            bty!(felt + bool) => Ok(ty!(?)),
+            bty!(int + ?) => Ok(ty!(?)),
+            bty!(int + _) => Ok(ty!(?)),
+            bty!(int + felt) => Ok(ty!(?)),
+            bty!(int + int) => Ok(ty!(?)),
+            bty!(int + bool) => Ok(ty!(?)),
+            bty!(bool + ?) => Ok(ty!(?)),
+            bty!(bool + _) => Ok(ty!(?)),
+            bty!(bool + felt) => Ok(ty!(?)),
+            bty!(bool + int) => Ok(ty!(?)),
+            bty!(bool + bool) => Ok(ty!(?)),
+            _ => Err(TypeError::IncompatibleBinOp { bin_ty: *self }),
+        }
+    }
+
+    pub fn infer_bin_ty_sub(&self) -> Result<Option<Type>, TypeError> {
+        if let Some(ret) = self.ret() {
+            return Ok(Some(ret));
+        }
+        if !self.lhs().is_scalar() || !self.rhs().is_scalar() {
+            return Err(TypeError::IncompatibleBinOp { bin_ty: *self });
+        }
+        match self {
+            bty!(? - ?) => Ok(ty!(?)),
+            bty!(? - _) => Ok(ty!(?)),
+            bty!(? - felt) => Ok(ty!(?)),
+            bty!(? - int) => Ok(ty!(?)),
+            bty!(? - bool) => Ok(ty!(?)),
+            bty!(_ - ?) => Ok(ty!(?)),
+            bty!(_ - _) => Ok(ty!(?)),
+            bty!(_ - felt) => Ok(ty!(?)),
+            bty!(_ - int) => Ok(ty!(?)),
+            bty!(_ - bool) => Ok(ty!(?)),
+            bty!(felt - ?) => Ok(ty!(?)),
+            bty!(felt - _) => Ok(ty!(?)),
+            bty!(felt - felt) => Ok(ty!(?)),
+            bty!(felt - int) => Ok(ty!(?)),
+            bty!(felt - bool) => Ok(ty!(?)),
+            bty!(int - ?) => Ok(ty!(?)),
+            bty!(int - _) => Ok(ty!(?)),
+            bty!(int - felt) => Ok(ty!(?)),
+            bty!(int - int) => Ok(ty!(?)),
+            bty!(int - bool) => Ok(ty!(?)),
+            bty!(bool - ?) => Ok(ty!(?)),
+            bty!(bool - _) => Ok(ty!(?)),
+            bty!(bool - felt) => Ok(ty!(?)),
+            bty!(bool - int) => Ok(ty!(?)),
+            bty!(bool - bool) => Ok(ty!(?)),
+            _ => Err(TypeError::IncompatibleBinOp { bin_ty: *self }),
+        }
+    }
+
+    pub fn infer_bin_ty_mul(&self) -> Result<Option<Type>, TypeError> {
+        if let Some(ret) = self.ret() {
+            return Ok(Some(ret));
+        }
+        if !self.lhs().is_scalar() || !self.rhs().is_scalar() {
+            return Err(TypeError::IncompatibleBinOp { bin_ty: *self });
+        }
+        match self {
+            bty!(? * ?) => Ok(ty!(?)),
+            bty!(? * _) => Ok(ty!(?)),
+            bty!(? * felt) => Ok(ty!(?)),
+            bty!(? * int) => Ok(ty!(?)),
+            bty!(? * bool) => Ok(ty!(?)),
+            bty!(_ * ?) => Ok(ty!(?)),
+            bty!(_ * _) => Ok(ty!(?)),
+            bty!(_ * felt) => Ok(ty!(?)),
+            bty!(_ * int) => Ok(ty!(?)),
+            bty!(_ * bool) => Ok(ty!(?)),
+            bty!(felt * ?) => Ok(ty!(?)),
+            bty!(felt * _) => Ok(ty!(?)),
+            bty!(felt * felt) => Ok(ty!(?)),
+            bty!(felt * int) => Ok(ty!(?)),
+            bty!(felt * bool) => Ok(ty!(?)),
+            bty!(int * ?) => Ok(ty!(?)),
+            bty!(int * _) => Ok(ty!(?)),
+            bty!(int * felt) => Ok(ty!(?)),
+            bty!(int * int) => Ok(ty!(?)),
+            bty!(int * bool) => Ok(ty!(?)),
+            bty!(bool * ?) => Ok(ty!(?)),
+            bty!(bool * _) => Ok(ty!(?)),
+            bty!(bool * felt) => Ok(ty!(?)),
+            bty!(bool * int) => Ok(ty!(?)),
+            bty!(bool * bool) => Ok(ty!(?)),
+            _ => Err(TypeError::IncompatibleBinOp { bin_ty: *self }),
+        }
+    }
+
+    pub fn infer_bin_ty_exp(&self) -> Result<Option<Type>, TypeError> {
+        if !self.lhs().is_scalar() || !self.rhs().is_scalar_int() {
+            return Err(TypeError::IncompatibleBinOp { bin_ty: *self });
+        }
+        // a bool to any power is still a bool:
+        //   - 0^(n) = 0
+        //   - 1^(n*2) = 1
+        //   - 1^(n*2+1) = 0
+        // a felt to any power is still a felt
+        // an int to any power is still an int
+        // a ? to any power is still a ?
+        Ok(self.lhs())
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
