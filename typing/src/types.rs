@@ -19,7 +19,7 @@ impl core::fmt::Display for ScalarType {
 
 #[macro_export]
 macro_rules! sty {
-    ($(_)?) => {
+    (_) => {
         None
     };
     (felt) => {
@@ -384,7 +384,6 @@ mod tests {
 
     #[test]
     fn test_macro_scalar_type() {
-        assert_eq!(sty!(), None::<ScalarType>);
         assert_eq!(sty!(_), None::<ScalarType>);
         assert_eq!(sty!(felt), Some(ScalarType::Felt));
         assert_eq!(sty!(bool), Some(ScalarType::Bool));

@@ -370,7 +370,7 @@ mod tests {
     #[test]
     fn test_typing() {
         assert_eq!(ty!().ty(), None);
-        assert_eq!(ty!().scalar_ty(), sty!());
+        assert_eq!(ty!().scalar_ty(), sty!(_));
         assert_eq!(ty!(_).ty(), Some(Type::Scalar(sty!(_))));
         assert_eq!(ty!(_).scalar_ty(), sty!(_));
         assert_eq!(ty!(felt).ty(), Some(Type::Scalar(sty!(felt))));
