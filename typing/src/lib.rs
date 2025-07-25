@@ -4,24 +4,24 @@ pub use types::*;
 
 pub enum TypeError {
     IncompatibleScalarTypes {
-        ty: Option<ScalarType>,
-        new_ty: Option<ScalarType>,
+        lhs: Option<ScalarType>,
+        rhs: Option<ScalarType>,
     },
     IncompatibleShapes {
-        ty: Option<Type>,
-        new_ty: Option<Type>,
+        lhs: Option<Type>,
+        rhs: Option<Type>,
     },
     IncompatibleType {
-        ty: Option<Type>,
-        new_ty: Option<Type>,
+        lhs: Option<Type>,
+        rhs: Option<Type>,
     },
     TypeAlreadySet {
-        ty: Option<Type>,
-        new_ty: Option<Type>,
+        lhs: Option<Type>,
+        rhs: Option<Type>,
     },
     NotASubtype {
-        ty: Option<Type>,
-        new_ty: Option<Type>,
+        lhs: Option<Type>,
+        rhs: Option<Type>,
     },
     IncompatibleBinOp {
         bin_ty: BinType,
@@ -185,7 +185,7 @@ pub trait ScalarTypeMut: Typing {
             // Allow widening of types
             *self.scalar_ty_mut() = new_ty;
         } else {
-            return Err(TypeError::IncompatibleScalarTypes { ty, new_ty });
+            return Err(TypeError::IncompatibleScalarTypes { lhs: ty, rhs: new_ty });
         }
         Ok(())
     }
@@ -203,7 +203,7 @@ pub trait TypeMut: Typing + ScalarTypeMut {
             // Allow widening of types
             *self.ty_mut() = new_ty;
         } else {
-            return Err(TypeError::NotASubtype { ty, new_ty });
+            return Err(TypeError::NotASubtype { lhs: ty, rhs: new_ty });
         }
         Ok(())
     }
