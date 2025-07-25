@@ -96,18 +96,17 @@ impl Push {
 
 #[macro_export]
 macro_rules! tys {
-    ([$($args:tt)+]) => {{
+    ([$($args:tt)+]) => {
         tys!(RES: Push(vec![]); $($args)+).0
-    }};
-    (RES: $res:expr; ) => {{
+    };
+    (RES: $res:expr; ) => {
         $res
-    }};
-    (RES: $res:expr; _$([$($spec:tt)+])? $(, $($rest:tt)+)?) => {{
+    (RES: $res:expr; _$([$($spec:tt)+])? $(, $($rest:tt)+)?) => {
         tys!(RES: Push::push($res, ty!(_$([$($spec)+])?)); $($($rest)+)?)
-    }};
-    (RES: $res:expr; $name:ident$([$($spec:tt)+])? $(, $($rest:tt)+)?) => {{
+    };
+    (RES: $res:expr; $name:ident$([$($spec:tt)+])? $(, $($rest:tt)+)?) => {
         tys!(RES: Push::push($res, ty!($name$([$($spec)+])?)); $($($rest)+)?)
-    }};
+    };
 }
 
 #[macro_export]
