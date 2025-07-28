@@ -454,37 +454,39 @@ impl<T: Typing> Typing for Option<T> {
     }
 }
 
+#[macro_export]
+macro_rules! assert_subtype {
+    ($a:expr; !$b:expr) => {
+        eprintln!("assert_subtype!({}; !{})", stringify!($a), stringify!($b));
+        let res = !$crate::Typing::is_subtype(&$a, &$b);
+        assert!(
+            res,
+            "{}: !{}\nError: {} is a subtype of {}",
+            $crate::Typing::show_ty(&$a),
+            $crate::Typing::show_ty(&$b),
+            $crate::Typing::show_ty(&$a),
+            $crate::Typing::show_ty(&$b),
+        );
+    };
+    ($a:expr; $b:expr) => {
+        eprintln!("assert_subtype!({}; {})", stringify!($a), stringify!($b));
+        let res = $crate::Typing::is_subtype(&$a, &$b);
+        assert!(
+            res,
+            "{}: {}\nError: {} is a not subtype of {}",
+            $crate::Typing::show_ty(&$a),
+            $crate::Typing::show_ty(&$b),
+            $crate::Typing::show_ty(&$a),
+            $crate::Typing::show_ty(&$b),
+        );
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{sty, ty};
     use pretty_assertions::assert_eq;
-    macro_rules! assert_subtype {
-        ($a:expr; !$b:expr) => {
-            eprintln!("assert_subtype!({}; !{})", stringify!($a), stringify!($b));
-            let res = !$a.is_subtype(&$b);
-            assert!(
-                res,
-                "{}: !{}\nError: {} is a subtype of {}",
-                $a.show_ty(),
-                $b.show_ty(),
-                $a.show_ty(),
-                $b.show_ty(),
-            );
-        };
-        ($a:expr; $b:expr) => {
-            eprintln!("assert_subtype!({}; {})", stringify!($a), stringify!($b));
-            let res = $a.is_subtype(&$b);
-            assert!(
-                res,
-                "{}: {}\nError: {} is a not subtype of {}",
-                $a.show_ty(),
-                $b.show_ty(),
-                $a.show_ty(),
-                $b.show_ty(),
-            );
-        };
-    }
 
     #[test]
     fn test_typing() {
