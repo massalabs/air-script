@@ -55,14 +55,14 @@ pub trait Typing {
             (sty, Some(Type::Matrix(_, rows, cols))) => Some(Type::Matrix(Some(sty), rows, cols)),
         }
     }
-    fn is_scalar_int(&self) -> bool {
-        matches!(self.scalar_ty(), sty!(int))
-    }
     fn is_scalar_felt(&self) -> bool {
         matches!(self.scalar_ty(), sty!(felt))
     }
     fn is_scalar_bool(&self) -> bool {
         matches!(self.scalar_ty(), sty!(bool))
+    }
+    fn is_scalar_int(&self) -> bool {
+        matches!(self.scalar_ty(), sty!(int))
     }
     fn is_scalar(&self) -> bool {
         matches!(self.ty(), Some(Type::Scalar(_)))
