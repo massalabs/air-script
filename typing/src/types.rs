@@ -33,13 +33,13 @@ macro_rules! sty {
         None
     };
     (felt) => {
-        Some(ScalarType::Felt)
+        Some($crate::ScalarType::Felt)
     };
     (bool) => {
-        Some(ScalarType::Bool)
+        Some($crate::ScalarType::Bool)
     };
     (int) => {
-        Some(ScalarType::Int)
+        Some($crate::ScalarType::Int)
     };
 }
 
@@ -84,25 +84,25 @@ macro_rules! ty {
         $name
     };
     (?) => {
-        None::<Type>
+        None::<$crate::Type>
     };
     (_) => {
-        Some(Type::Scalar(None))
+        Some($crate::Type::Scalar(None))
     };
     ($sty:ident) => {
-        Some(Type::Scalar(sty!($sty)))
+        Some($crate::Type::Scalar($crate::sty!($sty)))
     };
     (_[$len:expr]) => {
-        Some(Type::Vector(sty!(_), $len))
+        Some($crate::Type::Vector($crate::sty!(_), $len))
     };
     ($sty:ident[$len:expr]) => {
-        Some(Type::Vector(sty!($sty), $len))
+        Some($crate::Type::Vector($crate::sty!($sty), $len))
     };
     (_[$rows:expr, $cols:expr]) => {
-        Some(Type::Matrix(sty!(_), $rows, $cols))
+        Some($crate::Type::Matrix($crate::sty!(_), $rows, $cols))
     };
     ($sty:ident[$rows:expr, $cols:expr]) => {
-        Some(Type::Matrix(sty!($sty), $rows, $cols))
+        Some($crate::Type::Matrix($crate::sty!($sty), $rows, $cols))
     };
 }
 
@@ -123,28 +123,28 @@ macro_rules! tys {
         $res
     };
     (RES: $res:expr; ?) => {
-        tys!(RES: Push::push($res, ty!(?));)
+        tys!(RES: $crate::Push::push($res, $crate::ty!(?));)
     };
     (RES: $res:expr; _$([$($spec:tt)+])? $(, $($rest:tt)+)?) => {
-        tys!(RES: Push::push($res, ty!(_$([$($spec)+])?)); $($($rest)+)?)
+        tys!(RES: $crate::Push::push($res, $crate::ty!(_$([$($spec)+])?)); $($($rest)+)?)
     };
     (RES: $res:expr; $name:ident$([$($spec:tt)+])? $(, $($rest:tt)+)?) => {
-        tys!(RES: Push::push($res, ty!($name$([$($spec)+])?)); $($($rest)+)?)
+        tys!(RES: $crate::Push::push($res, $crate::ty!($name$([$($spec)+])?)); $($($rest)+)?)
     };
 }
 
 #[macro_export]
 macro_rules! tty {
     ([$($n1:ident$([$l1:expr])?),*]) => {
-        Vec::<Option<Type>>::from([
-            $(tty!($n1$([$l1])?)),*
+        Vec::<Option<$crate::Type>>::from([
+            $($crate::tty!($n1$([$l1])?)),*
         ])
     };
     ($name:ident[$len:expr]) => {
-        ty!(felt[$len])
+        $crate::ty!(felt[$len])
     };
     ($name:ident) => {
-        ty!(felt[1])
+        $crate::ty!(felt[1])
     };
 }
 
@@ -201,13 +201,13 @@ impl core::fmt::Display for FunctionType {
 #[macro_export]
 macro_rules! fty {
     (ev ([])) => {
-        FunctionType::Evaluator(vec![])
+        $crate::FunctionType::Evaluator(vec![])
     };
     (ev ([$($tty:tt)+])) => {
-        FunctionType::Evaluator(tty!([$($tty)+]))
+        $crate::FunctionType::Evaluator($crate::tty!([$($tty)+]))
     };
     (fn ($($arg:tt)*) -> $($ret:tt)+) => {
-        FunctionType::Function(tys!([$($arg)*]), ty!($($ret)+))
+        $crate::FunctionType::Function(tys!([$($arg)*]), $crate::ty!($($ret)+))
     };
 }
 
@@ -351,79 +351,79 @@ impl core::fmt::Display for BinType {
 #[macro_export]
 macro_rules! bty {
     ($($bty:tt)+ -> $($ret:tt)+) => {{
-        let b = bty!($($bty)+);
-        b.ret_mut().replace(ty!($($ret)+));
+        let b = $crate::bty!($($bty)+);
+        b.ret_mut().replace($crate::ty!($($ret)+));
         b
     }};
     // for pattern matching
     // equivalent to a `$name` in a match or let expression
     (any:$name:ident = $($rhs:tt)+) => {
-        BinType::Eq(ty!(any:$name), ty!($($rhs)+), ty!(?))
+        $crate::BinType::Eq($crate::ty!(any:$name), $crate::ty!($($rhs)+), $crate::ty!(?))
     };
     (? = $($rhs:tt)+) => {
-        BinType::Eq(ty!(?), ty!($($rhs)+), ty!(?))
+        $crate::BinType::Eq($crate::ty!(?), $crate::ty!($($rhs)+), $crate::ty!(?))
     };
     (_$([$($spec:tt)+])? = $($rhs:tt)+) => {
-        BinType::Eq(ty!(_$([$($spec)+])?), ty!($($rhs)+), ty!(?))
+        $crate::BinType::Eq($crate::ty!(_$([$($spec)+])?), $crate::ty!($($rhs)+), $crate::ty!(?))
     };
     ($sty:ident$([$($spec:tt)+])? = $($rhs:tt)+) => {
-        BinType::Eq(ty!($sty$([$($spec)+])?), ty!($($rhs)+), ty!(?))
+        $crate::BinType::Eq($crate::ty!($sty$([$($spec)+])?), $crate::ty!($($rhs)+), $crate::ty!(?))
     };
     // for pattern matching
     // equivalent to a `$name` in a match or let expression
     (any:$name:ident + $($rhs:tt)+) => {
-        BinType::Add(ty!(any:$name), ty!($($rhs)+), ty!(?))
+        $crate::BinType::Add($crate::ty!(any:$name), $crate::ty!($($rhs)+), $crate::ty!(?))
     };
     (? + $($rhs:tt)+) => {
-        BinType::Add(ty!(?), ty!($($rhs)+), ty!(?))
+        $crate::BinType::Add($crate::ty!(?), $crate::ty!($($rhs)+), $crate::ty!(?))
     };
     (_$([$($spec:tt)+])? + $($rhs:tt)+) => {
-        BinType::Add(ty!(_$([$($spec)+])?), ty!($($rhs)+), ty!(?))
+        $crate::BinType::Add($crate::ty!(_$([$($spec)+])?), $crate::ty!($($rhs)+), $crate::ty!(?))
     };
     ($sty:ident$([$($spec:tt)+])? + $($rhs:tt)+) => {
-        BinType::Add(ty!($sty$([$($spec)+])?), ty!($($rhs)+), ty!(?))
+        $crate::BinType::Add($crate::ty!($sty$([$($spec)+])?), $crate::ty!($($rhs)+), $crate::ty!(?))
     };
     // for pattern matching
     // equivalent to a `$name` in a match or let expression
     (any:$name:ident - $($rhs:tt)+) => {
-        BinType::Sub(ty!(any:$name), ty!($($rhs)+), ty!(?))
+        $crate::BinType::Sub($crate::ty!(any:$name), $crate::ty!($($rhs)+), $crate::ty!(?))
     };
     (? - $($rhs:tt)+) => {
-        BinType::Sub(ty!(?), ty!($($rhs)+), ty!(?))
+        $crate::BinType::Sub($crate::ty!(?), $crate::ty!($($rhs)+), $crate::ty!(?))
     };
     (_$([$($spec:tt)+])? - $($rhs:tt)+) => {
-        BinType::Sub(ty!(_$([$($spec)+])?), ty!($($rhs)+), ty!(?))
+        $crate::BinType::Sub($crate::ty!(_$([$($spec)+])?), $crate::ty!($($rhs)+), $crate::ty!(?))
     };
     ($sty:ident$([$($spec:tt)+])? - $($rhs:tt)+) => {
-        BinType::Sub(ty!($sty$([$($spec)+])?), ty!($($rhs)+), ty!(?))
+        $crate::BinType::Sub($crate::ty!($sty$([$($spec)+])?), $crate::ty!($($rhs)+), $crate::ty!(?))
     };
     // for pattern matching
     // equivalent to a `$name` in a match or let expression
     (any:$name:ident * $($rhs:tt)+) => {
-        BinType::Mul(ty!(any:$name), ty!($($rhs)+), ty!(?))
+        $crate::BinType::Mul($crate::ty!(any:$name), $crate::ty!($($rhs)+), $crate::ty!(?))
     };
     (? * $($rhs:tt)+) => {
-        BinType::Mul(ty!(?), ty!($($rhs)+), ty!(?))
+        $crate::BinType::Mul($crate::ty!(?), $crate::ty!($($rhs)+), $crate::ty!(?))
     };
     (_$([$($spec:tt)+])? * $($rhs:tt)+) => {
-        BinType::Mul(ty!(_$([$($spec)+])?), ty!($($rhs)+), ty!(?))
+        $crate::BinType::Mul($crate::ty!(_$([$($spec)+])?), $crate::ty!($($rhs)+), $crate::ty!(?))
     };
     ($sty:ident$([$($spec:tt)+])? * $($rhs:tt)+) => {
-        BinType::Mul(ty!($sty$([$($spec)+])?), ty!($($rhs)+), ty!(?))
+        $crate::BinType::Mul($crate::ty!($sty$([$($spec)+])?), $crate::ty!($($rhs)+), $crate::ty!(?))
     };
     // for pattern matching
     // equivalent to a `$name` in a match or let expression
     (any:$name:ident ^ $($rhs:tt)+) => {
-        BinType::Exp(ty!(any:$name), ty!($($rhs)+), ty!(?))
+        $crate::BinType::Exp($crate::ty!(any:$name), $crate::ty!($($rhs)+), $crate::ty!(?))
     };
     (? ^ $($rhs:tt)+) => {
-        BinType::Exp(ty!(?), ty!($($rhs)+), ty!(?))
+        $crate::BinType::Exp($crate::ty!(?), $crate::ty!($($rhs)+), $crate::ty!(?))
     };
     (_$([$($spec:tt)+])? ^ $($rhs:tt)+) => {
-        BinType::Exp(ty!(_$([$($spec)+])?), ty!($($rhs)+), ty!(?))
+        $crate::BinType::Exp($crate::ty!(_$([$($spec)+])?), $crate::ty!($($rhs)+), $crate::ty!(?))
     };
     ($sty:ident$([$($spec:tt)+])? ^ $($rhs:tt)+) => {
-        BinType::Exp(ty!($sty$([$($spec)+])?), ty!($($rhs)+), ty!(?))
+        $crate::BinType::Exp($crate::ty!($sty$([$($spec)+])?), $crate::ty!($($rhs)+), $crate::ty!(?))
     };
 }
 
@@ -641,13 +641,13 @@ impl core::fmt::Display for Kind {
 #[macro_export]
 macro_rules! kind {
     (ev $($spec:tt)+) => {
-        Kind::Callable(fty!(ev $($spec)+))
+        $crate::Kind::Callable($crate::fty!(ev $($spec)+))
     };
     (fn ($($args:tt)*) -> $($ret:tt)+) => {
-        Kind::Callable(fty!(fn ($($args)*) -> $($ret)+))
+        $crate::Kind::Callable($crate::fty!(fn ($($args)*) -> $($ret)+))
     };
     ($($spec:tt)+) => {
-        Kind::Value(ty!($($spec)+))
+        $crate::Kind::Value($crate::ty!($($spec)+))
     };
 }
 
