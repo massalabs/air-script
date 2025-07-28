@@ -73,6 +73,37 @@ pub trait Typing {
     fn is_matrix(&self) -> bool {
         matches!(self.ty(), Some(Type::Matrix(_, _, _)))
     }
+    /// Returns true if the shape of `self` is a sub-shape of the shape of `other`
+    /// The shapes are compatible if:
+    /// - self is `?` (None)
+    /// - both are scalars
+    /// - both are vectors of the same length
+    /// - both are vectors with one of the lengths being `u32::MAX`
+    /// - both are matrices with the same number of rows and columns
+    /// - both are matrices with one or more of the rows or columns
+    ///   being `u32::MAX`, the other pair (if any) being equal
+    ///
+    /// self\\other || _[r,c] | _[l] | _ | ?
+    /// ============||========|======|===|==
+    /// _[r,c]      ||   y    |  n   | n | n
+    /// _[l]        ||   n    |  y   | n | n
+    /// _           ||   n    |  n   | y | n
+    /// ?           ||   y    |  y   | y | y
+    fn is_subshape(&self, other: &impl Typing) -> bool {
+        match (self.ty(), other.ty()) {
+            (None, _) => true,
+            (Some(Type::Scalar(_)), Some(Type::Scalar(_))) => true,
+            (Some(Type::Vector(_, len1)), Some(Type::Vector(_, len2))) => {
+                len1 == len2 || len1 == u32::MAX as usize || len2 == u32::MAX as usize
+            },
+            (Some(Type::Matrix(_, rows1, cols1)), Some(Type::Matrix(_, rows2, cols2))) => {
+                (rows1 == rows2 || rows1 == u32::MAX as usize || rows2 == u32::MAX as usize)
+                    && (cols1 == cols2 || cols1 == u32::MAX as usize || cols2 == u32::MAX as usize)
+            },
+            _ => false,
+        }
+    }
+
     /// Returns true if the shape of `self` is compatible with the shape of `other`
     /// The shapes are compatible if:
     /// - either is `?` (None)
@@ -89,19 +120,12 @@ pub trait Typing {
     /// _[l]        ||   n    |  y   | n | y
     /// _           ||   n    |  n   | y | y
     /// ?           ||   y    |  y   | y | y
+    ///
+    /// This is a more relaxed version of [Typing::is_subshape],
+    /// allowing for bi-directional compatibility checks. The only
+    /// difference is that it allows for `other` to be `?` (None).
     fn is_shape_compatible(&self, other: &impl Typing) -> bool {
-        match (self.ty(), other.ty()) {
-            (None, _) | (_, None) => true,
-            (Some(Type::Scalar(_)), Some(Type::Scalar(_))) => true,
-            (Some(Type::Vector(_, len1)), Some(Type::Vector(_, len2))) => {
-                len1 == len2 || len1 == u32::MAX as usize || len2 == u32::MAX as usize
-            },
-            (Some(Type::Matrix(_, rows1, cols1)), Some(Type::Matrix(_, rows2, cols2))) => {
-                (rows1 == rows2 || rows1 == u32::MAX as usize || rows2 == u32::MAX as usize)
-                    && (cols1 == cols2 || cols1 == u32::MAX as usize || cols2 == u32::MAX as usize)
-            },
-            _ => false,
-        }
+        other.ty().is_none() || self.is_subshape(other)
     }
     /// Returns true if `self` is a subtype of `other`
     /// Notation:
@@ -179,7 +203,7 @@ pub trait Typing {
     /// = self.is_scalar_subtype(other) | self == ?
     /// [...] Denotes the result of the [Typing::is_scalar_subtype] method.
     fn is_subtype(&self, other: &impl Typing) -> bool {
-        self.is_shape_compatible(other) && self.is_scalar_subtype(other)
+        self.is_subshape(other) && self.is_scalar_subtype(other)
     }
     fn show_kind(&self) -> ShowOption<Kind> {
         ShowOption(self.kind())
