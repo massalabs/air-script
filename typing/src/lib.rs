@@ -73,9 +73,25 @@ pub trait Typing {
     fn is_matrix(&self) -> bool {
         matches!(self.ty(), Some(Type::Matrix(_, _, _)))
     }
+    /// Returns true if the shape of `self` is compatible with the shape of `other`
+    /// The shapes are compatible if:
+    /// - either is `?` (None)
+    /// - both are scalars
+    /// - both are vectors of the same length
+    /// - both are vectors with one of the lengths being `u32::MAX`
+    /// - both are matrices with the same number of rows and columns
+    /// - both are matrices with one or more of the rows or columns
+    ///   being `u32::MAX`, the other pair (if any) being equal
+    ///
+    /// self\\other || _[r,c] | _[l] | _ | ?
+    /// ============||========|======|===|==
+    /// _[r,c]      ||   y    |  n   | n | y
+    /// _[l]        ||   n    |  y   | n | y
+    /// _           ||   n    |  n   | y | y
+    /// ?           ||   y    |  y   | y | y
     fn is_shape_compatible(&self, other: &impl Typing) -> bool {
         match (self.ty(), other.ty()) {
-            (_, None) => true,
+            (None, _) | (_, None) => true,
             (Some(Type::Scalar(_)), Some(Type::Scalar(_))) => true,
             (Some(Type::Vector(_, len1)), Some(Type::Vector(_, len2))) => {
                 len1 == len2 || len1 == u32::MAX as usize || len2 == u32::MAX as usize
@@ -97,29 +113,30 @@ pub trait Typing {
     ///   Boolean type
     /// int: ScalarType::Int
     ///   Integer type
+    ///
     /// Subtyping rules:
-    ///   _ > felt > bool
-    /// ... > felt > int
+    /// - felt > bool > _
+    /// - felt > int > _
+    ///
     /// Which means:
-    /// - all types are subtypes of `_`
+    /// - `_` is a subtype of all scalar types
     /// - `bool` is a subtype of `felt`:
     ///   a `bool` is a `felt with a `is_bool` property
     /// - `int` is a subtype of `felt`
     ///   a `int` is a `felt` with the `constant` property
     ///
-    /// self\\other || _ | felt | bool | int |
-    /// ============||===|======|======|=====|
-    /// _           || y |   n  |    n |   n |
-    /// felt        || y |   y  |    n |   n |
-    /// bool        || y |   y  |    y |   n |
-    /// int         || y |   y  |    n |   y |
+    /// self\\other || felt | bool | int | _ |
+    /// ============||======|======|=====|===|
+    /// felt        ||   y  |    n |   n | n |
+    /// bool        ||   y  |    y |   n | n |
+    /// int         ||   y  |    n |   y | n |
+    /// _           ||   y  |    y |   y | y |
     fn is_scalar_subtype(&self, other: &impl Typing) -> bool {
         !matches!(
             (self.scalar_ty(), other.scalar_ty()),
-            (sty!(_), sty!(felt) | sty!(bool) | sty!(int))
-                | (sty!(felt), sty!(bool) | sty!(int))
-                | (sty!(bool), sty!(int))
-                | (sty!(int), sty!(bool))
+            (sty!(felt), sty!(bool) | sty!(int) | sty!(_))
+                | (sty!(bool), sty!(int) | sty!(_))
+                | (sty!(int), sty!(bool) | sty!(_))
         )
     }
     /// Returns true if `self` is a subtype of `other`
@@ -138,6 +155,7 @@ pub trait Typing {
     ///   Vector of length `len` with scalar type `sty`
     /// sty[rows, cols]: Type::Matrix(Some(sty), rows, cols)
     ///   Matrix with `rows` and `cols` with scalar type `sty`
+    ///
     /// Subtyping rules:
     /// ? > _       > felt       > bool
     ///         ... > felt       > int
@@ -150,18 +168,18 @@ pub trait Typing {
     /// See [Typing::is_scalar_subtype] for a more detailed explanation
     /// of the subtyping rules of scalar types.
     ///
-    /// self\\other || ? | _ | felt | bool | int |
-    /// ============||===|===|======|======|=====|
-    /// ?           || y | n |   n  |    n |   n |
-    /// _           || y |[y |   n  |    n |   n]|
-    /// felt        || y |[y |   y  |    n |   n]|
-    /// bool        || y |[y |   y  |    y |   n]|
-    /// int         || y |[y |   y  |    n |   y]|
+    /// self\\other || felt | bool | int | _ | ? |
+    /// ============||======|======|=====|===|===|
+    /// felt        ||[  y  |    n |   n | n]| n |
+    /// bool        ||[  y  |    y |   n | n]| n |
+    /// int         ||[  y  |    n |   y | n]| n |
+    /// _           ||[  y  |    y |   y | y]| n |
+    /// ?           ||   y  |    y |   y | y | y |
     ///
-    /// = is_scalar_subtype(self, other) | other == ?
+    /// = self.is_scalar_subtype(other) | self == ?
     /// [...] Denotes the result of the [Typing::is_scalar_subtype] method.
     fn is_subtype(&self, other: &impl Typing) -> bool {
-        self.is_shape_compatible(other) && (other.ty().is_none() || self.is_scalar_subtype(other))
+        self.is_shape_compatible(other) && self.is_scalar_subtype(other)
     }
     fn show_kind(&self) -> ShowOption<Kind> {
         ShowOption(self.kind())
