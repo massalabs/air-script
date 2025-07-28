@@ -419,6 +419,7 @@ mod tests {
     use pretty_assertions::assert_eq;
     macro_rules! assert_subtype {
         ($a:expr; !$b:expr) => {
+            eprintln!("assert_subtype!({}; !{})", stringify!($a), stringify!($b));
             let res = !$a.is_subtype(&$b);
             assert!(
                 res,
@@ -430,6 +431,7 @@ mod tests {
             );
         };
         ($a:expr; $b:expr) => {
+            eprintln!("assert_subtype!({}; {})", stringify!($a), stringify!($b));
             let res = $a.is_subtype(&$b);
             assert!(
                 res,
