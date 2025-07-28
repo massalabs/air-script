@@ -633,7 +633,7 @@ impl core::fmt::Display for Kind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Value(ty) => write!(f, "{}", ty.show_ty()),
-            Self::Callable(fty) => write!(f, "{}", fty),
+            Self::Callable(fty) => write!(f, "{}", fty.show_fn_ty()),
         }
     }
 }

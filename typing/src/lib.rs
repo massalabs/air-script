@@ -1,5 +1,7 @@
 mod types;
 
+use std::fmt::Debug;
+
 pub use types::*;
 
 pub enum TypeError {
@@ -161,8 +163,20 @@ pub trait Typing {
     fn is_subtype(&self, other: &impl Typing) -> bool {
         self.is_shape_compatible(other) && (other.ty().is_none() || self.is_scalar_subtype(other))
     }
-    fn show_ty(&self) -> ShowKind {
-        ShowKind(self.kind())
+    fn show_kind(&self) -> ShowOption<Kind> {
+        ShowOption(self.kind())
+    }
+    fn show_fn_ty(&self) -> ShowOption<FunctionType> {
+        match self.kind() {
+            Some(Kind::Callable(fn_ty)) => ShowOption(Some(fn_ty)),
+            _ => ShowOption(None),
+        }
+    }
+    fn show_ty(&self) -> ShowOption<Type> {
+        ShowOption(self.ty())
+    }
+    fn show_scalar_ty(&self) -> ShowOption<ScalarType> {
+        ShowOption(self.scalar_ty())
     }
     /// Returns the type of the current object, if it is known or can be inferred.
     /// If the type is not known, it returns `None`.
@@ -209,13 +223,41 @@ pub trait TypeMut: Typing + ScalarTypeMut {
     }
 }
 
-pub struct ShowKind(Option<Kind>);
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ShowOption<T>(Option<T>);
 
-impl core::fmt::Display for ShowKind {
+impl core::fmt::Display for ShowOption<Kind> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match &self.0 {
+            None => f.write_str("!"),
+            Some(kind) => write!(f, "{kind}"),
+        }
+    }
+}
+
+impl core::fmt::Display for ShowOption<FunctionType> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match &self.0 {
+            None => f.write_str("?"),
+            Some(fn_ty) => write!(f, "{fn_ty}"),
+        }
+    }
+}
+
+impl core::fmt::Display for ShowOption<Type> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match &self.0 {
+            None => f.write_str("?"),
             Some(ty) => write!(f, "{ty}"),
-            None => f.write_str(""),
+        }
+    }
+}
+
+impl core::fmt::Display for ShowOption<ScalarType> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match &self.0 {
+            None => f.write_str("_"),
+            Some(sty) => write!(f, "{sty}"),
         }
     }
 }
