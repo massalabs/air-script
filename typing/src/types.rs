@@ -290,6 +290,13 @@ impl BinType {
             | Self::Exp(lhs, rhs, ret) => FunctionType::Function(vec![*lhs, *rhs], *ret),
         }
     }
+    /// Returns a new [BinType] with all types casted to their [Type::Scalar] equivalent:
+    /// - `?`               -> `_`
+    /// - `sty`             -> `sty`
+    /// - `sty[len]`        -> `sty`
+    /// - `sty[rows, cols]` -> `sty`
+    ///
+    /// This corresponds to the shape `_`.
     pub fn without_shape(&self) -> Self {
         match self {
             Self::Eq(lhs, rhs, ret) => Self::Eq(
