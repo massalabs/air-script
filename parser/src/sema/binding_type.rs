@@ -1,6 +1,10 @@
 use std::fmt;
 
-use crate::ast::{AccessType, BusType, FunctionType, InvalidAccessError, TraceBinding, Type};
+use typing::*;
+
+use crate::ast::{
+    Access, AccessType, BusType, FunctionType, InvalidAccessError, TraceBinding, Type,
+};
 
 /// This type provides type and contextual information about a binding,
 /// i.e. not only does it tell us the type of a binding, but what type
@@ -33,22 +37,26 @@ pub enum BindingType {
     /// A direct reference to a periodic column
     PeriodicColumn(usize),
 }
-impl BindingType {
+
+impl Typing for BindingType {
     /// Get the value type of this binding, if applicable
-    pub fn ty(&self) -> Option<Type> {
+    fn ty(&self) -> Option<Type> {
         match self {
-            Self::TraceColumn(tb) | Self::TraceParam(tb) => Some(tb.ty()),
-            Self::Vector(elems) => Some(Type::Vector(elems.len())),
+            Self::TraceColumn(tb) | Self::TraceParam(tb) => tb.ty(),
+            Self::Vector(elems) => elems.ty(),
             Self::Alias(aliased) => aliased.ty(),
             Self::Local(ty) | Self::Constant(ty) | Self::PublicInput(ty) => Some(*ty),
-            Self::PeriodicColumn(_) => Some(Type::Felt),
+            Self::PeriodicColumn(_) => ty!(felt),
             Self::Function(ty) => ty.result(),
-            Self::Bus(_) => Some(Type::Felt),
+            Self::Bus(_) => ty!(felt),
         }
     }
+}
 
+impl Access for BindingType {
+    type Accessed = Self;
     /// Produce a new [BindingType] which represents accessing the current binding via `access_type`
-    pub fn access(&self, access_type: AccessType) -> Result<Self, InvalidAccessError> {
+    fn access(&self, access_type: AccessType) -> Result<Self::Accessed, InvalidAccessError> {
         match self {
             Self::Alias(aliased) => aliased.access(access_type),
             Self::Local(ty) => ty.access(access_type).map(Self::Local),
@@ -86,6 +94,7 @@ impl BindingType {
         }
     }
 }
+
 impl fmt::Display for BindingType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {

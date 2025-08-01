@@ -168,7 +168,7 @@ impl VisitMut<SemanticAnalysisError> for SemanticAnalysis<'_> {
                             name: Some(segment.name),
                             offset: 0,
                             size: segment.size,
-                            ty: Type::Vector(segment.size),
+                            ty: ty!(felt[segment.size]).unwrap(),
                         })
                     ),
                     None
@@ -194,7 +194,7 @@ impl VisitMut<SemanticAnalysisError> for SemanticAnalysis<'_> {
                 assert_eq!(
                     self.locals.insert(
                         NamespacedIdentifier::Binding(input.name()),
-                        BindingType::PublicInput(Type::Vector(input.size()))
+                        BindingType::PublicInput(ty!(felt[input.size()]).unwrap())
                     ),
                     None
                 );
@@ -215,7 +215,8 @@ impl VisitMut<SemanticAnalysisError> for SemanticAnalysis<'_> {
             }
             // It should be impossible for there to be a local by this name at this point
             assert_eq!(
-                self.locals.insert(namespaced_name, BindingType::Constant(constant.ty())),
+                self.locals
+                    .insert(namespaced_name, BindingType::Constant(constant.ty().unwrap())),
                 None
             );
         }
@@ -243,13 +244,7 @@ impl VisitMut<SemanticAnalysisError> for SemanticAnalysis<'_> {
                 self.declaration_import_conflict(namespaced_name.span(), prev.span())?;
             }
             assert_eq!(
-                self.locals.insert(
-                    namespaced_name,
-                    BindingType::Function(FunctionType::Function(
-                        function.param_types(),
-                        function.return_type
-                    ))
-                ),
+                self.locals.insert(namespaced_name, BindingType::Function(function.fn_ty())),
                 None
             );
         }
