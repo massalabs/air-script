@@ -1,6 +1,6 @@
 use std::{collections::HashMap, ops::Deref, rc::Rc};
 
-use miden_diagnostics::{DiagnosticsHandler, Spanned};
+use miden_diagnostics::{DiagnosticsHandler, SourceSpan, Spanned};
 
 use crate::{
     CompileError,
@@ -61,21 +61,10 @@ impl Visitor for UnrollingSecondPass<'_> {
     }
     fn run(&mut self, graph: &mut Graph) -> Result<(), CompileError> {
         for root in self.root_nodes_to_visit(graph).iter() {
-            // Set context to inline the body for this index
-            let for_inlining_context = self.bodies_to_inline.iter().find_map(|(node, context)| {
-                if Rc::ptr_eq(&node.clone().as_node().link, &root.link) {
-                    Some(context.clone())
-                } else {
-                    None
-                }
-            });
+            // Set the context corresponding to the For node we are inlining
+            self.set_context(root);
 
-            self.for_inlining_context = for_inlining_context;
-            // We inline a new body, so we clear the nodes to replace and the parameters for the ref
-            // node
-            self.nodes_to_replace.clear();
-            self.params_for_ref_node.clear();
-
+            // Recursively scan the body of the For node to inline
             self.scan_node(graph, self.for_inlining_context.clone().unwrap().body.as_node())?;
             while let Some(node) = self.work_stack().pop() {
                 self.visit_node(graph, node.clone())?;
@@ -86,48 +75,26 @@ impl Visitor for UnrollingSecondPass<'_> {
             let new_node = self.nodes_to_replace.get(&body.get_ptr()).unwrap().1.clone();
 
             // If there is a selector, we need to enforce it on the body
-            let new_node_with_selector_if_needed = if let Some(selector) =
-                self.for_inlining_context.clone().unwrap().selector
-            {
-                if let Op::Vector(new_node_vector) = new_node.borrow().deref() {
-                    let new_node_vec = new_node_vector.children().borrow().deref().clone();
-                    let mut new_vec = vec![];
-                    for new_node_child in new_node_vec.into_iter() {
-                        let zero_node = Value::create(SpannedMirValue {
-                            span: Default::default(),
-                            value: MirValue::Constant(ConstantValue::Felt(0)),
-                        });
-                        // FIXME: The Sub here is used to keep the form of Eq(lhs, rhs) ->
-                        // Enf(Sub(lhs, rhs) == 0), but it introduces an
-                        // unnecessary zero node
-                        let new_node_child_with_selector = Sub::create(
-                            Mul::create(
-                                duplicate_node(selector.clone(), &mut HashMap::new()),
+            let new_node_with_selector_if_needed =
+                if let Some(selector) = self.for_inlining_context.clone().unwrap().selector {
+                    if let Op::Vector(new_node_vector) = new_node.borrow().deref() {
+                        let new_node_vec = new_node_vector.children().borrow().deref().clone();
+                        let mut new_vec = vec![];
+                        for new_node_child in new_node_vec.into_iter() {
+                            let new_node_child_with_selector = create_new_node_with_selector(
                                 new_node_child,
+                                selector.clone(),
                                 root.span(),
-                            ),
-                            zero_node,
-                            root.span(),
-                        );
-                        new_vec.push(new_node_child_with_selector);
+                            );
+                            new_vec.push(new_node_child_with_selector);
+                        }
+                        Vector::create(new_vec, root.span())
+                    } else {
+                        create_new_node_with_selector(new_node, selector.clone(), root.span())
                     }
-                    Vector::create(new_vec, root.span())
                 } else {
-                    let zero_node = Value::create(SpannedMirValue {
-                        span: Default::default(),
-                        value: MirValue::Constant(ConstantValue::Felt(0)),
-                    });
-                    // FIXME: The Sub here is used to keep the form of Eq(lhs, rhs) -> Enf(Sub(lhs,
-                    // rhs) == 0), but it introduces an unnecessary zero node
-                    Sub::create(
-                        Mul::create(selector, new_node, root.span()),
-                        zero_node,
-                        root.span(),
-                    )
-                }
-            } else {
-                new_node
-            };
+                    new_node
+                };
 
             // Update the root node with the new inlined body and reset the context to None
             root.as_op().unwrap().set(&new_node_with_selector_if_needed);
@@ -167,4 +134,40 @@ impl Visitor for UnrollingSecondPass<'_> {
         );
         Ok(())
     }
+}
+
+impl<'a> UnrollingSecondPass<'a> {
+    /// Sets the context for inlining a For node based on the root node.
+    fn set_context(&mut self, root: &Link<Node>) {
+        // Set context to inline the body for this index
+        let for_inlining_context = self.bodies_to_inline.iter().find_map(|(node, context)| {
+            if Rc::ptr_eq(&node.clone().as_node().link, &root.link) {
+                Some(context.clone())
+            } else {
+                None
+            }
+        });
+
+        self.for_inlining_context = for_inlining_context;
+        // We inline a new body, so we clear the nodes to replace and the parameters for the ref
+        // node
+        self.nodes_to_replace.clear();
+        self.params_for_ref_node.clear();
+    }
+}
+
+/// Helper function to create a new node with a selector applied to it.
+fn create_new_node_with_selector(node: Link<Op>, selector: Link<Op>, span: SourceSpan) -> Link<Op> {
+    let zero_node = Value::create(SpannedMirValue {
+        span: Default::default(),
+        value: MirValue::Constant(ConstantValue::Felt(0)),
+    });
+    // FIXME: The Sub here is used to keep the form of Eq(lhs, rhs) ->
+    // Enf(Sub(lhs, rhs) == 0), but it introduces an
+    // unnecessary zero node
+    Sub::create(
+        Mul::create(duplicate_node(selector.clone(), &mut HashMap::new()), node.clone(), span),
+        zero_node,
+        span,
+    )
 }
