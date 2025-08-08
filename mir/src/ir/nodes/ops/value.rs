@@ -52,6 +52,16 @@ impl Typing for Value {
         self.value.ty()
     }
 }
+impl ScalarTypeMut for Value {
+    fn scalar_ty_mut(&mut self) -> &mut Option<ScalarType> {
+        self.value.scalar_ty_mut()
+    }
+}
+impl TypeMut for Value {
+    fn ty_mut(&mut self) -> &mut Option<Type> {
+        self.value.ty_mut()
+    }
+}
 
 /// Represents a known value in the MIR.
 ///
@@ -93,11 +103,43 @@ impl Typing for MirValue {
             MirValue::PeriodicColumn(c) => c.ty(),
             MirValue::PublicInput(pi) => pi.ty(),
             MirValue::PublicInputTable(pit) => pit.ty(),
-            MirValue::RandomValue(_) => ty!(felt),
             MirValue::TraceAccessBinding(tab) => tab.ty(),
+            MirValue::RandomValue(_) => ty!(felt),
             MirValue::BusAccess(_) => None,
             MirValue::Null => None,
             MirValue::Unconstrained => None,
+        }
+    }
+}
+impl ScalarTypeMut for MirValue {
+    fn scalar_ty_mut(&mut self) -> &mut Option<ScalarType> {
+        match self {
+            MirValue::Constant(_) => panic!("Cannot update scalar type of ConstantValue"),
+            MirValue::TraceAccess(t) => t.scalar_ty_mut(),
+            MirValue::PeriodicColumn(c) => c.scalar_ty_mut(),
+            MirValue::PublicInput(pi) => pi.scalar_ty_mut(),
+            MirValue::PublicInputTable(pit) => pit.scalar_ty_mut(),
+            MirValue::TraceAccessBinding(tab) => tab.scalar_ty_mut(),
+            MirValue::RandomValue(_) => panic!("Cannot update scalar type of RandomValue"),
+            MirValue::BusAccess(_) => panic!("Cannot update scalar type of BusAccess"),
+            MirValue::Null => panic!("Cannot update scalar type of Null"),
+            MirValue::Unconstrained => panic!("Cannot update scalar type of Unconstrained"),
+        }
+    }
+}
+impl TypeMut for MirValue {
+    fn ty_mut(&mut self) -> &mut Option<Type> {
+        match self {
+            MirValue::Constant(_) => panic!("Cannot update type of ConstantValue"),
+            MirValue::TraceAccess(t) => t.ty_mut(),
+            MirValue::PeriodicColumn(c) => c.ty_mut(),
+            MirValue::PublicInput(pi) => pi.ty_mut(),
+            MirValue::PublicInputTable(pit) => pit.ty_mut(),
+            MirValue::TraceAccessBinding(tab) => tab.ty_mut(),
+            MirValue::RandomValue(_) => panic!("Cannot update type of RandomValue"),
+            MirValue::BusAccess(_) => panic!("Cannot update type of BusAccess"),
+            MirValue::Null => panic!("Cannot update type of Null"),
+            MirValue::Unconstrained => panic!("Cannot update type of Unconstrained"),
         }
     }
 }
@@ -201,6 +243,16 @@ pub struct SpannedMirValue {
 impl Typing for SpannedMirValue {
     fn ty(&self) -> Option<Type> {
         self.value.ty()
+    }
+}
+impl ScalarTypeMut for SpannedMirValue {
+    fn scalar_ty_mut(&mut self) -> &mut Option<ScalarType> {
+        self.value.scalar_ty_mut()
+    }
+}
+impl TypeMut for SpannedMirValue {
+    fn ty_mut(&mut self) -> &mut Option<Type> {
+        self.value.ty_mut()
     }
 }
 
