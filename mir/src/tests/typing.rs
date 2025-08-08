@@ -1,3 +1,11 @@
+use miden_diagnostics::Span;
+use pretty_assertions::assert_eq;
+
+use crate::ir::{
+    Builder, Enf, Link, MirValue, Mul, SpannedMirValue, Sub, TraceAccess, Value,
+    extract_integrity_roots, strip_spans,
+};
+
 use super::compile;
 
 #[test]
@@ -26,8 +34,41 @@ fn test_typing() {
         return x * selector;
     }
     ";
-    let Ok(mir) = compile(code) else {
-        panic!("Failed to compile code: {}", code);
-    };
-    dbg!(&mir.constraint_graph().integrity_constraints_roots);
+    let mir = compile(code)
+        .unwrap_or_else(|_| panic!("Failed to compile, see diagnostics for more information"));
+    let integrity_constraints = extract_integrity_roots(mir.constraint_graph())
+        .iter()
+        .map(|n| n.as_op().expect("Expected integrity constraint to be an Op"))
+        .collect::<Vec<_>>();
+    dbg!(&integrity_constraints);
+    let expected = vec![
+        Enf::builder()
+            .span(Default::default())
+            .expr(
+                Sub::builder()
+                    .span(Default::default())
+                    .lhs(
+                        Mul::builder()
+                            .span(Default::default())
+                            .lhs(
+                                Value::builder()
+                                    .value(SpannedMirValue {
+                                        value: MirValue::TraceAccess(TraceAccess {
+                                            segment: 0,
+                                            column: 0,
+                                            row_offset: 0,
+                                        }),
+                                        ..Default::default()
+                                    })
+                                    .build(),
+                            )
+                            .rhs(todo!())
+                            .build(),
+                    )
+                    .rhs(todo!())
+                    .build(),
+            )
+            .build(),
+    ];
+    assert_eq!(integrity_constraints, expected);
 }

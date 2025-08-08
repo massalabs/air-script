@@ -1,5 +1,6 @@
 use air_parser::ast::{BusType, Identifier, QualifiedIdentifier, TraceColumnIndex, TraceSegmentId};
 use miden_diagnostics::{SourceSpan, Spanned};
+use typing::*;
 
 use crate::ir::{BackLink, Builder, Bus, Child, Link, Node, Op, Owner, Singleton};
 
@@ -46,6 +47,12 @@ impl Child for Value {
     }
 }
 
+impl Typing for Value {
+    fn ty(&self) -> Option<Type> {
+        self.value.ty()
+    }
+}
+
 /// Represents a known value in the MIR.
 ///
 /// Values are either constant, or evaluated at runtime using the context
@@ -78,6 +85,22 @@ pub enum MirValue {
     /// An unconstrained bus
     Unconstrained,
 }
+impl Typing for MirValue {
+    fn ty(&self) -> Option<Type> {
+        match self {
+            MirValue::Constant(c) => c.ty(),
+            MirValue::TraceAccess(t) => t.ty(),
+            MirValue::PeriodicColumn(c) => c.ty(),
+            MirValue::PublicInput(pi) => pi.ty(),
+            MirValue::PublicInputTable(pit) => pit.ty(),
+            MirValue::RandomValue(_) => ty!(felt),
+            MirValue::TraceAccessBinding(tab) => tab.ty(),
+            MirValue::BusAccess(_) => None,
+            MirValue::Null => None,
+            MirValue::Unconstrained => None,
+        }
+    }
+}
 
 /// [BusAccess] is like SymbolAccess, but is used to describe an access to a specific bus.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -106,9 +129,23 @@ pub enum ConstantValue {
     Vector(Vec<u64>),
     Matrix(Vec<Vec<u64>>),
 }
+impl Typing for ConstantValue {
+    fn ty(&self) -> Option<Type> {
+        match self {
+            ConstantValue::Felt(_) => ty!(uint),
+            ConstantValue::Vector(v) => ty!(uint[v.len()]),
+            ConstantValue::Matrix(m) => {
+                let rows = m.len();
+                assert!(rows > 0, "Matrix must have at least one row");
+                let cols = m[0].len();
+                ty!(uint[rows, cols])
+            },
+        }
+    }
+}
 
 /// [TraceAccess] is like SymbolAccess, but is used to describe an access to a specific trace
-/// column or columns.
+/// column.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TraceAccess {
     /// The trace segment being accessed
@@ -129,6 +166,12 @@ impl TraceAccess {
         Self { segment, column, row_offset }
     }
 }
+impl Typing for TraceAccess {
+    fn ty(&self) -> Option<Type> {
+        // The type of a trace access is always `felt`, as trace columns are always felt values.
+        ty!(felt)
+    }
+}
 
 #[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct TraceAccessBinding {
@@ -138,6 +181,15 @@ pub struct TraceAccessBinding {
     /// The number of columns which are bound
     pub size: usize,
 }
+impl Typing for TraceAccessBinding {
+    fn ty(&self) -> Option<Type> {
+        // The type of a trace access binding is always a vector of felt values
+        match self.size {
+            1 => ty!(felt),
+            size => ty!(felt[size]),
+        }
+    }
+}
 
 /// Represents a typed value in the MIR.
 #[derive(Debug, Eq, PartialEq, Clone, Hash, Spanned)]
@@ -145,6 +197,11 @@ pub struct SpannedMirValue {
     #[span]
     pub span: SourceSpan,
     pub value: MirValue,
+}
+impl Typing for SpannedMirValue {
+    fn ty(&self) -> Option<Type> {
+        self.value.ty()
+    }
 }
 
 /// Represents an access of a PeriodicColumn, similar in nature to [TraceAccess].
@@ -156,6 +213,11 @@ pub struct PeriodicColumnAccess {
 impl PeriodicColumnAccess {
     pub const fn new(name: QualifiedIdentifier, cycle: usize) -> Self {
         Self { name, cycle }
+    }
+}
+impl Typing for PeriodicColumnAccess {
+    fn ty(&self) -> Option<Type> {
+        ty!(felt)
     }
 }
 
@@ -170,6 +232,12 @@ pub struct PublicInputAccess {
 impl PublicInputAccess {
     pub const fn new(name: Identifier, index: usize) -> Self {
         Self { name, index }
+    }
+}
+impl Typing for PublicInputAccess {
+    fn ty(&self) -> Option<Type> {
+        // Public inputs are always felt values
+        ty!(felt)
     }
 }
 
@@ -187,7 +255,6 @@ pub struct PublicInputTableAccess {
     /// making it an Option allows setting it later.
     bus_type: Option<BusType>,
 }
-
 impl PublicInputTableAccess {
     pub const fn new(table_name: Identifier, num_cols: usize) -> Self {
         Self { table_name, num_cols, bus_type: None }
@@ -197,6 +264,12 @@ impl PublicInputTableAccess {
     }
     pub fn bus_type(&self) -> BusType {
         self.bus_type.expect("Bus type should have already been set")
+    }
+}
+impl Typing for PublicInputTableAccess {
+    fn ty(&self) -> Option<Type> {
+        // Public input tables are always felt values
+        ty!(felt[self.num_cols, usize::MAX])
     }
 }
 
