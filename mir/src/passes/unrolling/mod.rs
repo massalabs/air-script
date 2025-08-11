@@ -6,6 +6,7 @@ use crate::{CompileError, ir::*};
 
 mod match_optimizer;
 mod unrolling_first_pass;
+mod unrolling_ops_helpers;
 mod unrolling_second_pass;
 mod unrolling_third_pass;
 
