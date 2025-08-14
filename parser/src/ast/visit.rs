@@ -44,54 +44,6 @@ use crate::ast;
 ///         ControlFlow::Continue(())
 ///     }
 ///
-///     // We override the visitor for scalar expressions to propagate constants by evaluating any expressions
-///     // whose values or operands are all constant.
-///     fn visit_mut_scalar_expr(&mut self, expr: &mut ast::ScalarExpr) -> ControlFlow<()> {
-///         let span = expr.span();
-///         match expr {
-///             ast::ScalarExpr::Const(_) => ControlFlow::Continue(()),
-///             ast::ScalarExpr::SymbolAccess(sym) => {
-///                 let constant_value = self.constants.get(sym.name.as_ref()).cloned();
-///                 match constant_value.map(|s| (s.span(), s.item)){
-///                     None => (),
-///                     Some((span, ast::ConstantExpr::Scalar(value))) => {
-///                         assert_eq!(sym.access_type, ast::AccessType::Default);
-///                         core::mem::replace(expr, ast::ScalarExpr::Const(Span::new(span, value)));
-///                     }
-///                     Some((span, ast::ConstantExpr::Vector(value))) => {
-///                         match sym.access_type {
-///                             ast::AccessType::Index(idx) => {
-///                                 core::mem::replace(expr, ast::ScalarExpr::Const(Span::new(span, value[idx])));
-///                             }
-///                             _ => panic!("invalid constant reference, expected scalar access"),
-///                         }
-///                     }
-///                     Some((span, ast::ConstantExpr::Matrix(value))) => {
-///                         match sym.access_type {
-///                             ast::AccessType::Matrix(row, col) => {
-///                                 core::mem::replace(expr, ast::ScalarExpr::Const(Span::new(span, value[row][col])));
-///                             }
-///                             _ => panic!("invalid constant reference, expected scalar access"),
-///                         }
-///                     }
-///                 }
-///                 ControlFlow::Continue(())
-///             }
-///             ast::ScalarExpr::Binary(ast::BinaryExpr { op: ast::BinaryOp::Add, lhs, rhs, .. }) => {
-///                 visit::visit_mut_scalar_expr(self, lhs)?;
-///                 visit::visit_mut_scalar_expr(self, rhs)?;
-///                 // If both operands are constant, evaluate to a scalar constant
-///                 if let (ast::ScalarExpr::Const(l), ast::ScalarExpr::Const(r)) = (lhs.as_mut(), rhs.as_mut()) {
-///                     let folded = l.item + r.item;
-///                     core::mem::replace(expr, ast::ScalarExpr::Const(Span::new(span, folded)));
-///                 }
-///                 ControlFlow::Continue(())
-///             }
-///             /// The other arithmetic ops are basically the same as above
-///             _ => unimplemented!(),
-///         }
-///     }
-///
 ///     // The implementation of this visitor is left as an exercise for the reader, but would be necessary
 ///     // to ensure that we propagate constants through let-bound variables whose expressions are constant.
 ///     //
@@ -703,8 +655,11 @@ where
     V: ?Sized + VisitMut<T>,
 {
     match expr {
-        ast::AccessType::Default | ast::AccessType::Index(_) | ast::AccessType::Matrix(..) => {
-            ControlFlow::Continue(())
+        ast::AccessType::Default => ControlFlow::Continue(()),
+        ast::AccessType::Index(index) => visitor.visit_mut_scalar_expr(index),
+        ast::AccessType::Matrix(row, col) => {
+            visitor.visit_mut_scalar_expr(row)?;
+            visitor.visit_mut_scalar_expr(col)
         },
         ast::AccessType::Slice(range) => {
             visitor.visit_mut_range_bound(&mut range.start)?;
@@ -740,6 +695,7 @@ pub fn visit_mut_symbol_access<V, T>(
 where
     V: ?Sized + VisitMut<T>,
 {
+    visitor.visit_mut_access_type(&mut expr.access_type)?;
     visitor.visit_mut_resolvable_identifier(&mut expr.name)
 }
 
