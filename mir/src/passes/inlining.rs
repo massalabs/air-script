@@ -1,4 +1,7 @@
-use std::{collections::HashMap, ops::Deref};
+use std::{
+    collections::{HashMap, HashSet},
+    ops::Deref,
+};
 
 use air_pass::Pass;
 use miden_diagnostics::{DiagnosticsHandler, Severity, SourceSpan, Spanned};
@@ -142,6 +145,8 @@ pub struct InliningSecondPass<'a> {
     // HashMap<CaleePtr, (Callee, Vec<Call nodes where called>)>
     func_eval_nodes_where_called: HashMap<usize, (Link<Root>, Vec<Link<Op>>)>, // Op is a Call here
     had_calls: bool,
+
+    seen: HashSet<usize>,
 }
 
 impl<'a> InliningSecondPass<'a> {
@@ -159,6 +164,7 @@ impl<'a> InliningSecondPass<'a> {
             func_eval_nodes_where_called,
             func_eval_inlining_order,
             had_calls: false,
+            seen: HashSet::new(),
         }
     }
 }
@@ -314,7 +320,30 @@ impl Visitor for InliningSecondPass<'_> {
                     .extend(nodes_with_context.iter().map(|call| call.clone().as_node()));
             }
         }
-        call_nodes_to_inline_in_order
+        dbg!(call_nodes_to_inline_in_order.len());
+        let callees = call_nodes_to_inline_in_order
+            .iter()
+            .map(|n| n.as_op().unwrap().as_call().unwrap().function.get_ptr())
+            .collect::<Vec<_>>();
+        dbg!(&callees);
+        dbg!(&call_nodes_to_inline_in_order);
+        let mut seen = HashSet::new();
+        let mut deduplicated_call_nodes = Vec::new();
+        for call in &call_nodes_to_inline_in_order {
+            let ptr = call.get_ptr();
+            if seen.contains(&ptr) {
+                continue;
+            }
+            seen.insert(ptr);
+            deduplicated_call_nodes.push(call.clone());
+        }
+        dbg!(deduplicated_call_nodes.len());
+        eprintln!(
+            "InliningSecondPass::root_nodes_to_visit: removed {} duplicate call nodes",
+            call_nodes_to_inline_in_order.len() - deduplicated_call_nodes.len()
+        );
+        // panic!("Bailing out to debug");
+        deduplicated_call_nodes
     }
     fn run(&mut self, graph: &mut Graph) -> Result<(), CompileError> {
         eprintln!("InliningSecondPass::run: Starting second pass to inline calls");
@@ -369,11 +398,15 @@ impl Visitor for InliningSecondPass<'_> {
                             node, s
                         );
                         *s += 1;
-                        if *s >= 10000 {
+                        if *s >= 1000 {
                             let over_100 = seen
                                 .iter()
                                 .filter_map(|(k, (n, v))| {
-                                    if *v >= 100 { Some((*k, (n.as_op().unwrap(), *v))) } else { None }
+                                    if *v >= 100 {
+                                        Some((*k, (n.as_op().unwrap(), *v)))
+                                    } else {
+                                        None
+                                    }
                                 })
                                 .collect::<HashMap<usize, (Link<Op>, usize)>>();
                             dbg!(node.as_op());
@@ -475,6 +508,12 @@ impl Visitor for InliningSecondPass<'_> {
     }
 
     fn scan_node(&mut self, _graph: &Graph, node: Link<Node>) -> Result<(), CompileError> {
+        if self.seen.contains(&node.get_ptr()) {
+            eprintln!("InliningSecondPass::scan_node: Already seen node {:?}, skipping", node);
+            // return Ok(());
+        } else {
+            self.seen.insert(node.get_ptr());
+        }
         self.work_stack().push(node.clone());
         if let Some(op) = node.clone().as_op() {
             // If we scan a `Call` node, we do not visit its children (the call's arguments)
