@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     ops::Deref,
 };
 
@@ -320,7 +320,7 @@ impl Visitor for InliningSecondPass<'_> {
         let root_nodes_to_visit = self.root_nodes_to_visit(graph);
         self.had_calls = !root_nodes_to_visit.is_empty();
 
-        for (idx, root_node) in root_nodes_to_visit.iter().enumerate() {
+        for root_node in root_nodes_to_visit.iter() {
             let mut updated_op = None;
 
             if let Some(op) = root_node.as_op() {
