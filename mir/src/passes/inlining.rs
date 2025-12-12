@@ -145,8 +145,7 @@ pub struct InliningSecondPass<'a> {
     // HashMap<CaleePtr, (Callee, Vec<Call nodes where called>)>
     func_eval_nodes_where_called: HashMap<usize, (Link<Root>, Vec<Link<Op>>)>, // Op is a Call here
     had_calls: bool,
-
-    seen: HashSet<usize>,
+    seen_root_call: bool,
 }
 
 impl<'a> InliningSecondPass<'a> {
@@ -164,7 +163,7 @@ impl<'a> InliningSecondPass<'a> {
             func_eval_nodes_where_called,
             func_eval_inlining_order,
             had_calls: false,
-            seen: HashSet::new(),
+            seen_root_call: false,
         }
     }
 }
@@ -211,7 +210,6 @@ impl Visitor for InliningFirstPass<'_> {
         &mut self.work_stack
     }
     fn run(&mut self, graph: &mut Graph) -> Result<(), CompileError> {
-        eprintln!("InliningFirstPass::run: Starting first pass to build dependency graph");
         for root_node in self.root_nodes_to_visit(graph) {
             if let Some(root) = root_node.as_root() {
                 if let Some(_function) = root.clone().as_function() {
@@ -225,14 +223,11 @@ impl Visitor for InliningFirstPass<'_> {
                 self.in_func_or_eval = false;
             }
 
-            eprintln!("InliningFirstPass::run: Visiting root node {:?}", root_node);
             self.scan_node(graph, root_node.clone())?;
-            eprintln!("InliningFirstPass::run: Visiting nodes from work stack");
             while let Some(node) = self.work_stack().pop() {
                 self.visit_node(graph, node)?;
             }
         }
-        eprintln!("InliningFirstPass::run: Finished first pass");
         Ok(())
     }
     fn root_nodes_to_visit(&self, graph: &Graph) -> Vec<Link<Node>> {
@@ -320,38 +315,13 @@ impl Visitor for InliningSecondPass<'_> {
                     .extend(nodes_with_context.iter().map(|call| call.clone().as_node()));
             }
         }
-        dbg!(call_nodes_to_inline_in_order.len());
-        let callees = call_nodes_to_inline_in_order
-            .iter()
-            .map(|n| n.as_op().unwrap().as_call().unwrap().function.get_ptr())
-            .collect::<Vec<_>>();
-        dbg!(&callees);
-        dbg!(&call_nodes_to_inline_in_order);
-        let mut seen = HashSet::new();
-        let mut deduplicated_call_nodes = Vec::new();
-        for call in &call_nodes_to_inline_in_order {
-            let ptr = call.get_ptr();
-            if seen.contains(&ptr) {
-                continue;
-            }
-            seen.insert(ptr);
-            deduplicated_call_nodes.push(call.clone());
-        }
-        dbg!(deduplicated_call_nodes.len());
-        eprintln!(
-            "InliningSecondPass::root_nodes_to_visit: removed {} duplicate call nodes",
-            call_nodes_to_inline_in_order.len() - deduplicated_call_nodes.len()
-        );
-        // panic!("Bailing out to debug");
-        deduplicated_call_nodes
+        call_nodes_to_inline_in_order
     }
     fn run(&mut self, graph: &mut Graph) -> Result<(), CompileError> {
-        eprintln!("InliningSecondPass::run: Starting second pass to inline calls");
         let root_nodes_to_visit = self.root_nodes_to_visit(graph);
         self.had_calls = !root_nodes_to_visit.is_empty();
 
-        let mut seen: HashMap<usize, (Link<Node>, usize)> = HashMap::new();
-        for root_node in root_nodes_to_visit {
+        for (idx, root_node) in root_nodes_to_visit.iter().enumerate() {
             let mut updated_op = None;
 
             if let Some(op) = root_node.as_op() {
@@ -382,63 +352,21 @@ impl Visitor for InliningSecondPass<'_> {
                 self.call_inlining_context = Some(context.clone());
                 self.nodes_to_replace.clear();
                 self.params_for_ref_node.clear();
+                self.seen_root_call = false;
 
-                eprintln!("InliningSecondPass::run: Inlining call node {:?}", root_node);
                 self.scan_node(graph, root_node.clone())?;
-
-                eprintln!("InliningSecondPass::run: Visiting nodes from work stack");
                 while let Some(node) = self.work_stack().pop() {
-                    let ptr = node
-                        .as_op()
-                        .map_or(node.as_root().map_or(0, |r| r.get_ptr()), |op| op.get_ptr());
-                    dbg!(ptr);
-                    if let Some((_, s)) = seen.get_mut(&ptr) {
-                        eprintln!(
-                            "WARNING: InliningSecondPass::run: Already visited node {:?} {} times",
-                            node, s
-                        );
-                        *s += 1;
-                        if *s >= 1000 {
-                            let over_100 = seen
-                                .iter()
-                                .filter_map(|(k, (n, v))| {
-                                    if *v >= 100 {
-                                        Some((*k, (n.as_op().unwrap(), *v)))
-                                    } else {
-                                        None
-                                    }
-                                })
-                                .collect::<HashMap<usize, (Link<Op>, usize)>>();
-                            dbg!(node.as_op());
-                            dbg!(node.as_root());
-                            dbg!(over_100);
-                            panic!(
-                                "ERROR: InliningSecondPass::run: Detected infinite loop while visiting nodes during inlining"
-                            );
-                        }
-                        // continue;
-                    } else {
-                        seen.insert(ptr, (node.clone(), 1));
-                    }
                     self.visit_node(graph, node.clone())?;
                 }
-                eprintln!("InliningSecondPass::run: Finished visiting nodes from work stack");
 
                 if context.pure_function {
-                    eprintln!(
-                        "InliningSecondPass::run: Replacing Call node with last expression of body"
-                    );
                     // We have finished inlining the body, we can now replace the Call node with the
                     // last expression of the body
                     let last_child_of_body = context.body.borrow().last().unwrap().clone();
                     let (_, new_node) =
                         self.nodes_to_replace.get(&last_child_of_body.get_ptr()).unwrap().clone();
                     updated_op = Some(new_node);
-                    eprintln!("InliningSecondPass::run: Replaced Call node",);
                 } else {
-                    eprintln!(
-                        "InliningSecondPass::run: Replacing Call node with full body of evaluator"
-                    );
                     // We have finished inlining the body, we can now replace the Call node with all
                     // the body
                     let mut new_nodes = Vec::new();
@@ -475,16 +403,12 @@ impl Visitor for InliningSecondPass<'_> {
                     let new_nodes_vector = Vector::create(new_nodes, span);
 
                     updated_op = Some(new_nodes_vector);
-                    eprintln!(
-                        "InliningSecondPass::run: Replaced Call node with full body of evaluator",
-                    );
                 }
 
                 // Reset context to None
                 self.call_inlining_context = None;
             }
 
-            eprintln!("InliningSecondPass::run: Updating Call node in graph");
             // Effectively replace the `Call` node with the updated op
             // Note: We also update the references of Parameters that referenced the node we are
             // replacing
@@ -503,22 +427,15 @@ impl Visitor for InliningSecondPass<'_> {
                 }
             }
         }
-        eprintln!("InliningSecondPass::run: Finished second pass");
         Ok(())
     }
 
     fn scan_node(&mut self, _graph: &Graph, node: Link<Node>) -> Result<(), CompileError> {
-        if self.seen.contains(&node.get_ptr()) {
-            eprintln!("InliningSecondPass::scan_node: Already seen node {:?}, skipping", node);
-            // return Ok(());
-        } else {
-            self.seen.insert(node.get_ptr());
-        }
         self.work_stack().push(node.clone());
         if let Some(op) = node.clone().as_op() {
             // If we scan a `Call` node, we do not visit its children (the call's arguments)
             // TODO INLINING: Check whether this is the wanted behavior
-            if op.as_call().is_some() {
+            if op.as_call().is_some() && !self.seen_root_call {
                 return Ok(());
             };
             for child in node.children().borrow().iter() {
@@ -559,53 +476,56 @@ impl Visitor for InliningSecondPass<'_> {
             // First, check if it's a known `Call` to inline,
             // if so, set the context and scan its body
             if call_op.clone().as_call().is_some() {
-                self.visit_call(graph, call_op.clone())?;
-            } else {
-                // Else, we are currently visiting the body of a function or an evaluator of a call
-                // we want to inline We use our helper duplicate_node_or_replace to
-                // duplicate the body, while replacing the `Function` or `Evaluator` parameters with
-                // the `Call` arguments
-                if self.call_inlining_context.clone().unwrap().pure_function {
-                    duplicate_node_or_replace(
-                        &mut self.nodes_to_replace,
-                        call_op.clone(),
-                        self.call_inlining_context.clone().unwrap().arguments.borrow().clone(),
-                        self.call_inlining_context.clone().unwrap().ref_node,
-                        None,
-                        &mut self.params_for_ref_node,
-                    );
-                } else {
-                    // If we're inside the body of an evaluator, we first need to unpack the
-                    // arguments of the call to have a `Vector` of `TraceColumn`, and not
-                    // bindings to multiple columns
-                    let args =
-                        self.call_inlining_context.clone().unwrap().arguments.borrow().clone();
-
-                    let callee_params = self
-                        .call_inlining_context
-                        .clone()
-                        .unwrap()
-                        .ref_node
-                        .as_root()
-                        .unwrap()
-                        .as_evaluator()
-                        .unwrap()
-                        .parameters
-                        .clone();
-
-                    check_evaluator_argument_sizes(&args, callee_params, self.diagnostics)?;
-
-                    let args_unpacked = unpack_evaluator_arguments(&args);
-
-                    duplicate_node_or_replace(
-                        &mut self.nodes_to_replace,
-                        call_op.clone(),
-                        args_unpacked,
-                        self.call_inlining_context.clone().unwrap().ref_node,
-                        None,
-                        &mut self.params_for_ref_node,
-                    );
+                if !self.seen_root_call {
+                    self.seen_root_call = true;
+                    self.visit_call(graph, call_op.clone())?;
+                    return Ok(());
                 }
+            }
+
+            // Else, we are currently visiting the body of a function or an evaluator of a call
+            // we want to inline We use our helper duplicate_node_or_replace to
+            // duplicate the body, while replacing the `Function` or `Evaluator` parameters with
+            // the `Call` arguments
+            if self.call_inlining_context.clone().unwrap().pure_function {
+                duplicate_node_or_replace(
+                    &mut self.nodes_to_replace,
+                    call_op.clone(),
+                    self.call_inlining_context.clone().unwrap().arguments.borrow().clone(),
+                    self.call_inlining_context.clone().unwrap().ref_node,
+                    None,
+                    &mut self.params_for_ref_node,
+                );
+            } else {
+                // If we're inside the body of an evaluator, we first need to unpack the
+                // arguments of the call to have a `Vector` of `TraceColumn`, and not
+                // bindings to multiple columns
+                let args = self.call_inlining_context.clone().unwrap().arguments.borrow().clone();
+
+                let callee_params = self
+                    .call_inlining_context
+                    .clone()
+                    .unwrap()
+                    .ref_node
+                    .as_root()
+                    .unwrap()
+                    .as_evaluator()
+                    .unwrap()
+                    .parameters
+                    .clone();
+
+                check_evaluator_argument_sizes(&args, callee_params, self.diagnostics)?;
+
+                let args_unpacked = unpack_evaluator_arguments(&args);
+
+                duplicate_node_or_replace(
+                    &mut self.nodes_to_replace,
+                    call_op.clone(),
+                    args_unpacked,
+                    self.call_inlining_context.clone().unwrap().ref_node,
+                    None,
+                    &mut self.params_for_ref_node,
+                );
             }
         }
 
