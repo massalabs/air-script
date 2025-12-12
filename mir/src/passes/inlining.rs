@@ -381,7 +381,7 @@ impl Visitor for InliningSecondPass<'_> {
                                 "ERROR: InliningSecondPass::run: Detected infinite loop while visiting nodes during inlining"
                             );
                         }
-                        continue;
+                        // continue;
                     } else {
                         seen.insert(ptr, 1);
                     }
