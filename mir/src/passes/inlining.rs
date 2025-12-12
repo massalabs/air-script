@@ -1,7 +1,4 @@
-use std::{
-    collections::{HashSet, HashMap},
-    ops::Deref,
-};
+use std::{collections::HashMap, ops::Deref};
 
 use air_pass::Pass;
 use miden_diagnostics::{DiagnosticsHandler, Severity, SourceSpan, Spanned};
@@ -324,6 +321,7 @@ impl Visitor for InliningSecondPass<'_> {
         let root_nodes_to_visit = self.root_nodes_to_visit(graph);
         self.had_calls = !root_nodes_to_visit.is_empty();
 
+        let mut seen: HashMap<usize, usize> = HashMap::new();
         for root_node in root_nodes_to_visit {
             let mut updated_op = None;
 
@@ -360,29 +358,32 @@ impl Visitor for InliningSecondPass<'_> {
                 self.scan_node(graph, root_node.clone())?;
 
                 eprintln!("InliningSecondPass::run: Visiting nodes from work stack");
-                let mut seen = HashSet::new();
                 while let Some(node) = self.work_stack().pop() {
                     let ptr = node
                         .as_op()
                         .map_or(node.as_root().map_or(0, |r| r.get_ptr()), |op| op.get_ptr());
                     dbg!(ptr);
-                    if seen.contains(&ptr) {
+                    if let Some(s) = seen.get_mut(&ptr) {
                         eprintln!(
-                            "WARNING: InliningSecondPass::run: Already visited node {:?} from work stack",
-                            node
+                            "WARNING: InliningSecondPass::run: Already visited node {:?} {} times",
+                            node, s
                         );
-                    }
-                    seen.insert(ptr);
-                    if self.work_stack().len() >= 100_000 {
-                        eprintln!(
-                            "InliningSecondPass::run: Visited node {:?} from work stack",
-                            node
-                        );
-                        eprintln!(
-                            "InliningSecondPass::run: Work stack size is now {}",
-                            self.work_stack().len()
-                        );
-                        panic!("InliningSecondPass::run: Work stack size exceeded limit");
+                        *s += 1;
+                        if *s >= 10000 {
+                            let over_100: HashMap<usize, usize> = seen
+                                .iter()
+                                .filter_map(|(k, v)| if *v >= 100 { Some((*k, *v)) } else { None })
+                                .collect::<HashMap<usize, usize>>();
+                            dbg!(node.as_op());
+                            dbg!(node.as_root());
+                            dbg!(over_100);
+                            panic!(
+                                "ERROR: InliningSecondPass::run: Detected infinite loop while visiting nodes during inlining"
+                            );
+                        }
+                        continue;
+                    } else {
+                        seen.insert(ptr, 1);
                     }
                     self.visit_node(graph, node.clone())?;
                 }
