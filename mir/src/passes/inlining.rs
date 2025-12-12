@@ -74,7 +74,6 @@ impl Pass for Inlining<'_> {
         let mut iterations = 0;
 
         while had_calls && iterations < INLINING_LIMIT {
-            eprintln!("Inlining::run: iteration {}", iterations + 1);
             had_calls = self.run_once(&mut ir)?;
             iterations += 1;
         }
