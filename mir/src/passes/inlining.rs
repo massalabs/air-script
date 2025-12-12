@@ -321,7 +321,7 @@ impl Visitor for InliningSecondPass<'_> {
         let root_nodes_to_visit = self.root_nodes_to_visit(graph);
         self.had_calls = !root_nodes_to_visit.is_empty();
 
-        let mut seen: HashMap<usize, usize> = HashMap::new();
+        let mut seen: HashMap<usize, (Link<Node>, usize)> = HashMap::new();
         for root_node in root_nodes_to_visit {
             let mut updated_op = None;
 
@@ -363,17 +363,19 @@ impl Visitor for InliningSecondPass<'_> {
                         .as_op()
                         .map_or(node.as_root().map_or(0, |r| r.get_ptr()), |op| op.get_ptr());
                     dbg!(ptr);
-                    if let Some(s) = seen.get_mut(&ptr) {
+                    if let Some((_, s)) = seen.get_mut(&ptr) {
                         eprintln!(
                             "WARNING: InliningSecondPass::run: Already visited node {:?} {} times",
                             node, s
                         );
                         *s += 1;
                         if *s >= 10000 {
-                            let over_100: HashMap<usize, usize> = seen
+                            let over_100 = seen
                                 .iter()
-                                .filter_map(|(k, v)| if *v >= 100 { Some((*k, *v)) } else { None })
-                                .collect::<HashMap<usize, usize>>();
+                                .filter_map(|(k, (n, v))| {
+                                    if *v >= 100 { Some((*k, (n.as_op().unwrap(), *v))) } else { None }
+                                })
+                                .collect::<HashMap<usize, (Link<Op>, usize)>>();
                             dbg!(node.as_op());
                             dbg!(node.as_root());
                             dbg!(over_100);
@@ -383,7 +385,7 @@ impl Visitor for InliningSecondPass<'_> {
                         }
                         // continue;
                     } else {
-                        seen.insert(ptr, 1);
+                        seen.insert(ptr, (node.clone(), 1));
                     }
                     self.visit_node(graph, node.clone())?;
                 }
