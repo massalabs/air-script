@@ -1,4 +1,7 @@
-use std::{collections::HashMap, ops::Deref};
+use std::{
+    collections::{HashSet, HashMap},
+    ops::Deref,
+};
 
 use air_pass::Pass;
 use miden_diagnostics::{DiagnosticsHandler, Severity, SourceSpan, Spanned};
@@ -71,6 +74,7 @@ impl Pass for Inlining<'_> {
         let mut iterations = 0;
 
         while had_calls && iterations < INLINING_LIMIT {
+            eprintln!("Inlining::run: iteration {}", iterations + 1);
             had_calls = self.run_once(&mut ir)?;
             iterations += 1;
         }
@@ -204,6 +208,7 @@ impl Visitor for InliningFirstPass<'_> {
         &mut self.work_stack
     }
     fn run(&mut self, graph: &mut Graph) -> Result<(), CompileError> {
+        eprintln!("InliningFirstPass::run: Starting first pass to build dependency graph");
         for root_node in self.root_nodes_to_visit(graph) {
             if let Some(root) = root_node.as_root() {
                 if let Some(_function) = root.clone().as_function() {
@@ -217,11 +222,14 @@ impl Visitor for InliningFirstPass<'_> {
                 self.in_func_or_eval = false;
             }
 
+            eprintln!("InliningFirstPass::run: Visiting root node {:?}", root_node);
             self.scan_node(graph, root_node.clone())?;
+            eprintln!("InliningFirstPass::run: Visiting nodes from work stack");
             while let Some(node) = self.work_stack().pop() {
                 self.visit_node(graph, node)?;
             }
         }
+        eprintln!("InliningFirstPass::run: Finished first pass");
         Ok(())
     }
     fn root_nodes_to_visit(&self, graph: &Graph) -> Vec<Link<Node>> {
@@ -312,6 +320,7 @@ impl Visitor for InliningSecondPass<'_> {
         call_nodes_to_inline_in_order
     }
     fn run(&mut self, graph: &mut Graph) -> Result<(), CompileError> {
+        eprintln!("InliningSecondPass::run: Starting second pass to inline calls");
         let root_nodes_to_visit = self.root_nodes_to_visit(graph);
         self.had_calls = !root_nodes_to_visit.is_empty();
 
@@ -347,20 +356,53 @@ impl Visitor for InliningSecondPass<'_> {
                 self.nodes_to_replace.clear();
                 self.params_for_ref_node.clear();
 
+                eprintln!("InliningSecondPass::run: Inlining call node {:?}", root_node);
                 self.scan_node(graph, root_node.clone())?;
 
+                eprintln!("InliningSecondPass::run: Visiting nodes from work stack");
+                let mut seen = HashSet::new();
                 while let Some(node) = self.work_stack().pop() {
+                    let ptr = node
+                        .as_op()
+                        .map_or(node.as_root().map_or(0, |r| r.get_ptr()), |op| op.get_ptr());
+                    dbg!(ptr);
+                    if seen.contains(&ptr) {
+                        eprintln!(
+                            "WARNING: InliningSecondPass::run: Already visited node {:?} from work stack",
+                            node
+                        );
+                    }
+                    seen.insert(ptr);
+                    if self.work_stack().len() >= 100_000 {
+                        eprintln!(
+                            "InliningSecondPass::run: Visited node {:?} from work stack",
+                            node
+                        );
+                        eprintln!(
+                            "InliningSecondPass::run: Work stack size is now {}",
+                            self.work_stack().len()
+                        );
+                        panic!("InliningSecondPass::run: Work stack size exceeded limit");
+                    }
                     self.visit_node(graph, node.clone())?;
                 }
+                eprintln!("InliningSecondPass::run: Finished visiting nodes from work stack");
 
                 if context.pure_function {
+                    eprintln!(
+                        "InliningSecondPass::run: Replacing Call node with last expression of body"
+                    );
                     // We have finished inlining the body, we can now replace the Call node with the
                     // last expression of the body
                     let last_child_of_body = context.body.borrow().last().unwrap().clone();
                     let (_, new_node) =
                         self.nodes_to_replace.get(&last_child_of_body.get_ptr()).unwrap().clone();
                     updated_op = Some(new_node);
+                    eprintln!("InliningSecondPass::run: Replaced Call node",);
                 } else {
+                    eprintln!(
+                        "InliningSecondPass::run: Replacing Call node with full body of evaluator"
+                    );
                     // We have finished inlining the body, we can now replace the Call node with all
                     // the body
                     let mut new_nodes = Vec::new();
@@ -397,12 +439,16 @@ impl Visitor for InliningSecondPass<'_> {
                     let new_nodes_vector = Vector::create(new_nodes, span);
 
                     updated_op = Some(new_nodes_vector);
+                    eprintln!(
+                        "InliningSecondPass::run: Replaced Call node with full body of evaluator",
+                    );
                 }
 
                 // Reset context to None
                 self.call_inlining_context = None;
             }
 
+            eprintln!("InliningSecondPass::run: Updating Call node in graph");
             // Effectively replace the `Call` node with the updated op
             // Note: We also update the references of Parameters that referenced the node we are
             // replacing
@@ -421,6 +467,7 @@ impl Visitor for InliningSecondPass<'_> {
                 }
             }
         }
+        eprintln!("InliningSecondPass::run: Finished second pass");
         Ok(())
     }
 
